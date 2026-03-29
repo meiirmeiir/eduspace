@@ -45,7 +45,7 @@ const GRADES_LIST = ["5 класс", "6 класс", "7 класс", "8 клас
 
 const THEME = { primary: "#0f172a", accent: "#d4af37", bg: "#f8fafc", surface: "#ffffff", text: "#334155", textLight: "#64748b", border: "#e2e8f0", success: "#10B981", warning: "#F59E0B", error: "#EF4444" };
 
-// ── ВЕКТОРНЫЙ ЛОГОТИП (Теперь не сломается) ───────────────────────────────────
+// ── ВЕКТОРНЫЙ ЛОГОТИП ─────────────────────────────────────────────────────────
 const Logo = ({ size = 48 }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
     <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
@@ -91,24 +91,15 @@ function AuthScreen({ onRegister }) {
 
   const checkUserInDB = async (e) => {
     e.preventDefault();
-    // ИСПРАВЛЕНИЕ: Теперь проверяем длину номера без пробелов (должно быть минимум 11 символов)
     const cleanPhone = phone.replace(/\s+/g, '');
-    if (cleanPhone.length < 11) {
-      alert("Пожалуйста, введите корректный номер телефона.");
-      return; 
-    }
-    
+    if (cleanPhone.length < 11) { alert("Пожалуйста, введите корректный номер телефона."); return; }
     setLoading(true);
     try {
       const userSnap = await getDoc(doc(db, "users", cleanPhone));
-      if (userSnap.exists()) {
-        onRegister(userSnap.data());
-      } else {
-        setStep(2);
-      }
+      if (userSnap.exists()) onRegister(userSnap.data());
+      else setStep(2);
     } catch (error) {
-      console.error(error);
-      alert("Не удалось связаться с базой данных. Если вы тестируете локально, проверьте правила Firestore.");
+      console.error(error); alert("Не удалось связаться с базой данных.");
     }
     setLoading(false);
   };
@@ -123,8 +114,7 @@ function AuthScreen({ onRegister }) {
       await setDoc(doc(db, "users", cleanPhone), userData);
       onRegister(userData);
     } catch (error) {
-      console.error(error);
-      alert("Ошибка при сохранении профиля. Зайдите в Firebase -> Firestore -> Rules и установите allow read, write: if true;");
+      console.error(error); alert("Ошибка при сохранении профиля.");
     }
     setLoading(false);
   };
@@ -192,7 +182,6 @@ function AuthScreen({ onRegister }) {
                 )}
               </div>
             )}
-            {/* Кнопка теперь становится активной, если введено больше 11 символов без пробелов */}
             <button type="submit" className={`cta-button ${phone.replace(/\s+/g, '').length >= 11 ? 'active' : ''}`} disabled={loading || phone.replace(/\s+/g, '').length < 11}>
               {loading ? "Проверка..." : (step === 1 ? "Далее →" : "Перейти к тесту →")}
             </button>
@@ -203,63 +192,97 @@ function AuthScreen({ onRegister }) {
   );
 }
 
+// ── ЭКРАН ВОПРОСА (С НОВОЙ ЛОГИКОЙ) ───────────────────────────────────────────
 function QuestionScreen({ question, qNum, total, onComplete }) {
   const [elapsed, setElapsed] = useState(0);
   const [selected, setSelected] = useState(null);
   const [confidence, setConfidence] = useState(null);
 
+  // Сброс стейтов при переходе к новому вопросу
   useEffect(() => { setElapsed(0); setSelected(null); setConfidence(null); }, [question.id]);
+  
+  // Флаг: результат полностью раскрыт только когда выбраны И ответ, И уверенность
+  const isRevealed = selected !== null && confidence !== null;
+
+  // Таймер останавливается только тогда, когда результат полностью раскрыт
   useEffect(() => {
-    if (selected !== null) return;
+    if (isRevealed) return;
     const t = setInterval(() => setElapsed(s => s + 1), 1000);
     return () => clearInterval(t);
-  }, [selected]);
+  }, [isRevealed]);
 
   const handleNext = () => {
     onComplete({ questionId: question.id, topic: question.topic, section: question.section, selectedAnswer: selected, correct: selected === question.correct, confidence: confidence?.v, timeSpent: elapsed });
   };
 
-  const answered = selected !== null;
-
   return (
     <div className="question-container">
+      {/* Теперь логотип и таймер находятся внутри экрана вопроса, поэтому время обновляется корректно */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+        <Logo size={36} />
+        <Timer seconds={elapsed} />
+      </div>
+
       <div className="progress-bar-container"><div className="progress-bar-fill" style={{ width: `${((qNum) / total) * 100}%` }} /></div>
       <div className="question-meta"><span className="badge">{question.section}</span><span className="step-text">Вопрос {qNum} из {total}</span></div>
       <h2 className="question-text">{question.text}</h2>
+      
       <div className="options-grid">
         {question.options.map((opt, i) => {
           const isSelected = selected === i;
           const isCorrect = i === question.correct;
-          let stateClass = answered ? (isCorrect ? "correct" : isSelected ? "wrong" : "disabled") : (isSelected ? "selected" : "");
+          let stateClass = "";
+
+          if (isRevealed) {
+            // Этап 2: Показываем правду (зеленый/красный)
+            if (isCorrect) stateClass = "correct";
+            else if (isSelected) stateClass = "wrong";
+            else stateClass = "disabled";
+          } else {
+            // Этап 1: Просто помечаем выбранный вариант синим
+            if (isSelected) stateClass = "selected";
+            else if (selected !== null) stateClass = "disabled";
+          }
+
           return (
-            <div key={i} className={`option-card ${stateClass}`} onClick={() => !answered && setSelected(i)}>
+            <div key={i} className={`option-card ${stateClass}`} onClick={() => !isRevealed && setSelected(i)}>
               <div className="option-letter">{String.fromCharCode(65 + i)}</div>
               <div className="option-content">{opt}</div>
-              {answered && isCorrect && <div className="icon-status">✅</div>}
-              {answered && isSelected && !isCorrect && <div className="icon-status">❌</div>}
+              {isRevealed && isCorrect && <div className="icon-status">✅</div>}
+              {isRevealed && isSelected && !isCorrect && <div className="icon-status">❌</div>}
             </div>
           );
         })}
       </div>
-      {answered && (
+
+      {selected !== null && (
         <div className="confidence-section scale-in">
           <h4>Насколько вы уверены в ответе?</h4>
           <div className="confidence-grid">
             {CONFIDENCE_LEVELS.map(c => (
-              <button key={c.v} className={`conf-btn ${confidence?.v === c.v ? 'active' : ''}`} style={confidence?.v === c.v ? { borderColor: c.color, background: c.color + "10", color: c.color } : {}} onClick={() => setConfidence(c)}>
+              <button 
+                key={c.v} 
+                className={`conf-btn ${confidence?.v === c.v ? 'active' : ''}`} 
+                style={confidence?.v === c.v ? { borderColor: c.color, background: c.color + "10", color: c.color } : {}} 
+                onClick={() => !isRevealed && setConfidence(c)} // Блокируем изменение после выбора
+              >
                 {c.label}
               </button>
             ))}
           </div>
         </div>
       )}
-      <button className={`cta-button ${(answered && confidence) ? 'active' : ''}`} disabled={!answered || !confidence} onClick={handleNext}>
-        {qNum < total ? "Следующий вопрос" : "Завершить аудит"}
-      </button>
+
+      <div style={{ marginTop: 40 }}>
+        <button className={`cta-button ${isRevealed ? 'active' : ''}`} disabled={!isRevealed} onClick={handleNext}>
+          {qNum < total ? "Следующий вопрос" : "Завершить аудит"}
+        </button>
+      </div>
     </div>
   );
 }
 
+// ── ОСТАЛЬНЫЕ ЭКРАНЫ ─────────────────────────────────────────────────────────
 function UploadScreen({ onAnalyze }) {
   const [loading, setLoading] = useState(false);
   return (
@@ -354,7 +377,6 @@ export default function App() {
   const [qIndex, setQIndex] = useState(0);
   const [answers, setAnswers] = useState([]);
   const [report, setReport] = useState(null);
-  const [elapsed, setElapsed] = useState(0);
 
   const handleRegister = (userData) => { setUser(userData); setScreen("question"); };
   const handleAnswer = (data) => {
@@ -408,11 +430,12 @@ export default function App() {
         .option-card.selected { border-color: ${THEME.primary}; background: #f1f5f9; border-width: 2px;}
         .option-card.correct { border-color: ${THEME.success}; background: #ecfdf5; border-width: 2px; }
         .option-card.wrong { border-color: ${THEME.error}; background: #fef2f2; border-width: 2px; }
+        .option-card.disabled { opacity: 0.5; pointer-events: none; }
         .option-letter { width: 36px; height: 36px; background: ${THEME.bg}; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; margin-right: 20px; }
         .option-content { font-size: 16px; font-weight: 600; flex: 1; }
         .confidence-section { background: #ffffff; border: 1px solid ${THEME.border}; padding: 32px; border-radius: 16px; margin-bottom: 40px; }
         .confidence-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;}
-        .conf-btn { flex: 1; padding: 14px 10px; border: 1px solid ${THEME.border}; border-radius: 10px; background: #fff; cursor: pointer; }
+        .conf-btn { flex: 1; padding: 14px 10px; border: 1px solid ${THEME.border}; border-radius: 10px; background: #fff; cursor: pointer; font-weight: 600;}
         .upload-zone { display: block; border: 2px dashed ${THEME.border}; border-radius: 12px; padding: 48px 24px; background: ${THEME.bg}; cursor: pointer; margin-bottom: 32px; }
         .report-container { max-width: 760px; margin: 40px auto; padding: 0 20px; }
         .report-header-card { background: #fff; padding: 32px; border-radius: 16px; border: 1px solid ${THEME.border}; margin-bottom: 32px; }
@@ -437,7 +460,7 @@ export default function App() {
         @media (max-width: 900px) { .split-layout { flex-direction: column; } .split-left, .split-right { padding: 40px 20px; } .form-row { flex-direction: column; gap: 0; } }
       `}</style>
 
-      {screen !== "auth" && (
+      {screen !== "auth" && screen !== "question" && (
         <nav style={{ background: THEME.surface, borderBottom: `1px solid ${THEME.border}`, padding: "16px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Logo size={32} />
           <div style={{ display: "flex", gap: 10 }}>
@@ -448,8 +471,7 @@ export default function App() {
 
       {screen === "auth" && <AuthScreen onRegister={handleRegister} />}
       {screen === "question" && (
-        <><div style={{ maxWidth: 840, margin: "20px auto 0", padding: "0 20px", display: "flex", justifyContent: "space-between" }}><Logo size={36} /><Timer seconds={elapsed} /></div>
-        <QuestionScreen question={QUESTIONS[qIndex]} qNum={qIndex+1} total={QUESTIONS.length} onComplete={handleAnswer} /></>
+        <QuestionScreen question={QUESTIONS[qIndex]} qNum={qIndex+1} total={QUESTIONS.length} onComplete={handleAnswer} />
       )}
       {screen === "upload" && <UploadScreen onAnalyze={handleAnalyze} />}
       {screen === "analyzing" && <div style={{ minHeight: "80vh", display: "flex", justifyContent: "center", alignItems: "center" }}><h2>Анализ данных...</h2></div>}
