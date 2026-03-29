@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 
 // ── FIREBASE КОНФИГ ───────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -43,17 +43,24 @@ const REG_GOALS = { exam: "Подготовка к экзамену", gaps: "З�
 const EXAMS_LIST = ["ЕНТ", "SAT", "NUET", "Further Pure Math", "IGCSE"];
 const GRADES_LIST = ["5 класс", "6 класс", "7 класс", "8 класс", "9 класс", "10 класс", "11 класс", "12 класс"];
 
-const THEME = { primary: "#0A192F", accent: "#FBBF24", bg: "#F8FAFC", surface: "#FFFFFF", text: "#1E293B", textLight: "#64748B", border: "#E2E8F0", success: "#10B981", warning: "#F59E0B", error: "#EF4444" };
+const THEME = { primary: "#0f172a", accent: "#d4af37", bg: "#f8fafc", surface: "#ffffff", text: "#334155", textLight: "#64748b", border: "#e2e8f0", success: "#10B981", warning: "#F59E0B", error: "#EF4444" };
 
-// ── COMPONENTS ────────────────────────────────────────────────────────────────
+// ── ВЕКТОРНЫЙ ЛОГОТИП ─────────────────────────────────────────────────────────
 const Logo = ({ size = 48 }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-    <div style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
-      <img src="/logo.jpg" alt="AAPA Logo" style={{ width: '120%', height: '120%', objectFit: 'cover', mixBlendMode: 'multiply' }} />
-    </div>
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+      <circle cx="50" cy="50" r="50" fill="#0A2463"/>
+      <path d="M45 35 L85 15 L78 28 L95 35 L78 40 L85 55 L65 40 Z" fill="#FBBF24"/>
+      <path d="M50 75 Q 35 60 15 65 L15 75 Q 35 70 50 85 Q 65 70 85 75 L85 65 Q 65 60 50 75 Z" fill="#E2E8F0"/>
+      <path d="M50 65 Q 35 50 15 55 L15 65 Q 35 60 50 75 Q 65 60 85 65 L85 55 Q 65 50 50 65 Z" fill="#FFFFFF"/>
+      <path d="M50 30 L15 45 L50 60 L85 45 Z" fill="#1E3A8A"/>
+      <path d="M50 35 L22 47 L50 55 L78 47 Z" fill="#2563EB"/>
+      <path d="M50 45 L70 50 L72 65" stroke="#FBBF24" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+      <circle cx="72" cy="68" r="3.5" fill="#FBBF24"/>
+    </svg>
     <div>
       <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 800, fontSize: size * 0.6, color: THEME.primary, lineHeight: 1, letterSpacing: "1px" }}>AAPA</div>
-      <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: size * 0.25, color: THEME.accent, letterSpacing: "1.5px", marginTop: 4, textTransform: "uppercase" }}>Ad Astra Per Aspera</div>
+      <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: Math.max(size * 0.2, 9), color: THEME.accent, letterSpacing: "1px", marginTop: 4, textTransform: "uppercase" }}>Ad Astra Per Aspera</div>
     </div>
   </div>
 );
@@ -66,7 +73,7 @@ function Timer({ seconds }) {
   );
 }
 
-// ── AUTH SCREEN ───────────────────────────────────────────────────────────────
+// ── ЭКРАН АВТОРИЗАЦИИ ─────────────────────────────────────────────────────────
 function AuthScreen({ onRegister }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -85,16 +92,14 @@ function AuthScreen({ onRegister }) {
   const checkUserInDB = async (e) => {
     e.preventDefault();
     const cleanPhone = phone.replace(/\s+/g, '');
-    if (cleanPhone.length < 11) return;
+    if (cleanPhone.length < 11) { alert("Пожалуйста, введите корректный номер телефона."); return; }
     setLoading(true);
     try {
-      const userRef = doc(db, "users", cleanPhone);
-      const userSnap = await getDoc(userRef);
+      const userSnap = await getDoc(doc(db, "users", cleanPhone));
       if (userSnap.exists()) onRegister(userSnap.data());
       else setStep(2);
     } catch (error) {
-      console.error(error);
-      alert("Ошибка доступа. Проверьте интернет.");
+      console.error(error); alert("Не удалось связаться с базой данных.");
     }
     setLoading(false);
   };
@@ -105,18 +110,11 @@ function AuthScreen({ onRegister }) {
     setLoading(true);
     try {
       const cleanPhone = phone.replace(/\s+/g, '');
-      const userData = { 
-        firstName, lastName, phone: cleanPhone, 
-        goal: REG_GOALS[mainGoal], details: specificGoal, 
-        progress: [], // Array to store answers
-        lastQuestionIndex: 0,
-        registeredAt: new Date().toISOString() 
-      };
+      const userData = { firstName, lastName, phone: cleanPhone, goal: REG_GOALS[mainGoal], details: specificGoal, registeredAt: new Date().toISOString() };
       await setDoc(doc(db, "users", cleanPhone), userData);
       onRegister(userData);
     } catch (error) {
-      console.error(error);
-      alert("Ошибка регистрации.");
+      console.error(error); alert("Ошибка при сохранении профиля.");
     }
     setLoading(false);
   };
@@ -127,14 +125,24 @@ function AuthScreen({ onRegister }) {
         <div style={{ marginBottom: "60px" }}><Logo size={60} /></div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <h1 className="hero-title">Построй свой путь к <span style={{color: THEME.accent}}>звездам</span>.</h1>
-          <p className="hero-subtitle">Пройди независимую диагностику компетенций. Система <b>AAPA</b> построит точный маршрут подготовки.</p>
+          <p className="hero-subtitle">Пройди независимую диагностику компетенций. Система <b>AAPA</b> выявит скрытые пробелы и построит точный маршрут подготовки.</p>
+          <div className="benefits-list">
+            <div className="benefit-item"><span className="icon">🎯</span><div><strong>Когнитивная диагностика</strong><p>Анализируем не только верные ответы, но и вашу уверенность в них.</p></div></div>
+            <div className="benefit-item"><span className="icon">🗺️</span><div><strong>Индивидуальный трек</strong><p>Вы получаете пошаговую Карту Навыков для достижения вашей цели.</p></div></div>
+          </div>
+        </div>
+        <div>
+          <div className="trust-badge">
+            <span style={{ color: THEME.accent, letterSpacing: "2px", fontSize: 18 }}>★★★★★</span>
+            <span style={{ fontSize: 13, color: THEME.textLight, fontWeight: 600 }}>Нам доверяют подготовку к будущему</span>
+          </div>
         </div>
       </div>
       <div className="split-right">
         <div className="form-card">
           <div className="form-header">
-            <h2>{step === 1 ? "Вход" : "Регистрация"}</h2>
-            <p>{step === 1 ? "Введите номер для входа" : "Заполните профиль"}</p>
+            <h2>{step === 1 ? "Начать диагностику" : "Создать профиль"}</h2>
+            <p>{step === 1 ? "Введите номер WhatsApp для проверки аккаунта." : "Мы вас не нашли. Давайте познакомимся!"}</p>
           </div>
           <form onSubmit={step === 1 ? checkUserInDB : registerNewUser}>
             <div className="input-group">
@@ -144,29 +152,38 @@ function AuthScreen({ onRegister }) {
             {step === 2 && (
               <div className="scale-in">
                 <div className="form-row">
-                  <div className="input-group"><label className="input-label">Имя</label><input type="text" className="input-field" value={firstName} onChange={e => setFirstName(e.target.value)} required /></div>
-                  <div className="input-group"><label className="input-label">Фамилия</label><input type="text" className="input-field" value={lastName} onChange={e => setLastName(e.target.value)} required /></div>
+                  <div className="input-group" style={{marginBottom: 0}}><label className="input-label">Имя</label><input type="text" className="input-field" value={firstName} onChange={e => setFirstName(e.target.value)} required /></div>
+                  <div className="input-group" style={{marginBottom: 0}}><label className="input-label">Фамилия</label><input type="text" className="input-field" value={lastName} onChange={e => setLastName(e.target.value)} required /></div>
                 </div>
-                <div className="input-group">
+                <div className="input-group" style={{marginTop: 20}}>
                   <label className="input-label">Цель обучения</label>
                   <select className="input-field" value={mainGoal} onChange={e => { setMainGoal(e.target.value); setSpecificGoal(""); }} required>
-                    <option value="" disabled>Выберите...</option>
+                    <option value="" disabled>Выберите из списка...</option>
                     {Object.entries(REG_GOALS).map(([key, value]) => <option key={key} value={key}>{value}</option>)}
                   </select>
                 </div>
-                {mainGoal && (
+                {mainGoal === 'exam' && (
                   <div className="input-group scale-in">
-                    <label className="input-label">{mainGoal === 'exam' ? 'Экзамен' : 'Класс'}</label>
+                    <label className="input-label">Какой экзамен?</label>
                     <select className="input-field" value={specificGoal} onChange={e => setSpecificGoal(e.target.value)} required>
-                      <option value="" disabled>Укажите...</option>
-                      {(mainGoal === 'exam' ? EXAMS_LIST : GRADES_LIST).map(item => <option key={item} value={item}>{item}</option>)}
+                      <option value="" disabled>Выберите экзамен...</option>
+                      {EXAMS_LIST.map(exam => <option key={exam} value={exam}>{exam}</option>)}
+                    </select>
+                  </div>
+                )}
+                {(mainGoal === 'gaps' || mainGoal === 'future') && (
+                  <div className="input-group scale-in">
+                    <label className="input-label">Класс</label>
+                    <select className="input-field" value={specificGoal} onChange={e => setSpecificGoal(e.target.value)} required>
+                      <option value="" disabled>Выберите класс...</option>
+                      {GRADES_LIST.map(grade => <option key={grade} value={grade}>{grade}</option>)}
                     </select>
                   </div>
                 )}
               </div>
             )}
-            <button type="submit" className={`cta-button ${phone.length >= 12 ? 'active' : ''}`} disabled={loading}>
-              {loading ? "..." : (step === 1 ? "Далее" : "Начать")}
+            <button type="submit" className={`cta-button ${phone.replace(/\s+/g, '').length >= 11 ? 'active' : ''}`} disabled={loading || phone.replace(/\s+/g, '').length < 11}>
+              {loading ? "Проверка..." : (step === 1 ? "Далее →" : "Перейти к тесту →")}
             </button>
           </form>
         </div>
@@ -175,77 +192,111 @@ function AuthScreen({ onRegister }) {
   );
 }
 
-// ── QUESTION SCREEN ───────────────────────────────────────────────────────────
+// ── ЭКРАН ВОПРОСА (С НОВОЙ ЛОГИКОЙ) ───────────────────────────────────────────
 function QuestionScreen({ question, qNum, total, onComplete }) {
   const [elapsed, setElapsed] = useState(0);
   const [selected, setSelected] = useState(null);
   const [confidence, setConfidence] = useState(null);
 
+  // Сброс стейтов при переходе к новому вопросу
   useEffect(() => { setElapsed(0); setSelected(null); setConfidence(null); }, [question.id]);
+  
+  // Флаг: результат полностью раскрыт только когда выбраны И ответ, И уверенность
   const isRevealed = selected !== null && confidence !== null;
 
+  // Таймер останавливается только тогда, когда результат полностью раскрыт
   useEffect(() => {
     if (isRevealed) return;
     const t = setInterval(() => setElapsed(s => s + 1), 1000);
     return () => clearInterval(t);
   }, [isRevealed]);
 
+  const handleNext = () => {
+    onComplete({ questionId: question.id, topic: question.topic, section: question.section, selectedAnswer: selected, correct: selected === question.correct, confidence: confidence?.v, timeSpent: elapsed });
+  };
+
   return (
     <div className="question-container">
+      {/* Теперь логотип и таймер находятся внутри экрана вопроса, поэтому время обновляется корректно */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
         <Logo size={36} />
         <Timer seconds={elapsed} />
       </div>
-      <div className="progress-bar-container"><div className="progress-bar-fill" style={{ width: `${(qNum / total) * 100}%` }} /></div>
+
+      <div className="progress-bar-container"><div className="progress-bar-fill" style={{ width: `${((qNum) / total) * 100}%` }} /></div>
       <div className="question-meta"><span className="badge">{question.section}</span><span className="step-text">Вопрос {qNum} из {total}</span></div>
       <h2 className="question-text">{question.text}</h2>
+      
       <div className="options-grid">
         {question.options.map((opt, i) => {
           const isSelected = selected === i;
           const isCorrect = i === question.correct;
-          let stateClass = isRevealed ? (isCorrect ? "correct" : isSelected ? "wrong" : "disabled") : (isSelected ? "selected" : "");
+          let stateClass = "";
+
+          if (isRevealed) {
+            // Этап 2: Показываем правду (зеленый/красный)
+            if (isCorrect) stateClass = "correct";
+            else if (isSelected) stateClass = "wrong";
+            else stateClass = "disabled";
+          } else {
+            // Этап 1: Просто помечаем выбранный вариант синим
+            if (isSelected) stateClass = "selected";
+            else if (selected !== null) stateClass = "disabled";
+          }
+
           return (
             <div key={i} className={`option-card ${stateClass}`} onClick={() => !isRevealed && setSelected(i)}>
               <div className="option-letter">{String.fromCharCode(65 + i)}</div>
               <div className="option-content">{opt}</div>
+              {isRevealed && isCorrect && <div className="icon-status">✅</div>}
+              {isRevealed && isSelected && !isCorrect && <div className="icon-status">❌</div>}
             </div>
           );
         })}
       </div>
+
       {selected !== null && (
         <div className="confidence-section scale-in">
-          <h4>Уверенность в ответе:</h4>
+          <h4>Насколько вы уверены в ответе?</h4>
           <div className="confidence-grid">
             {CONFIDENCE_LEVELS.map(c => (
-              <button key={c.v} className={`conf-btn ${confidence?.v === c.v ? 'active' : ''}`} 
+              <button 
+                key={c.v} 
+                className={`conf-btn ${confidence?.v === c.v ? 'active' : ''}`} 
                 style={confidence?.v === c.v ? { borderColor: c.color, background: c.color + "10", color: c.color } : {}} 
-                onClick={() => !isRevealed && setConfidence(c)}>
+                onClick={() => !isRevealed && setConfidence(c)} // Блокируем изменение после выбора
+              >
                 {c.label}
               </button>
             ))}
           </div>
         </div>
       )}
-      <button className={`cta-button ${isRevealed ? 'active' : ''}`} disabled={!isRevealed} 
-        onClick={() => onComplete({ 
-          questionId: question.id, topic: question.topic, section: question.section, 
-          selectedAnswer: selected, correct: selected === question.correct, 
-          confidence: confidence?.v, timeSpent: elapsed 
-        })}>
-        {qNum < total ? "Следующий вопрос" : "Завершить"}
-      </button>
+
+      <div style={{ marginTop: 40 }}>
+        <button className={`cta-button ${isRevealed ? 'active' : ''}`} disabled={!isRevealed} onClick={handleNext}>
+          {qNum < total ? "Следующий вопрос" : "Завершить аудит"}
+        </button>
+      </div>
     </div>
   );
 }
 
-// ── UPLOAD, REPORT, MAP (Simplified) ──────────────────────────────────────────
+// ── ОСТАЛЬНЫЕ ЭКРАНЫ ─────────────────────────────────────────────────────────
 function UploadScreen({ onAnalyze }) {
+  const [loading, setLoading] = useState(false);
   return (
-    <div style={{ maxWidth: 600, margin: "100px auto", padding: "0 20px" }}>
+    <div style={{ maxWidth: 640, margin: "100px auto", padding: "0 20px" }}>
       <div className="form-card" style={{ maxWidth: '100%', textAlign: "center" }}>
-        <h2 style={{ fontFamily: "'Sora', sans-serif", fontWeight: 800, fontSize: 26, color: THEME.primary }}>Черновики</h2>
-        <p style={{ color: THEME.textLight, margin: "16px 0 32px" }}>Загрузите фото решений для глубокого анализа.</p>
-        <button onClick={() => onAnalyze()} className="cta-button active">Получить отчет →</button>
+        <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 800, fontSize: 26, color: THEME.primary, marginBottom: 16 }}>Черновик вычислений</h2>
+        <p style={{ color: THEME.textLight, fontSize: 16, marginBottom: 40 }}>Загрузите фотографию ваших черновиков.</p>
+        <label className="upload-zone">
+          <span style={{ color: THEME.primary, fontWeight: 700, fontSize: 16 }}>Выбрать файл (JPG, PNG)</span>
+          <input type="file" style={{ display: "none" }} onChange={() => setLoading(true)} />
+        </label>
+        <button onClick={onAnalyze} disabled={loading} className={`cta-button ${loading ? '' : 'active'}`}>
+          {loading ? "Загрузка..." : "Пропустить загрузку →"}
+        </button>
       </div>
     </div>
   );
@@ -255,33 +306,71 @@ function ReportScreen({ report, user, onViewPlan }) {
   const { answers } = report;
   const correct = answers.filter(a => a.correct).length;
   const score = Math.round((correct / answers.length) * 100);
+  
+  const sortedSkills = answers.map(a => {
+    let zone = "green", statusText = "Твердый навык", priority = 3; 
+    if (!a.correct) { zone = "red"; statusText = "Пробел"; priority = 1; } 
+    else if (a.confidence <= 2) { zone = "yellow"; statusText = "Хрупкое знание"; priority = 2; }
+    let isIllusion = (!a.correct && a.confidence >= 4);
+    if(isIllusion) statusText = "⚠️ Иллюзия знаний";
+    return { ...a, zone, statusText, priority, isIllusion };
+  }).sort((a, b) => a.priority - b.priority);
+
   return (
     <div className="report-container">
       <div className="report-header-card">
-        <h1>Результат: {score}%</h1>
-        <p>{user?.firstName}, ваш трек готов.</p>
+        <div className="report-hero-compact">
+          <div className="score-badge" style={{ backgroundColor: score >= 80 ? THEME.success : score >= 60 ? THEME.warning : THEME.error }}>{score}%</div>
+          <div className="report-hero-text">
+            <h1>Аудит компетенций завершен</h1>
+            <p>Ученик: {user?.firstName} {user?.lastName} • Цель: {user?.details}</p>
+          </div>
+        </div>
       </div>
-      <button onClick={onViewPlan} className="cta-button active">Открыть Трек Развития</button>
+      <div className="results-list-modern">
+        <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 20, fontWeight: 800, color: THEME.primary, marginBottom: 24 }}>Карта навыков</h3>
+        {sortedSkills.map((a, i) => (
+          <div key={i} className={`result-card-modern ${a.zone}`}>
+            <div className="card-main">
+              <div className="topic-info"><span className="section-badge">{a.section}</span><span className="topic-name">{a.topic}</span></div>
+              <div className="status-info"><span className="status-text">{a.statusText}</span><span className="meta-text">{a.timeSpent} сек • Уверенность: {a.confidence}/5</span></div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={onViewPlan} className="cta-button active" style={{ marginTop: 40 }}>Открыть Трек Развития →</button>
     </div>
   );
 }
 
-function PathMap({ user, answers }) {
+function PathMap({ user }) {
   return (
     <div className="path-container">
-      <div className="path-header"><h1>Трек {user?.firstName}</h1></div>
+      <div className="path-header">
+        <h1>Образовательный трек {user?.firstName}</h1>
+      </div>
       <div className="path-visualization-modern">
-         <svg width="100%" height="450" viewBox="0 0 920 450">
-            {RPG_NODES.map(node => (
-              <circle key={node.id} cx={node.x} cy={node.y} r="20" fill={THEME.accent} />
-            ))}
-         </svg>
+        <svg width="100%" height={450} viewBox="0 0 920 450" preserveAspectRatio="xMidYMid meet">
+          {RPG_PATHS.map(([a, b]) => {
+            const na = RPG_NODES.find(n => n.id === a); const nb = RPG_NODES.find(n => n.id === b);
+            return <line key={`${a}-${b}`} x1={na.x} y1={na.y} x2={nb.x} y2={nb.y} stroke={THEME.accent} strokeWidth={1} opacity={0.4} />;
+          })}
+          {RPG_NODES.map(node => {
+            const isBoss = node.type === "boss";
+            return (
+              <g key={node.id} transform={`translate(${node.x},${node.y})`} style={{ cursor: "pointer" }}>
+                <circle cx={0} cy={0} r={isBoss?24:16} fill={THEME.primary} stroke={THEME.accent} strokeWidth={isBoss ? 3 : 2} />
+                <text x={0} y={40} textAnchor="middle" fontSize={12} fontWeight={600} fill="#cbd5e1" fontFamily="Inter">{node.name}</text>
+              </g>
+            );
+          })}
+        </svg>
       </div>
     </div>
   );
 }
 
-// ── MAIN APP ──────────────────────────────────────────────────────────────────
+// ── ГЛАВНЫЙ КОМПОНЕНТ ─────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState("auth"); 
   const [user, setUser] = useState(null); 
@@ -289,36 +378,13 @@ export default function App() {
   const [answers, setAnswers] = useState([]);
   const [report, setReport] = useState(null);
 
-  const handleRegister = (userData) => {
-    setUser(userData);
-    // If returning user has progress, restore it
-    if (userData.progress && userData.progress.length > 0) {
-      setAnswers(userData.progress);
-      setQIndex(userData.lastQuestionIndex || 0);
-      if (userData.lastQuestionIndex >= QUESTIONS.length) setScreen("report");
-      else setScreen("question");
-    } else {
-      setScreen("intro");
-    }
-  };
-
-  const handleAnswer = async (data) => {
-    const nextAnswers = [...answers, data];
-    setAnswers(nextAnswers);
-    
-    // Save progress to Firebase
-    if (user?.phone) {
-      const userRef = doc(db, "users", user.phone);
-      await updateDoc(userRef, {
-        progress: nextAnswers,
-        lastQuestionIndex: qIndex + 1
-      });
-    }
-
+  const handleRegister = (userData) => { setUser(userData); setScreen("question"); };
+  const handleAnswer = (data) => {
+    const next = [...answers, data];
+    setAnswers(next);
     if (qIndex + 1 < QUESTIONS.length) setQIndex(qIndex + 1);
-    else setScreen("upload");
+    else { setReport({ answers: next }); setScreen("report"); }
   };
-
   const handleAnalyze = () => {
     setScreen("analyzing");
     setTimeout(() => { setReport({ answers }); setScreen("report"); }, 2000);
@@ -327,47 +393,90 @@ export default function App() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700;800&family=Sora:wght@700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #f8fafc; font-family: 'Inter', sans-serif; color: #0f172a; }
+        body { background: ${THEME.bg}; -webkit-font-smoothing: antialiased; color: ${THEME.text}; font-family: 'Inter', sans-serif; }
         .split-layout { display: flex; min-height: 100vh; }
-        .split-left { flex: 1.1; background: #fff; padding: 60px 80px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid #e2e8f0; }
-        .split-right { flex: 1; display: flex; align-items: center; justify-content: center; padding: 60px; background: #f8fafc; }
-        .hero-title { font-family: 'Sora', sans-serif; font-size: 40px; font-weight: 800; color: #0A192F; line-height: 1.2; }
-        .input-field { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 16px; font-size: 15px; }
-        .cta-button { width: 100%; padding: 16px; border-radius: 10px; border: none; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.3s; }
-        .cta-button.active { background: #0A192F; color: #FBBF24; }
-        .question-container { max-width: 800px; margin: 40px auto; padding: 20px; }
-        .option-card { padding: 18px; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 10px; cursor: pointer; display: flex; align-items: center; background: #fff; font-weight: 600; }
-        .option-card.selected { border-color: #0A192F; background: #f1f5f9; }
-        .option-card.correct { border-color: #10B981; background: #ecfdf5; }
-        .option-card.wrong { border-color: #EF4444; background: #fef2f2; }
-        .progress-bar-container { width: 100%; height: 6px; background: #e2e8f0; border-radius: 10px; margin-bottom: 20px; overflow: hidden; }
-        .progress-bar-fill { height: 100%; background: #0A192F; transition: 0.4s; }
-        .confidence-grid { display: flex; gap: 8px; margin-top: 10px; }
-        .conf-btn { flex: 1; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; cursor: pointer; font-size: 12px; font-weight: 600; }
-        .path-visualization-modern { background: #0A192F; border-radius: 20px; padding: 40px; }
-        @media (max-width: 800px) { .split-layout { flex-direction: column; } .split-left, .split-right { padding: 30px 20px; } }
+        .split-left { flex: 1.1; background: ${THEME.surface}; padding: 60px 80px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid ${THEME.border}; }
+        .split-right { flex: 1; display: flex; align-items: center; justify-content: center; padding: 60px; background: ${THEME.bg}; }
+        .hero-title { font-family: 'Montserrat', sans-serif; font-size: 44px; font-weight: 800; line-height: 1.15; margin-bottom: 24px; color: ${THEME.primary}; letter-spacing: -1.5px;}
+        .hero-subtitle { font-size: 17px; line-height: 1.7; color: ${THEME.textLight}; margin-bottom: 50px; max-width: 520px; }
+        .form-card { width: 100%; max-width: 480px; background: #fff; padding: 40px; border-radius: 16px; border: 1px solid ${THEME.border}; box-shadow: 0 15px 35px -5px rgba(10,25,47,0.03); }
+        .form-header { margin-bottom: 32px; text-align: center; }
+        .form-header h2 { font-family: 'Montserrat', sans-serif; font-size: 24px; font-weight: 800; color: ${THEME.primary}; }
+        .form-header p { color: ${THEME.textLight}; font-size: 14px; margin-top: 6px; }
+        .form-row { display: flex; gap: 16px; margin-bottom: 20px; }
+        .input-group { margin-bottom: 20px; flex: 1;}
+        .input-label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 700; color: ${THEME.textLight}; text-transform: uppercase; letter-spacing: 1px; }
+        .input-field { width: 100%; padding: 14px 16px; border-radius: 8px; border: 1px solid ${THEME.border}; background: ${THEME.bg}; font-size: 15px; outline: none; transition: all 0.2s; box-sizing: border-box; }
+        .input-field:focus { border-color: ${THEME.primary}; background: #ffffff; }
+        .cta-button { width: 100%; padding: 16px 24px; border-radius: 8px; font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 15px; text-align: center; border: none; background: ${THEME.border}; color: ${THEME.textLight}; transition: all 0.3s; text-transform: uppercase; letter-spacing: 1px; }
+        .cta-button.active { background: ${THEME.primary}; color: ${THEME.accent}; cursor: pointer; box-shadow: 0 10px 20px -5px rgba(10, 25, 47, 0.3); }
+        .cta-button.active:hover { transform: translateY(-1px); }
+        .benefits-list { display: flex; flex-direction: column; gap: 28px; margin-bottom: 60px; }
+        .benefit-item { display: flex; gap: 20px; align-items: flex-start; }
+        .benefit-item .icon { font-size: 24px; background: ${THEME.bg}; padding: 14px; border-radius: 12px; border: 1px solid ${THEME.border}; }
+        .trust-badge { display: inline-flex; align-items: center; gap: 12px; background: ${THEME.bg}; padding: 12px 24px; border-radius: 99px; border: 1px solid ${THEME.border}; }
+        .question-container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+        .modern-timer { display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1px solid ${THEME.border}; padding: 10px 20px; border-radius: 99px; font-weight: 700; font-family: 'Montserrat', sans-serif; font-size: 15px; }
+        .pulse-dot { width: 8px; height: 8px; background: ${THEME.error}; border-radius: 50%; animation: pulse 2s infinite; }
+        .progress-bar-container { width: 100%; height: 6px; background: ${THEME.border}; border-radius: 99px; overflow: hidden; margin-bottom: 32px; }
+        .progress-bar-fill { height: 100%; background: ${THEME.primary}; transition: width 0.4s; }
+        .question-meta { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .badge { background: ${THEME.primary}; color: ${THEME.accent}; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase;}
+        .question-text { font-family: 'Montserrat', sans-serif; font-size: 26px; font-weight: 800; line-height: 1.4; margin-bottom: 40px; color: ${THEME.primary}; }
+        .options-grid { display: flex; flex-direction: column; gap: 14px; margin-bottom: 40px; }
+        .option-card { display: flex; align-items: center; padding: 20px 24px; background: #ffffff; border: 1px solid ${THEME.border}; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+        .option-card.selected { border-color: ${THEME.primary}; background: #f1f5f9; border-width: 2px;}
+        .option-card.correct { border-color: ${THEME.success}; background: #ecfdf5; border-width: 2px; }
+        .option-card.wrong { border-color: ${THEME.error}; background: #fef2f2; border-width: 2px; }
+        .option-card.disabled { opacity: 0.5; pointer-events: none; }
+        .option-letter { width: 36px; height: 36px; background: ${THEME.bg}; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; margin-right: 20px; }
+        .option-content { font-size: 16px; font-weight: 600; flex: 1; }
+        .confidence-section { background: #ffffff; border: 1px solid ${THEME.border}; padding: 32px; border-radius: 16px; margin-bottom: 40px; }
+        .confidence-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;}
+        .conf-btn { flex: 1; padding: 14px 10px; border: 1px solid ${THEME.border}; border-radius: 10px; background: #fff; cursor: pointer; font-weight: 600;}
+        .upload-zone { display: block; border: 2px dashed ${THEME.border}; border-radius: 12px; padding: 48px 24px; background: ${THEME.bg}; cursor: pointer; margin-bottom: 32px; }
+        .report-container { max-width: 760px; margin: 40px auto; padding: 0 20px; }
+        .report-header-card { background: #fff; padding: 32px; border-radius: 16px; border: 1px solid ${THEME.border}; margin-bottom: 32px; }
+        .report-hero-compact { display: flex; align-items: center; gap: 24px;}
+        .score-badge { width: 90px; height: 90px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; color: #fff; }
+        .results-list-modern { background: #ffffff; border-radius: 16px; border: 1px solid ${THEME.border}; padding: 32px; }
+        .result-card-modern { border-radius: 12px; border: 1px solid ${THEME.border}; background: ${THEME.bg}; margin-bottom: 12px; padding: 16px 20px; }
+        .result-card-modern.red { border-left: 4px solid ${THEME.error}; }
+        .result-card-modern.yellow { border-left: 4px solid ${THEME.warning}; }
+        .result-card-modern.green { border-left: 4px solid ${THEME.success}; }
+        .card-main { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+        .topic-info { flex: 1; }
+        .topic-name { font-size: 16px; font-weight: 700; color: ${THEME.primary}; }
+        .status-text { display: block; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .meta-text { font-size: 12px; color: ${THEME.textLight}; }
+        .path-container { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+        .path-header { text-align: center; margin-bottom: 48px; }
+        .path-visualization-modern { background: ${THEME.primary}; border-radius: 24px; padding: 50px 40px; overflow-x: auto; }
+        .scale-in { animation: scale-in 0.3s ease forwards; }
+        @keyframes scale-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        @media (max-width: 900px) { .split-layout { flex-direction: column; } .split-left, .split-right { padding: 40px 20px; } .form-row { flex-direction: column; gap: 0; } }
       `}</style>
 
-      {screen !== "auth" && (
-        <nav style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "12px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src={AAPA_LOGO_BASE64} style={{ height: 32 }} alt="logo" />
-            <span style={{ fontWeight: 800, color: '#0A192F' }}>AAPA</span>
+      {screen !== "auth" && screen !== "question" && (
+        <nav style={{ background: THEME.surface, borderBottom: `1px solid ${THEME.border}`, padding: "16px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Logo size={32} />
+          <div style={{ display: "flex", gap: 10 }}>
+            {["report","rpgmap"].includes(screen) && <button onClick={() => setScreen("report")} className="cta-button">Отчет</button>}
           </div>
-          {["report", "rpgmap"].includes(screen) && (
-             <button onClick={() => setScreen("report")} style={{ background: '#0A192F', color: '#FBBF24', padding: '6px 15px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: 12 }}>ОТЧЕТ</button>
-          )}
         </nav>
       )}
 
       {screen === "auth" && <AuthScreen onRegister={handleRegister} />}
-      {screen === "intro" && <IntroScreen user={user} onStart={() => setScreen("question")} />}
-      {screen === "question" && <QuestionScreen question={QUESTIONS[qIndex]} qNum={qIndex+1} total={QUESTIONS.length} onComplete={handleAnswer} />}
+      {screen === "question" && (
+        <QuestionScreen question={QUESTIONS[qIndex]} qNum={qIndex+1} total={QUESTIONS.length} onComplete={handleAnswer} />
+      )}
       {screen === "upload" && <UploadScreen onAnalyze={handleAnalyze} />}
+      {screen === "analyzing" && <div style={{ minHeight: "80vh", display: "flex", justifyContent: "center", alignItems: "center" }}><h2>Анализ данных...</h2></div>}
       {screen === "report" && report && <ReportScreen report={report} user={user} onViewPlan={() => setScreen("rpgmap")} />}
-      {screen === "rpgmap" && <RPGMap user={user} answers={report?.answers || answers} />}
+      {screen === "rpgmap" && <PathMap user={user} />}
     </>
   );
 }
