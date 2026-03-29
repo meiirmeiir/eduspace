@@ -45,12 +45,19 @@ const GRADES_LIST = ["5 класс", "6 класс", "7 класс", "8 клас
 
 const THEME = { primary: "#0f172a", accent: "#d4af37", bg: "#f8fafc", surface: "#ffffff", text: "#334155", textLight: "#64748b", border: "#e2e8f0", success: "#10B981", warning: "#F59E0B", error: "#EF4444" };
 
-// ── КОМПОНЕНТЫ ────────────────────────────────────────────────────────────────
+// ── ВЕКТОРНЫЙ ЛОГОТИП (Теперь не сломается) ───────────────────────────────────
 const Logo = ({ size = 48 }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-    <div style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
-      <img src="/logo.jpg" alt="AAPA Logo" style={{ width: '120%', height: '120%', objectFit: 'cover', mixBlendMode: 'multiply' }} />
-    </div>
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+      <circle cx="50" cy="50" r="50" fill="#0A2463"/>
+      <path d="M45 35 L85 15 L78 28 L95 35 L78 40 L85 55 L65 40 Z" fill="#FBBF24"/>
+      <path d="M50 75 Q 35 60 15 65 L15 75 Q 35 70 50 85 Q 65 70 85 75 L85 65 Q 65 60 50 75 Z" fill="#E2E8F0"/>
+      <path d="M50 65 Q 35 50 15 55 L15 65 Q 35 60 50 75 Q 65 60 85 65 L85 55 Q 65 50 50 65 Z" fill="#FFFFFF"/>
+      <path d="M50 30 L15 45 L50 60 L85 45 Z" fill="#1E3A8A"/>
+      <path d="M50 35 L22 47 L50 55 L78 47 Z" fill="#2563EB"/>
+      <path d="M50 45 L70 50 L72 65" stroke="#FBBF24" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+      <circle cx="72" cy="68" r="3.5" fill="#FBBF24"/>
+    </svg>
     <div>
       <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 800, fontSize: size * 0.6, color: THEME.primary, lineHeight: 1, letterSpacing: "1px" }}>AAPA</div>
       <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: Math.max(size * 0.2, 9), color: THEME.accent, letterSpacing: "1px", marginTop: 4, textTransform: "uppercase" }}>Ad Astra Per Aspera</div>
@@ -84,16 +91,24 @@ function AuthScreen({ onRegister }) {
 
   const checkUserInDB = async (e) => {
     e.preventDefault();
-    if (phone.length < 15) return;
+    // ИСПРАВЛЕНИЕ: Теперь проверяем длину номера без пробелов (должно быть минимум 11 символов)
+    const cleanPhone = phone.replace(/\s+/g, '');
+    if (cleanPhone.length < 11) {
+      alert("Пожалуйста, введите корректный номер телефона.");
+      return; 
+    }
+    
     setLoading(true);
     try {
-      const cleanPhone = phone.replace(/\s+/g, '');
       const userSnap = await getDoc(doc(db, "users", cleanPhone));
-      if (userSnap.exists()) onRegister(userSnap.data());
-      else setStep(2);
+      if (userSnap.exists()) {
+        onRegister(userSnap.data());
+      } else {
+        setStep(2);
+      }
     } catch (error) {
       console.error(error);
-      alert("Не удалось связаться с сервером.");
+      alert("Не удалось связаться с базой данных. Если вы тестируете локально, проверьте правила Firestore.");
     }
     setLoading(false);
   };
@@ -109,7 +124,7 @@ function AuthScreen({ onRegister }) {
       onRegister(userData);
     } catch (error) {
       console.error(error);
-      alert("Ошибка при регистрации.");
+      alert("Ошибка при сохранении профиля. Зайдите в Firebase -> Firestore -> Rules и установите allow read, write: if true;");
     }
     setLoading(false);
   };
@@ -137,7 +152,7 @@ function AuthScreen({ onRegister }) {
         <div className="form-card">
           <div className="form-header">
             <h2>{step === 1 ? "Начать диагностику" : "Создать профиль"}</h2>
-            <p>{step === 1 ? "Введите номер WhatsApp для проверки аккаунта." : "Давайте познакомимся поближе!"}</p>
+            <p>{step === 1 ? "Введите номер WhatsApp для проверки аккаунта." : "Мы вас не нашли. Давайте познакомимся!"}</p>
           </div>
           <form onSubmit={step === 1 ? checkUserInDB : registerNewUser}>
             <div className="input-group">
@@ -177,7 +192,8 @@ function AuthScreen({ onRegister }) {
                 )}
               </div>
             )}
-            <button type="submit" className="cta-button active" disabled={loading || phone.length < 15}>
+            {/* Кнопка теперь становится активной, если введено больше 11 символов без пробелов */}
+            <button type="submit" className={`cta-button ${phone.replace(/\s+/g, '').length >= 11 ? 'active' : ''}`} disabled={loading || phone.replace(/\s+/g, '').length < 11}>
               {loading ? "Проверка..." : (step === 1 ? "Далее →" : "Перейти к тесту →")}
             </button>
           </form>
