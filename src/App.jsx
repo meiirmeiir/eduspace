@@ -532,7 +532,10 @@ function AdminScreen({ onBack }) {
     if(qForm.type==="multiple"&&(qForm.options.some(o=>!o.trim())||qForm.correctAnswers.length===0)){alert("Заполните варианты и отметьте правильные.");return;}
     if(qForm.type==="matching"&&qForm.pairs.some(p=>!p.left.trim()||!p.right.trim())){alert("Заполните все пары соответствия.");return;}
     try{
-      const data={...qForm,options:qForm.type!=="matching"?qForm.options.map(o=>o.trim()):undefined,pairs:qForm.type==="matching"?qForm.pairs:undefined,createdAt:new Date().toISOString()};
+      const data = { sectionId:qForm.sectionId, sectionName:qForm.sectionName, topic:qForm.topic, text:qForm.text, type:qForm.type, goals:qForm.goals, createdAt:new Date().toISOString() };
+      if(qForm.type==="mcq"){ data.options=qForm.options.map(o=>o.trim()); data.correct=qForm.correct; }
+      else if(qForm.type==="multiple"){ data.options=qForm.options.map(o=>o.trim()); data.correctAnswers=qForm.correctAnswers; }
+      else if(qForm.type==="matching"){ data.pairs=qForm.pairs; }
       const ref=await addDoc(collection(db,"questions"),data);
       setQuestions(p=>[...p,{id:ref.id,...data}]);
       setQForm(emptyQForm); setShowQForm(false);
