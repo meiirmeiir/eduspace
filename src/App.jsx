@@ -4,6 +4,7 @@ import {
   getFirestore, doc, getDoc, setDoc, updateDoc,
   collection, getDocs, addDoc, deleteDoc
 } from "firebase/firestore";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC8c_Y4O2V7DV5bwMU5wJSJj87BoOygjYw",
@@ -16,6 +17,7 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 const ANTHROPIC_KEY   = import.meta.env.VITE_ANTHROPIC_KEY   || "";
 const TELEGRAM_TOKEN  = import.meta.env.VITE_TELEGRAM_TOKEN  || "";
@@ -494,7 +496,10 @@ function QuestionScreen({ question, qNum, total, onComplete }) {
     } else if(qType==="matching"){
       correct=(question.pairs||[]).every((_,i)=>matchSel[i]===i);
     }
-    onComplete({ questionId:question.id||qNum, topic:question.topic, section:question.sectionName||question.section, type:qType, correct, confidence:confidence?.v||multiConf?.v||null, timeSpent:elapsed });
+    const selectedLabel = qType==="mcq"?(question.options||[])[selected]
+      : qType==="multiple"?multiSelected.map(i=>(question.options||[])[i]).join(", ")
+      : (question.pairs||[]).map((p,i)=>`${p.left} → ${(question.pairs||[])[matchSel[i]]?.right??"?"}`).join("; ");
+    onComplete({ questionId:question.id||qNum, topic:question.topic, section:question.sectionName||question.section, type:qType, correct, confidence:confidence?.v||multiConf?.v||null, timeSpent:elapsed, questionText:question.text, options:question.options||[], selectedAnswer:selectedLabel });
   };
 
   const allMatchFilled = (question.pairs||[]).length>0 && (question.pairs||[]).every((_,i)=>matchSel[i]!==undefined);
@@ -726,40 +731,31 @@ function UploadAnalysisScreen({ user, onDone, onSkip }) {
 
 // ── ИНДИВИДУАЛЬНЫЙ ПЛАН ОБУЧЕНИЯ ──────────────────────────────────────────────
 function IndividualPlanScreen({ user, onBack }) {
-  const [topics, setTopics] = useState([]);
+  const [grouped, setGrouped] = useState({ red:[], yellow:[], green:[] });
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [reportsCount, setReportsCount] = useState(0);
 
   useEffect(()=>{
     const load = async () => {
       try {
-        const snap = await getDocs(collection(db,"diagnosticResults"));
-        const results = snap.docs
+        const snap = await getDocs(collection(db,"expertReports"));
+        const reports = snap.docs
           .map(d=>({id:d.id,...d.data()}))
-          .filter(r=>r.userPhone===user?.phone && r.zoneAnalysis?.length)
-          .sort((a,b)=>a.completedAt?.localeCompare(b.completedAt)); // oldest first
-        if (results.length) setLastUpdated(results[results.length-1].completedAt);
+          .filter(r=>r.userId===user?.phone && r.zonedPlan)
+          .sort((a,b)=>(a.createdAt||"").localeCompare(b.createdAt||""));
+        setReportsCount(reports.length);
+        if(reports.length) setLastUpdated(reports[reports.length-1].updatedAt||reports[reports.length-1].createdAt);
 
-        // Merge: latest result per topic wins, but take worst zone across last 2 attempts
-        const zoneRank = { red:0, yellow:1, green:2 };
-        const topicMap = {};
-        results.forEach(r => {
-          (r.zoneAnalysis||[]).forEach(t => {
-            const key = `${t.section}|||${t.topic}`;
-            const existing = topicMap[key];
-            if (!existing) { topicMap[key] = { ...t, date: r.completedAt }; }
-            else {
-              // If newer attempt is worse or same, update
-              if (zoneRank[t.zone] <= zoneRank[existing.zone]) {
-                topicMap[key] = { ...t, date: r.completedAt };
-              }
-            }
+        // Merge zonedPlan across all reports — later report wins for same topic
+        const merge = (zone) => {
+          const map = {};
+          reports.forEach(r => {
+            (r.zonedPlan?.[zone]||[]).forEach(t => { map[t.topic] = t; });
           });
-        });
-
-        const all = Object.values(topicMap);
-        all.sort((a,b) => zoneRank[a.zone] - zoneRank[b.zone]);
-        setTopics(all);
+          return Object.values(map);
+        };
+        setGrouped({ red: merge("red"), yellow: merge("yellow"), green: merge("green") });
       } catch(e){ console.error(e); }
       setLoading(false);
     };
@@ -771,14 +767,7 @@ function IndividualPlanScreen({ user, onBack }) {
     yellow: { label:"🟡 Требует внимания",     desc:"Понимание частичное, нужно закрепить",     color:"#b45309",     bg:"rgba(245,158,11,0.06)",   border:"rgba(245,158,11,0.25)" },
     green:  { label:"🟢 Небольшие недочёты",   desc:"В целом понятно, доработать детали",       color:"#065f46",     bg:"rgba(16,185,129,0.06)",   border:"rgba(16,185,129,0.2)"  },
   };
-
-  const grouped = {
-    red:    topics.filter(t=>t.zone==="red"),
-    yellow: topics.filter(t=>t.zone==="yellow"),
-    green:  topics.filter(t=>t.zone==="green"),
-  };
-  const totalTopics = topics.length;
-  const redPct = totalTopics ? Math.round((grouped.red.length/totalTopics)*100) : 0;
+  const totalTopics = grouped.red.length+grouped.yellow.length+grouped.green.length;
 
   return (
     <div style={{minHeight:"100vh",background:THEME.bg}}>
@@ -790,21 +779,20 @@ function IndividualPlanScreen({ user, onBack }) {
         <div style={{marginBottom:36}}>
           <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:30,fontWeight:800,color:THEME.primary,marginBottom:6}}>Индивидуальный план обучения</h1>
           <p style={{color:THEME.textLight,fontSize:15}}>{user?.firstName} {user?.lastName} · {user?.goal} · {user?.details}</p>
-          {lastUpdated && <p style={{color:THEME.textLight,fontSize:13,marginTop:4}}>Обновлён: {new Date(lastUpdated).toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"})}</p>}
+          {lastUpdated && <p style={{color:THEME.textLight,fontSize:13,marginTop:4}}>Обновлён: {new Date(lastUpdated).toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"})} · на основе {reportsCount} {reportsCount===1?"диагностики":"диагностик"}</p>}
         </div>
 
         {loading && <div style={{textAlign:"center",padding:80,color:THEME.textLight}}>Загрузка плана...</div>}
 
-        {!loading && topics.length===0 && (
+        {!loading && totalTopics===0 && (
           <div style={{textAlign:"center",padding:80}}>
             <div style={{fontSize:56,marginBottom:20}}>🎯</div>
-            <h3 style={{fontFamily:"'Montserrat',sans-serif",fontSize:22,color:THEME.primary,marginBottom:12}}>План пока пуст</h3>
-            <p style={{color:THEME.textLight,maxWidth:420,margin:"0 auto",lineHeight:1.6}}>Пройди диагностику и загрузи фото своих записей — ИИ проанализирует твои ответы и составит персональный план с приоритетами.</p>
-            <button onClick={onBack} className="cta-button active" style={{width:"auto",padding:"14px 28px",marginTop:28}}>Перейти к диагностике</button>
+            <h3 style={{fontFamily:"'Montserrat',sans-serif",fontSize:22,color:THEME.primary,marginBottom:12}}>План пока не составлен</h3>
+            <p style={{color:THEME.textLight,maxWidth:420,margin:"0 auto",lineHeight:1.6}}>Преподаватель ещё не добавил твой индивидуальный план. После проверки диагностики он появится здесь.</p>
           </div>
         )}
 
-        {!loading && topics.length>0 && (
+        {!loading && totalTopics>0 && (
           <>
             {/* Summary bar */}
             <div style={{background:"#fff",border:`1px solid ${THEME.border}`,borderRadius:16,padding:"24px 28px",marginBottom:28,display:"flex",gap:24,flexWrap:"wrap",alignItems:"center"}}>
@@ -834,28 +822,13 @@ function IndividualPlanScreen({ user, onBack }) {
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:12}}>
                   {grouped[zone].map((t,i)=>(
-                    <div key={i} style={{background:"#fff",borderRadius:14,border:`1px solid ${zones[zone].border}`,borderLeft:`5px solid ${zones[zone].color}`,padding:"20px 24px"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
-                        <div style={{flex:1}}>
-                          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                            <span style={{background:THEME.primary,color:THEME.accent,fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:6,textTransform:"uppercase"}}>{t.section}</span>
-                            <span style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:16,color:THEME.primary}}>{t.topic}</span>
-                          </div>
-                          {t.reason && <p style={{color:THEME.textLight,fontSize:14,lineHeight:1.5,marginBottom:t.skills?.length?12:0}}>{t.reason}</p>}
-                          {t.skills?.length>0 && (
-                            <div>
-                              <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:8}}>Навыки для проработки:</div>
-                              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                                {t.skills.map((s,si)=>(
-                                  <span key={si} style={{background:zones[zone].bg,color:zones[zone].color,border:`1px solid ${zones[zone].border}`,fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:99}}>{s}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div style={{flexShrink:0,width:36,height:36,borderRadius:10,background:zones[zone].bg,border:`1px solid ${zones[zone].border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
-                          {zone==="red"?"🔴":zone==="yellow"?"🟡":"🟢"}
-                        </div>
+                    <div key={i} style={{background:"#fff",borderRadius:14,border:`1px solid ${zones[zone].border}`,borderLeft:`5px solid ${zones[zone].color}`,padding:"18px 24px",display:"flex",gap:16,alignItems:"flex-start"}}>
+                      <div style={{flexShrink:0,width:34,height:34,borderRadius:10,background:zones[zone].bg,border:`1px solid ${zones[zone].border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,marginTop:2}}>
+                        {zone==="red"?"🔴":zone==="yellow"?"🟡":"🟢"}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,color:THEME.primary,marginBottom:t.description?6:0}}>{t.topic}</div>
+                        {t.description&&<p style={{color:THEME.textLight,fontSize:13,lineHeight:1.6,margin:0}}>{t.description}</p>}
                       </div>
                     </div>
                   ))}
@@ -980,13 +953,35 @@ function ExpertReportView({ report, onBack }) {
           </div>
         )}
 
-        {/* 4. Рекомендации и итоги */}
-        {[
-          {key:"recommendations",title:"Рекомендации",icon:"💡"},
-          {key:"globalPlan",title:"Глобальный план подготовки",icon:"🗺️"},
-          {key:"expertAssessment",title:"Итоговая экспертная оценка",icon:"🏆"},
-          {key:"parentSummary",title:"Резюме для родителя",icon:"👨‍👩‍👧"},
-        ].filter(s=>report[s.key]).map(s=>(
+        {/* 4. Рекомендации */}
+        {report.recommendations&&(
+          <div style={{background:"#fff",borderRadius:16,border:`1px solid ${THEME.border}`,padding:"28px",marginBottom:16}}>
+            <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:16,color:THEME.primary,marginBottom:14,display:"flex",alignItems:"center",gap:10}}><span>💡</span>Рекомендации</h3>
+            <p style={{color:THEME.text,fontSize:14,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{report.recommendations}</p>
+          </div>
+        )}
+
+        {/* 4b. Zoned plan preview */}
+        {report.zonedPlan&&(report.zonedPlan.red?.length||report.zonedPlan.yellow?.length||report.zonedPlan.green?.length)?(
+          <div style={{background:"#fff",borderRadius:16,border:`1px solid ${THEME.border}`,padding:"28px",marginBottom:16}}>
+            <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:16,color:THEME.primary,marginBottom:20,display:"flex",alignItems:"center",gap:10}}><span>🗺️</span>Глобальный план подготовки</h3>
+            {[{zone:"red",label:"🔴 Красная зона",color:THEME.error},{zone:"yellow",label:"🟡 Жёлтая зона",color:"#b45309"},{zone:"green",label:"🟢 Зелёная зона",color:"#065f46"}].map(({zone,label,color})=>(
+              report.zonedPlan[zone]?.length?(
+                <div key={zone} style={{marginBottom:16}}>
+                  <div style={{fontWeight:700,color,fontSize:13,marginBottom:8}}>{label}</div>
+                  {report.zonedPlan[zone].map((t,i)=>(
+                    <div key={i} style={{padding:"10px 14px",background:THEME.bg,borderRadius:8,marginBottom:6,borderLeft:`3px solid ${color}`}}>
+                      <div style={{fontWeight:700,fontSize:14,color:THEME.primary}}>{t.topic}</div>
+                      {t.description&&<div style={{fontSize:12,color:THEME.textLight,marginTop:3}}>{t.description}</div>}
+                    </div>
+                  ))}
+                </div>
+              ):null
+            ))}
+          </div>
+        ):null}
+
+        {[{key:"expertAssessment",title:"Итоговая экспертная оценка",icon:"🏆"},{key:"parentSummary",title:"Резюме для родителя",icon:"👨‍👩‍👧"}].filter(s=>report[s.key]).map(s=>(
           <div key={s.key} style={{background:"#fff",borderRadius:16,border:`1px solid ${THEME.border}`,padding:"28px",marginBottom:16}}>
             <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:16,color:THEME.primary,marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
               <span style={{fontSize:20}}>{s.icon}</span>{s.title}
@@ -1259,7 +1254,8 @@ function AdminScreen({ onBack }) {
   const [rResultData,setRResultData]=useState(null);    // selected result data
   const [rReports,setRReports]=useState({});            // map resultId→report
   const [rLoading,setRLoading]=useState(false);
-  const emptyReport={generalParams:{score:"",accuracy:"",avgPace:""},competencyMap:[],taskTable:[],recommendations:"",globalPlan:"",expertAssessment:"",parentSummary:""};
+  const emptyZonedPlan={red:[],yellow:[],green:[]};
+  const emptyReport={generalParams:{score:"",accuracy:"",avgPace:""},competencyMap:[],taskTable:[],recommendations:"",zonedPlan:emptyZonedPlan,expertAssessment:"",parentSummary:""};
   const [rForm,setRForm]=useState(emptyReport);
   const [rCsvText,setRCsvText]=useState("");
   const [rSaving,setRSaving]=useState(false);
@@ -1287,7 +1283,7 @@ function AdminScreen({ onBack }) {
         competencyMap:existing.competencyMap||[],
         taskTable:existing.taskTable||[],
         recommendations:existing.recommendations||"",
-        globalPlan:existing.globalPlan||"",
+        zonedPlan:existing.zonedPlan||emptyZonedPlan,
         expertAssessment:existing.expertAssessment||"",
         parentSummary:existing.parentSummary||"",
       });
@@ -1321,7 +1317,7 @@ function AdminScreen({ onBack }) {
         competencyMap:rForm.competencyMap,
         taskTable:rForm.taskTable,
         recommendations:rForm.recommendations,
-        globalPlan:rForm.globalPlan,
+        zonedPlan:rForm.zonedPlan,
         expertAssessment:rForm.expertAssessment,
         parentSummary:rForm.parentSummary,
         createdAt:rReports[rResultId]?.createdAt||new Date().toISOString(),
@@ -1823,8 +1819,36 @@ function AdminScreen({ onBack }) {
                   )}
                 </div>
 
-                {/* Section 4: Text fields */}
-                {[{key:"recommendations",label:"Рекомендации"},{key:"globalPlan",label:"Глобальный план подготовки"},{key:"expertAssessment",label:"Итоговая экспертная оценка"},{key:"parentSummary",label:"Резюме для родителя"}].map(f=>(
+                {/* Section 4: Recommendations */}
+                <div className="admin-form-card" style={{borderTop:`4px solid ${THEME.primary}`}}>
+                  <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,marginBottom:12}}>Рекомендации</h3>
+                  <textarea className="input-field" rows={4} value={rForm.recommendations} onChange={e=>setRForm(p=>({...p,recommendations:e.target.value}))} placeholder="Введите рекомендации..."/>
+                </div>
+
+                {/* Section 4b: Zoned plan */}
+                <div className="admin-form-card" style={{borderTop:`4px solid ${THEME.primary}`}}>
+                  <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,marginBottom:6}}>Глобальный план подготовки</h3>
+                  <p style={{color:THEME.textLight,fontSize:13,marginBottom:20}}>Добавьте темы по зонам — они отобразятся в индивидуальном плане ученика</p>
+                  {[
+                    {zone:"red",label:"🔴 Красная зона",color:THEME.error,bg:"rgba(239,68,68,0.06)"},
+                    {zone:"yellow",label:"🟡 Жёлтая зона",color:"#b45309",bg:"rgba(245,158,11,0.06)"},
+                    {zone:"green",label:"🟢 Зелёная зона",color:"#065f46",bg:"rgba(16,185,129,0.06)"},
+                  ].map(({zone,label,color,bg})=>(
+                    <div key={zone} style={{marginBottom:20,background:bg,borderRadius:12,padding:"16px"}}>
+                      <div style={{fontWeight:700,color,fontSize:14,marginBottom:12}}>{label}</div>
+                      {(rForm.zonedPlan?.[zone]||[]).map((t,i)=>(
+                        <div key={i} style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
+                          <input type="text" className="input-field" style={{flex:1.5,padding:"7px 10px",fontSize:13}} value={t.topic} onChange={e=>setRForm(p=>({...p,zonedPlan:{...p.zonedPlan,[zone]:p.zonedPlan[zone].map((x,j)=>j===i?{...x,topic:e.target.value}:x)}}))} placeholder="Тема..."/>
+                          <input type="text" className="input-field" style={{flex:2,padding:"7px 10px",fontSize:13}} value={t.description||""} onChange={e=>setRForm(p=>({...p,zonedPlan:{...p.zonedPlan,[zone]:p.zonedPlan[zone].map((x,j)=>j===i?{...x,description:e.target.value}:x)}}))} placeholder="Описание (необязательно)..."/>
+                          <button onClick={()=>setRForm(p=>({...p,zonedPlan:{...p.zonedPlan,[zone]:p.zonedPlan[zone].filter((_,j)=>j!==i)}}))} style={{background:"transparent",border:"none",color:THEME.textLight,cursor:"pointer",fontSize:18,padding:"0 4px",flexShrink:0}}>×</button>
+                        </div>
+                      ))}
+                      <button onClick={()=>setRForm(p=>({...p,zonedPlan:{...p.zonedPlan,[zone]:[...(p.zonedPlan?.[zone]||[]),{topic:"",description:""}]}}))} style={{background:"transparent",border:`1px dashed ${color}`,color,cursor:"pointer",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:600}}>+ Добавить тему</button>
+                    </div>
+                  ))}
+                </div>
+
+                {[{key:"expertAssessment",label:"Итоговая экспертная оценка"},{key:"parentSummary",label:"Резюме для родителя"}].map(f=>(
                   <div key={f.key} className="admin-form-card" style={{borderTop:`4px solid ${THEME.primary}`}}>
                     <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,marginBottom:12}}>{f.label}</h3>
                     <textarea className="input-field" rows={4} value={rForm[f.key]} onChange={e=>setRForm(p=>({...p,[f.key]:e.target.value}))} placeholder={`Введите ${f.label.toLowerCase()}...`}/>
@@ -1971,35 +1995,61 @@ function DashboardScreen({ user, onOpenDiagnostics, onViewPlan, onOpenAdmin }) {
   const [loadingData,setLoadingData]=useState(true);
   const [showHwForm,setShowHwForm]=useState(false);
   const [showSchedForm,setShowSchedForm]=useState(false);
-  const [hwForm,setHwForm]=useState({title:"",description:"",dueDate:""});
-  const [schedForm,setSchedForm]=useState({dayOfWeek:"1",time:"10:00",subject:"Математика",duration:"60"});
+  const [hwForm,setHwForm]=useState({title:"",description:"",dueDate:"",userId:""});
+  const [schedForm,setSchedForm]=useState({dayOfWeek:"1",time:"10:00",subject:"Математика",duration:"60",userId:""});
   const [sidebarOpen,setSidebarOpen]=useState(false);
 
   const isTeacher=user?.role==="teacher"||user?.role==="admin";
   const isAdmin=user?.role==="admin";
   const today=new Date();
   const statusObj=STUDENT_STATUSES.find(s=>s.value===user?.status)||STUDENT_STATUSES[1];
+  const [students,setStudents]=useState([]);
+  const [hwImageFile,setHwImageFile]=useState(null);
+  const [hwImagePreview,setHwImagePreview]=useState("");
 
   useEffect(()=>{
     const load=async()=>{
       try{
-        const [scS,hwS]=await Promise.all([getDocs(collection(db,"schedule")),getDocs(collection(db,"homework"))]);
-        setSchedule(scS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.time?.localeCompare(b.time)));
-        setHomework(hwS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.dueDate?.localeCompare(b.dueDate)));
+        const [scS,hwS,uS]=await Promise.all([getDocs(collection(db,"schedule")),getDocs(collection(db,"homework")),isAdmin?getDocs(collection(db,"users")):Promise.resolve({docs:[]})]);
+        const allSc=scS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.time?.localeCompare(b.time));
+        const allHw=hwS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.dueDate?.localeCompare(b.dueDate));
+        // Filter: show items where userId matches current user OR no userId (global)
+        setSchedule(isAdmin?allSc:allSc.filter(s=>!s.userId||s.userId===user?.phone));
+        setHomework(isAdmin?allHw:allHw.filter(h=>!h.userId||h.userId===user?.phone));
+        if(isAdmin) setStudents(uS.docs.map(d=>({id:d.id,...d.data()})));
       }catch(e){console.error(e);}
       setLoadingData(false);
     };
     load();
   },[]);
 
+  const handleHwImageChange=e=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    setHwImageFile(file);
+    setHwImagePreview(URL.createObjectURL(file));
+  };
+
   const addHomework=async e=>{
     e.preventDefault();
-    try{const data={...hwForm,createdAt:new Date().toISOString()}; const ref=await addDoc(collection(db,"homework"),data); setHomework(p=>[...p,{id:ref.id,...data}].sort((a,b)=>a.dueDate?.localeCompare(b.dueDate))); setHwForm({title:"",description:"",dueDate:""}); setShowHwForm(false);}
-    catch{alert("Ошибка.");}
+    try{
+      let imageUrl="";
+      if(hwImageFile){
+        const ref=storageRef(storage,`homework/${Date.now()}_${hwImageFile.name}`);
+        await uploadBytes(ref,hwImageFile);
+        imageUrl=await getDownloadURL(ref);
+      }
+      const data={...hwForm,imageUrl,createdAt:new Date().toISOString()};
+      const docRef=await addDoc(collection(db,"homework"),data);
+      setHomework(p=>[...p,{id:docRef.id,...data}].sort((a,b)=>a.dueDate?.localeCompare(b.dueDate)));
+      setHwForm({title:"",description:"",dueDate:"",userId:""});
+      setHwImageFile(null);setHwImagePreview("");
+      setShowHwForm(false);
+    }catch(e){alert("Ошибка: "+e.message);}
   };
   const addSchedule=async e=>{
     e.preventDefault();
-    try{const ref=await addDoc(collection(db,"schedule"),schedForm); setSchedule(p=>[...p,{id:ref.id,...schedForm}].sort((a,b)=>a.time?.localeCompare(b.time))); setSchedForm({dayOfWeek:"1",time:"10:00",subject:"Математика",duration:"60"}); setShowSchedForm(false);}
+    try{const ref=await addDoc(collection(db,"schedule"),schedForm); setSchedule(p=>[...p,{id:ref.id,...schedForm}].sort((a,b)=>a.time?.localeCompare(b.time))); setSchedForm({dayOfWeek:"1",time:"10:00",subject:"Математика",duration:"60",userId:""}); setShowSchedForm(false);}
     catch{alert("Ошибка.");}
   };
   const delHw=async id=>{try{await deleteDoc(doc(db,"homework",id)); setHomework(p=>p.filter(h=>h.id!==id));}catch{alert("Ошибка.");}};
@@ -2078,7 +2128,7 @@ function DashboardScreen({ user, onOpenDiagnostics, onViewPlan, onOpenAdmin }) {
                   {homework.map((hw,i)=>{
                     const due=new Date(hw.dueDate+"T23:59:59"),isOv=due<today,dl=Math.ceil((due-today)/(864e5));
                     return(<div key={i} className={`hw-card ${isOv?"overdue":""}`}>
-                      <div className="hw-card-left"><div className="hw-title">{hw.title}</div>{hw.description&&<div className="hw-desc">{hw.description}</div>}</div>
+                      <div className="hw-card-left"><div className="hw-title">{hw.title}</div>{hw.description&&<div className="hw-desc">{hw.description}</div>}{hw.imageUrl&&<img src={hw.imageUrl} alt="ДЗ" style={{marginTop:8,maxWidth:"100%",maxHeight:200,borderRadius:8,objectFit:"cover",border:`1px solid ${THEME.border}`}}/>}</div>
                       <div className="hw-card-right">
                         <span className={`due-badge ${isOv?"overdue":dl<=2?"soon":""}`}>{isOv?"Просрочено":dl===0?"Сегодня":dl===1?"Завтра":`До ${due.toLocaleDateString("ru-RU",{day:"numeric",month:"short"})}`}</span>
                         {isTeacher&&<button className="del-btn-hw" onClick={()=>delHw(hw.id)}>×</button>}
@@ -2099,6 +2149,7 @@ function DashboardScreen({ user, onOpenDiagnostics, onViewPlan, onOpenAdmin }) {
       {showSchedForm&&<div className="modal-overlay" onClick={()=>setShowSchedForm(false)}><div className="modal-card" onClick={e=>e.stopPropagation()}>
         <div className="modal-title">Добавить занятие</div>
         <form onSubmit={addSchedule}>
+          {isAdmin&&<div className="input-group"><label className="input-label">Ученик</label><select className="input-field" value={schedForm.userId} onChange={e=>setSchedForm(p=>({...p,userId:e.target.value}))}><option value="">Все ученики</option>{students.map(s=><option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}</select></div>}
           <div className="input-group"><label className="input-label">День недели</label><select className="input-field" value={schedForm.dayOfWeek} onChange={e=>setSchedForm(p=>({...p,dayOfWeek:e.target.value}))}>{DAY_NAMES_FULL.map((d,i)=><option key={i} value={String(i+1)}>{d}</option>)}</select></div>
           <div className="input-group"><label className="input-label">Время</label><input type="time" className="input-field" value={schedForm.time} onChange={e=>setSchedForm(p=>({...p,time:e.target.value}))} required/></div>
           <div className="input-group"><label className="input-label">Предмет</label><input type="text" className="input-field" value={schedForm.subject} onChange={e=>setSchedForm(p=>({...p,subject:e.target.value}))} required/></div>
@@ -2110,10 +2161,16 @@ function DashboardScreen({ user, onOpenDiagnostics, onViewPlan, onOpenAdmin }) {
       {showHwForm&&<div className="modal-overlay" onClick={()=>setShowHwForm(false)}><div className="modal-card" onClick={e=>e.stopPropagation()}>
         <div className="modal-title">Добавить домашнее задание</div>
         <form onSubmit={addHomework}>
+          {isAdmin&&<div className="input-group"><label className="input-label">Ученик</label><select className="input-field" value={hwForm.userId} onChange={e=>setHwForm(p=>({...p,userId:e.target.value}))}><option value="">Все ученики</option>{students.map(s=><option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}</select></div>}
           <div className="input-group"><label className="input-label">Название</label><input type="text" className="input-field" value={hwForm.title} onChange={e=>setHwForm(p=>({...p,title:e.target.value}))} required/></div>
           <div className="input-group"><label className="input-label">Описание</label><textarea className="input-field" value={hwForm.description} onChange={e=>setHwForm(p=>({...p,description:e.target.value}))} rows={3} style={{resize:"vertical"}}/></div>
+          <div className="input-group">
+            <label className="input-label">Изображение (необязательно)</label>
+            <input type="file" accept="image/*" onChange={handleHwImageChange} style={{display:"block",marginBottom:8}}/>
+            {hwImagePreview&&<img src={hwImagePreview} alt="preview" style={{maxWidth:"100%",maxHeight:160,borderRadius:8,objectFit:"cover"}}/>}
+          </div>
           <div className="input-group"><label className="input-label">Срок сдачи</label><input type="date" className="input-field" value={hwForm.dueDate} onChange={e=>setHwForm(p=>({...p,dueDate:e.target.value}))} required/></div>
-          <div style={{display:"flex",gap:12}}><button type="button" className="cta-button" style={{background:"#fff",border:`1px solid ${THEME.border}`,color:THEME.text}} onClick={()=>setShowHwForm(false)}>Отмена</button><button type="submit" className="cta-button active">Добавить</button></div>
+          <div style={{display:"flex",gap:12}}><button type="button" className="cta-button" style={{background:"#fff",border:`1px solid ${THEME.border}`,color:THEME.text}} onClick={()=>{setShowHwForm(false);setHwImageFile(null);setHwImagePreview("");}}>Отмена</button><button type="submit" className="cta-button active">Добавить</button></div>
         </form>
       </div></div>}
     </div>
@@ -2183,7 +2240,10 @@ export default function App() {
           `📝 <b>Ответы:</b>`
         ];
         next.forEach((a,i)=>{
-          lines.push(`${i+1}. ${a.correct?"✅":"❌"} <i>${a.topic}</i> [${a.section}] — увер: ${a.confidence??"-"}/5, ${a.timeSpent}с`);
+          lines.push(`\n${i+1}. ${a.correct?"✅":"❌"} <b>${a.topic}</b> [${a.section}]`);
+          if(a.questionText) lines.push(`   📝 <i>${a.questionText}</i>`);
+          if(a.options?.length) a.options.forEach((o,oi)=>lines.push(`   ${String.fromCharCode(65+oi)}) ${o}`));
+          lines.push(`   ➤ Ответ ученика: <b>${a.selectedAnswer||"—"}</b> | Увер: ${a.confidence??"-"}/5 | ${a.timeSpent}с`);
         });
         tgSend(lines.join("\n"));
       }catch(e){console.error("Ошибка сохранения:",e);}
