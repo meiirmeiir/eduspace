@@ -93,8 +93,14 @@ function AuthScreen({ onRegister }) {
   const [mainGoal,setMainGoal]=useState("");
   const [specificGoal,setSpecificGoal]=useState("");
 
-  const handlePhone = e => { let v=e.target.value; if(v.length<3||!v.startsWith("+7 "))v="+7 "; setPhone(v); };
-  const phoneOk = phone.replace(/\s+/g,"").length>=11;
+  const handlePhone = e => {
+    let v = e.target.value;
+    if (!v.startsWith("+7 ")) { setPhone("+7 "); return; }
+    // Allow only digits after "+7 ", max 10 digits
+    const digits = v.slice(3).replace(/\D/g,"").slice(0,10);
+    setPhone("+7 " + digits);
+  };
+  const phoneOk = phone.replace(/\D/g,"").length===11;
 
   const checkUser = async e => {
     e.preventDefault(); const cp=phone.replace(/\s+/g,"");
@@ -860,6 +866,128 @@ function AdminScreen({ onBack }) {
   );
 }
 
+// ── ПРОФИЛЬ ───────────────────────────────────────────────────────────────────
+function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan }) {
+  const [results,setResults]=useState([]);
+  const [loading,setLoading]=useState(true);
+
+  useEffect(()=>{
+    const load=async()=>{
+      try{
+        const snap=await getDocs(collection(db,"diagnosticResults"));
+        const all=snap.docs.map(d=>({id:d.id,...d.data()}));
+        const mine=all.filter(r=>r.userPhone===user?.phone).sort((a,b)=>b.completedAt?.localeCompare(a.completedAt));
+        setResults(mine);
+      }catch(e){console.error(e);}
+      setLoading(false);
+    };
+    load();
+  },[user?.phone]);
+
+  const totalDiag=results.length;
+  const avgScore=totalDiag>0?Math.round(results.reduce((s,r)=>s+r.score,0)/totalDiag):0;
+  const totalSec=results.reduce((s,r)=>s+(r.totalTime||0),0);
+  const totalMin=Math.floor(totalSec/60);
+  const totalHr=Math.floor(totalMin/60);
+  const timeLabel=totalHr>0?`${totalHr} ч ${totalMin%60} мин`:`${totalMin} мин ${totalSec%60} сек`;
+
+  // Collect all weak topics across all attempts
+  const weakMap={};
+  results.forEach(r=>(r.weakTopics||[]).forEach(t=>{
+    const key=`${t.section}|${t.topic}`;
+    weakMap[key]=(weakMap[key]||0)+1;
+  }));
+  const topWeak=Object.entries(weakMap).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,cnt])=>{const[sec,topic]=k.split("|");return{sec,topic,cnt};});
+
+  const fmtTime=sec=>{const m=Math.floor(sec/60),s=sec%60;return m>0?`${m} мин ${s} с`:`${s} с`;};
+
+  return(
+    <div>
+      <div className="dashboard-header"><h1>Личный кабинет</h1></div>
+      {/* Profile card */}
+      <div className="dashboard-section">
+        <div className="profile-card">
+          <div className="profile-avatar">{user?.firstName?.[0]}{user?.lastName?.[0]}</div>
+          <div className="profile-info">
+            <div className="profile-name">{user?.firstName} {user?.lastName}</div>
+            <div className="profile-phone">{user?.phone}</div>
+            <span style={{display:"inline-block",background:statusObj.color+"18",color:statusObj.color,fontWeight:700,fontSize:12,padding:"4px 14px",borderRadius:99,border:`1px solid ${statusObj.color}30`,marginBottom:10}}>{statusObj.label}</span>
+            <div className="profile-goal-tag">{user?.goal}</div>
+            <div className="profile-detail">{user?.details}</div>
+            <div className="profile-date">Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
+          </div>
+        </div>
+        <div className="profile-actions">
+          <button className="cta-button active" style={{width:"auto",padding:"14px 28px"}} onClick={onOpenDiagnostics}>🎯 Пройти диагностику</button>
+          <button className="cta-button active" style={{width:"auto",padding:"14px 28px",background:"#fff",color:THEME.primary,border:`1px solid ${THEME.border}`,boxShadow:"none"}} onClick={onViewPlan}>🗺️ Мой план обучения</button>
+        </div>
+      </div>
+
+      {/* Stats summary */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:24}}>
+        <div className="stat-card"><div className="stat-icon">📋</div><div><div className="stat-value">{totalDiag}</div><div className="stat-label">диагностик пройдено</div></div></div>
+        <div className="stat-card"><div className="stat-icon">✅</div><div><div className="stat-value">{avgScore}%</div><div className="stat-label">средний результат</div></div></div>
+        <div className="stat-card"><div className="stat-icon">⏱️</div><div><div className="stat-value" style={{fontSize:totalHr>0?16:22}}>{totalDiag>0?timeLabel:"—"}</div><div className="stat-label">всего потрачено</div></div></div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:24}}>
+        {/* History */}
+        <div className="dashboard-section" style={{marginBottom:0}}>
+          <h2 className="section-title" style={{marginBottom:20}}>📊 История диагностик</h2>
+          {loading&&<div className="empty-state" style={{padding:"24px 0"}}>Загрузка...</div>}
+          {!loading&&results.length===0&&<div className="empty-state" style={{padding:"24px 0"}}>Диагностик ещё не пройдено</div>}
+          {!loading&&results.length>0&&(
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {results.map((r,i)=>{
+                const pct=r.score||0;
+                const color=pct>=80?THEME.success:pct>=60?THEME.warning:THEME.error;
+                return(
+                  <div key={r.id} style={{padding:"14px 16px",borderRadius:12,background:THEME.bg,border:`1px solid ${THEME.border}`,borderLeft:`4px solid ${color}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:13,color:THEME.primary,marginBottom:3}}>{new Date(r.completedAt).toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"})}</div>
+                        <div style={{fontSize:12,color:THEME.textLight}}>{r.totalQuestions} вопросов · {fmtTime(r.totalTime||0)}</div>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{width:44,height:44,borderRadius:10,background:color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14}}>{pct}%</div>
+                      </div>
+                    </div>
+                    {/* Mini progress bar */}
+                    <div style={{marginTop:10,height:4,borderRadius:99,background:THEME.border,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:`${pct}%`,background:color,borderRadius:99}}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Weak topics */}
+        <div className="dashboard-section" style={{marginBottom:0}}>
+          <h2 className="section-title" style={{marginBottom:20}}>🔍 Темы для проработки</h2>
+          {loading&&<div className="empty-state" style={{padding:"24px 0"}}>Загрузка...</div>}
+          {!loading&&topWeak.length===0&&<div className="empty-state" style={{padding:"24px 0"}}>{results.length===0?"Пройдите диагностику, чтобы увидеть рекомендации":"Отличный результат — слабых тем не найдено!"}</div>}
+          {!loading&&topWeak.length>0&&(
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {topWeak.map((t,i)=>(
+                <div key={i} style={{padding:"14px 16px",borderRadius:12,background:THEME.bg,border:`1px solid ${THEME.border}`,display:"flex",alignItems:"center",gap:14}}>
+                  <div style={{width:32,height:32,borderRadius:8,background:THEME.error+"15",color:THEME.error,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,flexShrink:0}}>#{i+1}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:700,fontSize:14,color:THEME.primary,marginBottom:2}}>{t.topic}</div>
+                    <div style={{fontSize:11,color:THEME.textLight,textTransform:"uppercase",letterSpacing:"0.5px"}}>{t.sec}</div>
+                  </div>
+                  <div style={{flexShrink:0,fontSize:12,color:THEME.textLight,fontWeight:600}}>{t.cnt}× ошибок</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function DashboardScreen({ user, onOpenDiagnostics, onViewPlan, onOpenAdmin }) {
   const [activeSection,setActiveSection]=useState("home");
@@ -989,26 +1117,7 @@ function DashboardScreen({ user, onOpenDiagnostics, onViewPlan, onOpenAdmin }) {
         )}
 
         {activeSection==="profile"&&(
-          <div>
-            <div className="dashboard-header"><h1>Личный кабинет</h1></div>
-            <div className="dashboard-section">
-              <div className="profile-card">
-                <div className="profile-avatar">{user?.firstName?.[0]}{user?.lastName?.[0]}</div>
-                <div className="profile-info">
-                  <div className="profile-name">{user?.firstName} {user?.lastName}</div>
-                  <div className="profile-phone">{user?.phone}</div>
-                  <span style={{display:"inline-block",background:statusObj.color+"18",color:statusObj.color,fontWeight:700,fontSize:12,padding:"4px 14px",borderRadius:99,border:`1px solid ${statusObj.color}30`,marginBottom:10}}>{statusObj.label}</span>
-                  <div className="profile-goal-tag">{user?.goal}</div>
-                  <div className="profile-detail">{user?.details}</div>
-                  <div className="profile-date">Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
-                </div>
-              </div>
-              <div className="profile-actions">
-                <button className="cta-button active" style={{width:"auto",padding:"14px 28px"}} onClick={onOpenDiagnostics}>🎯 Пройти диагностику</button>
-                <button className="cta-button active" style={{width:"auto",padding:"14px 28px",background:THEME.surface,color:THEME.primary,border:`1px solid ${THEME.border}`,boxShadow:"none"}} onClick={onViewPlan}>🗺️ Мой план обучения</button>
-              </div>
-            </div>
-          </div>
+          <ProfileSection user={user} statusObj={statusObj} onOpenDiagnostics={onOpenDiagnostics} onViewPlan={onViewPlan}/>
         )}
       </main>
 
@@ -1062,11 +1171,32 @@ export default function App() {
     setQIndex(0);setAnswers([]);setScreen("question");
   };
 
-  const handleAnswer=data=>{
+  const handleAnswer=async data=>{
     const next=[...answers,data];
     setAnswers(next);
-    if(qIndex+1<questions.length)setQIndex(qIndex+1);
-    else{setReport({answers:next});setScreen("report");}
+    if(qIndex+1<questions.length){
+      setQIndex(qIndex+1);
+    } else {
+      const finalReport={answers:next};
+      setReport(finalReport);
+      // Save result to Firestore
+      try{
+        const correct=next.filter(a=>a.correct).length;
+        const totalTime=next.reduce((s,a)=>s+(a.timeSpent||0),0);
+        const weakTopics=next.filter(a=>!a.correct).map(a=>({topic:a.topic,section:a.section}));
+        await addDoc(collection(db,"diagnosticResults"),{
+          userPhone:user?.phone,
+          userName:`${user?.firstName} ${user?.lastName}`,
+          completedAt:new Date().toISOString(),
+          totalQuestions:next.length,
+          correctAnswers:correct,
+          score:Math.round((correct/next.length)*100),
+          totalTime,
+          weakTopics,
+        });
+      }catch(e){console.error("Ошибка сохранения результата:",e);}
+      setScreen("report");
+    }
   };
 
   return(
