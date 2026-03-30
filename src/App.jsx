@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc,
@@ -17,7 +17,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY || "";
+const ANTHROPIC_KEY   = import.meta.env.VITE_ANTHROPIC_KEY   || "";
+const TELEGRAM_TOKEN  = import.meta.env.VITE_TELEGRAM_TOKEN  || "";
+const TELEGRAM_CHAT   = import.meta.env.VITE_TELEGRAM_CHAT   || "";
 
 // ── КОНСТАНТЫ ─────────────────────────────────────────────────────────────────
 const FALLBACK_QUESTIONS = [
@@ -120,6 +122,29 @@ ${ctx}
   return JSON.parse(match[0]);
 }
 
+// ── TELEGRAM ──────────────────────────────────────────────────────────────────
+async function tgSend(text) {
+  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT || TELEGRAM_TOKEN==="your_bot_token_here") return;
+  try {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({chat_id:TELEGRAM_CHAT, text, parse_mode:"HTML"})
+    });
+  } catch(e){ console.warn("Telegram sendMessage:", e); }
+}
+async function tgPhoto(file, caption) {
+  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT || TELEGRAM_TOKEN==="your_bot_token_here") return;
+  try {
+    const form = new FormData();
+    form.append("chat_id", TELEGRAM_CHAT);
+    form.append("photo", file);
+    if (caption) form.append("caption", caption.slice(0,1024));
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, {
+      method:"POST", body: form
+    });
+  } catch(e){ console.warn("Telegram sendPhoto:", e); }
+}
+
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
 const getSpecificList = (goalKey) => goalKey === "exam" ? EXAMS_LIST : goalKey === "gaps" || goalKey === "future" ? GRADES_LIST : [];
@@ -158,6 +183,8 @@ function AuthScreen({ onRegister }) {
   const [lastName,setLastName]=useState("");
   const [mainGoal,setMainGoal]=useState("");
   const [specificGoal,setSpecificGoal]=useState("");
+  const [foundUser,setFoundUser]=useState(null);
+  const [password,setPassword]=useState("");
 
   const handlePhone = e => {
     let v = e.target.value;
@@ -172,9 +199,22 @@ function AuthScreen({ onRegister }) {
     e.preventDefault(); const cp=phone.replace(/\s+/g,"");
     if(cp.length<11){alert("Введите корректный номер.");return;}
     setLoading(true);
-    try { const snap=await getDoc(doc(db,"users",cp)); if(snap.exists())onRegister(snap.data()); else setStep(2); }
+    try {
+      const snap=await getDoc(doc(db,"users",cp));
+      if(snap.exists()){
+        const data=snap.data();
+        if(data.password && data.status!=="trial"){ setFoundUser(data); setStep(3); }
+        else onRegister(data);
+      } else setStep(2);
+    }
     catch{ alert("Ошибка соединения."); }
     setLoading(false);
+  };
+
+  const checkPassword = e => {
+    e.preventDefault();
+    if(password===foundUser.password) onRegister(foundUser);
+    else { alert("Неверный пароль. Попробуйте ещё раз."); setPassword(""); }
   };
 
   const register = async e => {
@@ -205,33 +245,47 @@ function AuthScreen({ onRegister }) {
       </div>
       <div className="split-right">
         <div className="form-card">
-          <div className="form-header"><h2>{step===1?"Войти в систему":"Создать профиль"}</h2><p>{step===1?"Введите номер WhatsApp для входа.":"Мы вас не нашли. Давайте познакомимся!"}</p></div>
-          <form onSubmit={step===1?checkUser:register}>
-            <div className="input-group"><label className="input-label">Номер WhatsApp</label><input type="tel" className="input-field" value={phone} onChange={handlePhone} disabled={step===2||loading} placeholder="+7 700 000 00 00" required/></div>
-            {step===2&&(<div className="scale-in">
-              <div className="form-row">
-                <div className="input-group" style={{marginBottom:0}}><label className="input-label">Имя</label><input type="text" className="input-field" value={firstName} onChange={e=>setFirstName(e.target.value)} required/></div>
-                <div className="input-group" style={{marginBottom:0}}><label className="input-label">Фамилия</label><input type="text" className="input-field" value={lastName} onChange={e=>setLastName(e.target.value)} required/></div>
+          <div className="form-header">
+            <h2>{step===1?"Войти в систему":step===2?"Создать профиль":"Введите пароль"}</h2>
+            <p>{step===1?"Введите номер WhatsApp для входа.":step===2?"Мы вас не нашли. Давайте познакомимся!":"Ваш аккаунт защищён паролем."}</p>
+          </div>
+          {step===3?(
+            <form onSubmit={checkPassword}>
+              <div className="input-group">
+                <label className="input-label">Пароль</label>
+                <input type="password" className="input-field" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Введите пароль..." autoFocus required/>
               </div>
-              <div className="input-group" style={{marginTop:20}}>
-                <label className="input-label">Цель обучения</label>
-                <select className="input-field" value={mainGoal} onChange={e=>{setMainGoal(e.target.value);setSpecificGoal("");}} required>
-                  <option value="" disabled>Выберите...</option>
-                  {Object.entries(REG_GOALS).map(([k,v])=><option key={k} value={k}>{v}</option>)}
-                </select>
-              </div>
-              {mainGoal&&<div className="input-group scale-in">
-                <label className="input-label">{mainGoal==="exam"?"Какой экзамен?":"Класс"}</label>
-                <select className="input-field" value={specificGoal} onChange={e=>setSpecificGoal(e.target.value)} required>
-                  <option value="" disabled>Выберите...</option>
-                  {getSpecificList(mainGoal).map(x=><option key={x} value={x}>{x}</option>)}
-                </select>
-              </div>}
-            </div>)}
-            <button type="submit" className={`cta-button ${phoneOk?"active":""}`} disabled={loading||!phoneOk}>
-              {loading?"Загрузка...":(step===1?"Войти →":"Создать аккаунт →")}
-            </button>
-          </form>
+              <button type="submit" className={`cta-button ${password?"active":""}`} disabled={!password}>Войти →</button>
+              <button type="button" style={{width:"100%",marginTop:10,padding:"12px",borderRadius:8,border:`1px solid ${THEME.border}`,background:"transparent",color:THEME.textLight,fontFamily:"'Montserrat',sans-serif",fontWeight:600,fontSize:13,cursor:"pointer"}} onClick={()=>{setStep(1);setFoundUser(null);setPassword("");}}>← Назад</button>
+            </form>
+          ):(
+            <form onSubmit={step===1?checkUser:register}>
+              <div className="input-group"><label className="input-label">Номер WhatsApp</label><input type="tel" className="input-field" value={phone} onChange={handlePhone} disabled={step===2||loading} placeholder="+7 700 000 00 00" required/></div>
+              {step===2&&(<div className="scale-in">
+                <div className="form-row">
+                  <div className="input-group" style={{marginBottom:0}}><label className="input-label">Имя</label><input type="text" className="input-field" value={firstName} onChange={e=>setFirstName(e.target.value)} required/></div>
+                  <div className="input-group" style={{marginBottom:0}}><label className="input-label">Фамилия</label><input type="text" className="input-field" value={lastName} onChange={e=>setLastName(e.target.value)} required/></div>
+                </div>
+                <div className="input-group" style={{marginTop:20}}>
+                  <label className="input-label">Цель обучения</label>
+                  <select className="input-field" value={mainGoal} onChange={e=>{setMainGoal(e.target.value);setSpecificGoal("");}} required>
+                    <option value="" disabled>Выберите...</option>
+                    {Object.entries(REG_GOALS).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+                {mainGoal&&<div className="input-group scale-in">
+                  <label className="input-label">{mainGoal==="exam"?"Какой экзамен?":"Класс"}</label>
+                  <select className="input-field" value={specificGoal} onChange={e=>setSpecificGoal(e.target.value)} required>
+                    <option value="" disabled>Выберите...</option>
+                    {getSpecificList(mainGoal).map(x=><option key={x} value={x}>{x}</option>)}
+                  </select>
+                </div>}
+              </div>)}
+              <button type="submit" className={`cta-button ${phoneOk?"active":""}`} disabled={loading||!phoneOk}>
+                {loading?"Загрузка...":(step===1?"Войти →":"Создать аккаунт →")}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
@@ -582,6 +636,8 @@ function UploadAnalysisScreen({ answers, user, resultId, onDone, onSkip }) {
           reader.onerror = rej;
           reader.readAsDataURL(f);
         });
+        // Отправка фото в Telegram
+        tgPhoto(f, `📷 Решение ученика\n👤 ${user?.firstName} ${user?.lastName} (${user?.phone})\nФото ${i+1} из ${files.length}`);
         const result = await analyzePhoto(base64, f.type || "image/jpeg", answers);
         allTopics.push(...(result.topics || []));
       }
@@ -1076,9 +1132,27 @@ function AdminScreen({ onBack }) {
   });
 
   // ─ Students ─
+  const [editingPwdFor,setEditingPwdFor]=useState(null);
+  const [newPwd,setNewPwd]=useState("");
+
   const updateStatus=async(phone,status)=>{
     try{await updateDoc(doc(db,"users",phone),{status}); setStudents(p=>p.map(s=>s.id===phone?{...s,status}:s));}
     catch{alert("Ошибка.");}
+  };
+  const savePassword=async(phone)=>{
+    if(!newPwd.trim()){alert("Введите пароль.");return;}
+    try{
+      await updateDoc(doc(db,"users",phone),{password:newPwd.trim()});
+      setStudents(p=>p.map(s=>s.id===phone?{...s,password:newPwd.trim()}:s));
+      setEditingPwdFor(null);setNewPwd("");
+    }catch{alert("Ошибка.");}
+  };
+  const removePassword=async(phone)=>{
+    if(!confirm("Убрать пароль? Ученик сможет войти без него."))return;
+    try{
+      await updateDoc(doc(db,"users",phone),{password:null});
+      setStudents(p=>p.map(s=>s.id===phone?{...s,password:null}:s));
+    }catch{alert("Ошибка.");}
   };
 
   const TABS=[{id:"sections",label:"📂 Разделы"},{id:"questions",label:"❓ Вопросы"},{id:"students",label:"👥 Ученики"}];
@@ -1364,27 +1438,56 @@ function AdminScreen({ onBack }) {
               <div style={{background:"#fff",borderRadius:16,border:`1px solid ${THEME.border}`,overflow:"hidden"}}>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
                   <thead><tr style={{background:THEME.bg,borderBottom:`1px solid ${THEME.border}`}}>
-                    {["Ученик","Телефон","Цель","Детали","Статус"].map(h=><th key={h} style={{padding:"12px 20px",textAlign:"left",fontSize:11,fontWeight:700,color:THEME.textLight,textTransform:"uppercase",letterSpacing:"0.5px"}}>{h}</th>)}
+                    {["Ученик","Телефон","Цель","Детали","Статус","Пароль"].map(h=><th key={h} style={{padding:"12px 20px",textAlign:"left",fontSize:11,fontWeight:700,color:THEME.textLight,textTransform:"uppercase",letterSpacing:"0.5px"}}>{h}</th>)}
                   </tr></thead>
                   <tbody>
                     {students.map((s,i)=>{
                       const st=STUDENT_STATUSES.find(x=>x.value===s.status)||STUDENT_STATUSES[1];
-                      return(<tr key={s.id} style={{borderBottom:`1px solid ${THEME.border}`,background:i%2===0?"#fff":THEME.bg+"80"}}>
-                        <td style={{padding:"14px 20px"}}>
-                          <div style={{display:"flex",alignItems:"center",gap:10}}>
-                            <div style={{width:36,height:36,borderRadius:"50%",background:THEME.primary,color:THEME.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,flexShrink:0}}>{s.firstName?.[0]}{s.lastName?.[0]}</div>
-                            <div><div style={{fontWeight:700,color:THEME.primary,fontSize:14}}>{s.firstName} {s.lastName}</div><div style={{fontSize:11,color:THEME.textLight}}>{s.registeredAt?new Date(s.registeredAt).toLocaleDateString("ru-RU"):""}</div></div>
-                          </div>
-                        </td>
-                        <td style={{padding:"14px 20px",fontSize:13,color:THEME.textLight}}>{s.phone}</td>
-                        <td style={{padding:"14px 20px",fontSize:13}}>{s.goal}</td>
-                        <td style={{padding:"14px 20px",fontSize:13}}>{s.details}</td>
-                        <td style={{padding:"14px 20px"}}>
-                          <select value={s.status||"trial"} onChange={e=>updateStatus(s.id,e.target.value)} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${st.color}`,background:st.color+"18",color:st.color,fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:13,cursor:"pointer",outline:"none"}}>
-                            {STUDENT_STATUSES.map(x=><option key={x.value} value={x.value}>{x.label}</option>)}
-                          </select>
-                        </td>
-                      </tr>);
+                      const isTrial=s.status==="trial"||!s.status;
+                      return(
+                        <React.Fragment key={s.id}>
+                          <tr style={{borderBottom:editingPwdFor===s.id?"none":`1px solid ${THEME.border}`,background:i%2===0?"#fff":THEME.bg+"80"}}>
+                            <td style={{padding:"14px 20px"}}>
+                              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                                <div style={{width:36,height:36,borderRadius:"50%",background:THEME.primary,color:THEME.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,flexShrink:0}}>{s.firstName?.[0]}{s.lastName?.[0]}</div>
+                                <div><div style={{fontWeight:700,color:THEME.primary,fontSize:14}}>{s.firstName} {s.lastName}</div><div style={{fontSize:11,color:THEME.textLight}}>{s.registeredAt?new Date(s.registeredAt).toLocaleDateString("ru-RU"):""}</div></div>
+                              </div>
+                            </td>
+                            <td style={{padding:"14px 20px",fontSize:13,color:THEME.textLight}}>{s.phone}</td>
+                            <td style={{padding:"14px 20px",fontSize:13}}>{s.goal}</td>
+                            <td style={{padding:"14px 20px",fontSize:13}}>{s.details}</td>
+                            <td style={{padding:"14px 20px"}}>
+                              <select value={s.status||"trial"} onChange={e=>updateStatus(s.id,e.target.value)} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${st.color}`,background:st.color+"18",color:st.color,fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:13,cursor:"pointer",outline:"none"}}>
+                                {STUDENT_STATUSES.map(x=><option key={x.value} value={x.value}>{x.label}</option>)}
+                              </select>
+                            </td>
+                            <td style={{padding:"14px 20px"}}>
+                              {isTrial?(
+                                <span style={{fontSize:11,color:THEME.textLight,fontStyle:"italic"}}>Недоступно</span>
+                              ):s.password?(
+                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                                  <span style={{fontSize:12,color:THEME.success,fontWeight:700}}>🔒 Задан</span>
+                                  <button onClick={()=>{setEditingPwdFor(s.id);setNewPwd("");}} style={{fontSize:11,padding:"3px 8px",borderRadius:6,border:`1px solid ${THEME.border}`,background:"transparent",color:THEME.textLight,cursor:"pointer"}}>Изменить</button>
+                                  <button onClick={()=>removePassword(s.id)} style={{fontSize:11,padding:"3px 8px",borderRadius:6,border:`1px solid ${THEME.error}`,background:"transparent",color:THEME.error,cursor:"pointer"}}>Убрать</button>
+                                </div>
+                              ):(
+                                <button onClick={()=>{setEditingPwdFor(s.id);setNewPwd("");}} style={{fontSize:12,padding:"5px 12px",borderRadius:8,border:`1px solid ${THEME.accent}`,background:"rgba(212,175,55,0.08)",color:"#92680e",cursor:"pointer",fontWeight:700}}>🔑 Задать</button>
+                              )}
+                            </td>
+                          </tr>
+                          {editingPwdFor===s.id&&(
+                            <tr style={{borderBottom:`1px solid ${THEME.border}`,background:"rgba(212,175,55,0.04)"}}>
+                              <td colSpan={6} style={{padding:"12px 20px"}}>
+                                <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                                  <input type="password" value={newPwd} onChange={e=>setNewPwd(e.target.value)} placeholder="Новый пароль..." className="input-field" style={{maxWidth:260,margin:0,padding:"8px 12px"}} autoFocus onKeyDown={e=>{if(e.key==="Enter")savePassword(s.id);if(e.key==="Escape"){setEditingPwdFor(null);setNewPwd("");}}}/>
+                                  <button onClick={()=>savePassword(s.id)} className="cta-button active" style={{width:"auto",padding:"8px 18px",fontSize:13}}>Сохранить</button>
+                                  <button onClick={()=>{setEditingPwdFor(null);setNewPwd("");}} style={{fontSize:13,padding:"8px 14px",borderRadius:8,border:`1px solid ${THEME.border}`,background:"transparent",color:THEME.textLight,cursor:"pointer"}}>Отмена</button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
                     })}
                   </tbody>
                 </table>
@@ -1727,6 +1830,19 @@ export default function App() {
           answers: next.map(a=>({topic:a.topic,section:a.section,correct:a.correct,confidence:a.confidence,timeSpent:a.timeSpent}))
         });
         setLastResultId(ref.id);
+        // Уведомление в Telegram
+        const lines=[
+          `📊 <b>Диагностика завершена</b>`,
+          `👤 <b>${user?.firstName} ${user?.lastName}</b> (${user?.phone})`,
+          `🎯 ${user?.goal} · ${user?.details}`,
+          `✅ Результат: <b>${Math.round((correct/next.length)*100)}%</b> (${correct}/${next.length})`,
+          `⏱ Время: ${Math.floor(totalTime/60)}м ${totalTime%60}с`,``,
+          `📝 <b>Ответы:</b>`
+        ];
+        next.forEach((a,i)=>{
+          lines.push(`${i+1}. ${a.correct?"✅":"❌"} <i>${a.topic}</i> [${a.section}] — увер: ${a.confidence??"-"}/5, ${a.timeSpent}с`);
+        });
+        tgSend(lines.join("\n"));
       }catch(e){console.error("Ошибка сохранения:",e);}
       setScreen("report");
     }
