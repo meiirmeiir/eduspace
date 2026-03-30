@@ -441,13 +441,13 @@ function QuestionScreen({ question, qNum, total, onComplete }) {
   // MCQ state
   const [selected,setSelected]=useState(null);
   const [confidence,setConfidence]=useState(null);
-  const isRevealedMcq = selected!==null && confidence!==null;
+  const mcqReady = selected!==null && confidence!==null;
 
   // Multiple state
   const [multiSelected,setMultiSelected]=useState([]);
   const [multiSubmitted,setMultiSubmitted]=useState(false);
   const [multiConf,setMultiConf]=useState(null);
-  const isRevealedMulti = multiSubmitted && multiConf!==null;
+  const multiReady = multiSubmitted && multiConf!==null;
 
   // Matching state
   const shuffledRights = useMemo(()=>{
@@ -459,12 +459,12 @@ function QuestionScreen({ question, qNum, total, onComplete }) {
 
   useEffect(()=>{setElapsed(0);setSelected(null);setConfidence(null);setMultiSelected([]);setMultiSubmitted(false);setMultiConf(null);setMatchSel({});setMatchSubmitted(false);},[question.id||question.text]);
 
-  const isFullyRevealed = qType==="mcq"?isRevealedMcq : qType==="multiple"?isRevealedMulti : matchSubmitted;
+  const canProceed = qType==="mcq"?mcqReady : qType==="multiple"?multiReady : matchSubmitted;
 
   useEffect(()=>{
-    if(isFullyRevealed)return;
+    if(canProceed)return;
     const t=setInterval(()=>setElapsed(s=>s+1),1000); return ()=>clearInterval(t);
-  },[isFullyRevealed]);
+  },[canProceed]);
 
   const handleNext = ()=>{
     let correct=false;
@@ -498,25 +498,17 @@ function QuestionScreen({ question, qNum, total, onComplete }) {
         <>
           <div className="options-grid">
             {(question.options||[]).map((opt,i)=>{
-              const isSel=selected===i, isCorr=i===question.correct;
-              let cls="";
-              if(isRevealedMcq){if(isCorr)cls="correct";else if(isSel)cls="wrong";else cls="disabled";}
-              else{if(isSel)cls="selected";else if(selected!==null)cls="disabled";}
-              return(<div key={i} className={`option-card ${cls}`} onClick={()=>!isRevealedMcq&&setSelected(i)}>
+              const isSel=selected===i;
+              const cls=isSel?"selected":selected!==null?"disabled":"";
+              return(<div key={i} className={`option-card ${cls}`} onClick={()=>confidence===null&&setSelected(i)}>
                 <div className="option-letter">{String.fromCharCode(65+i)}</div>
                 <div className="option-content">{opt}</div>
-                {isRevealedMcq&&isCorr&&<span>✅</span>}{isRevealedMcq&&isSel&&!isCorr&&<span>❌</span>}
               </div>);
             })}
           </div>
-          {selected!==null&&!isRevealedMcq&&(
+          {selected!==null&&(
             <div className="confidence-section scale-in"><h4>Насколько вы уверены?</h4>
               <div className="confidence-grid">{CONFIDENCE_LEVELS.map(c=><button key={c.v} className={`conf-btn ${confidence?.v===c.v?"active":""}`} style={confidence?.v===c.v?{borderColor:c.color,background:c.color+"10",color:c.color}:{}} onClick={()=>setConfidence(c)}>{c.label}</button>)}</div>
-            </div>
-          )}
-          {isRevealedMcq&&(
-            <div className="confidence-section" style={{background:"#f0fdf4",borderColor:THEME.success}}>
-              <p style={{fontWeight:700,color:"#065f46"}}>Уверенность: {confidence?.label}</p>
             </div>
           )}
         </>
@@ -528,21 +520,18 @@ function QuestionScreen({ question, qNum, total, onComplete }) {
           <p style={{color:THEME.textLight,fontSize:14,marginBottom:16}}>Выберите все правильные ответы</p>
           <div className="options-grid">
             {(question.options||[]).map((opt,i)=>{
-              const isSel=multiSelected.includes(i), isCorr=(question.correctAnswers||[]).includes(i);
-              let cls="";
-              if(multiSubmitted){if(isCorr)cls="correct";else if(isSel)cls="wrong";else cls="disabled";}
-              else{if(isSel)cls="selected";}
+              const isSel=multiSelected.includes(i);
+              const cls=multiSubmitted?(isSel?"selected":"disabled"):(isSel?"selected":"");
               return(<div key={i} className={`option-card ${cls}`} onClick={()=>{if(multiSubmitted)return; setMultiSelected(p=>p.includes(i)?p.filter(x=>x!==i):[...p,i]);}}>
-                <div className="option-letter" style={{borderRadius:4}}>{isSel&&!multiSubmitted?"✓":String.fromCharCode(65+i)}</div>
+                <div className="option-letter" style={{borderRadius:4}}>{isSel?"✓":String.fromCharCode(65+i)}</div>
                 <div className="option-content">{opt}</div>
-                {multiSubmitted&&isCorr&&<span>✅</span>}{multiSubmitted&&isSel&&!isCorr&&<span>❌</span>}
               </div>);
             })}
           </div>
           {!multiSubmitted&&multiSelected.length>0&&(
-            <button className="cta-button active" onClick={()=>setMultiSubmitted(true)} style={{marginBottom:24}}>Проверить ответ</button>
+            <button className="cta-button active" onClick={()=>setMultiSubmitted(true)} style={{marginBottom:24}}>Подтвердить ответ</button>
           )}
-          {multiSubmitted&&!isRevealedMulti&&(
+          {multiSubmitted&&!multiReady&&(
             <div className="confidence-section scale-in"><h4>Насколько вы уверены?</h4>
               <div className="confidence-grid">{CONFIDENCE_LEVELS.map(c=><button key={c.v} className={`conf-btn ${multiConf?.v===c.v?"active":""}`} style={multiConf?.v===c.v?{borderColor:c.color,background:c.color+"10",color:c.color}:{}} onClick={()=>setMultiConf(c)}>{c.label}</button>)}</div>
             </div>
@@ -556,11 +545,9 @@ function QuestionScreen({ question, qNum, total, onComplete }) {
           <p style={{color:THEME.textLight,fontSize:14,marginBottom:20}}>Для каждого элемента слева выберите соответствующий справа</p>
           <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:32}}>
             {(question.pairs||[]).map((pair,i)=>{
-              const selectedRight = matchSel[i];
-              const isCorrect = matchSubmitted && selectedRight===i;
-              const isWrong = matchSubmitted && selectedRight!==undefined && selectedRight!==i;
+              const selectedRight=matchSel[i];
               return(
-                <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:matchSubmitted?(isCorrect?"#ecfdf5":isWrong?"#fef2f2":"#fff"):"#fff",borderRadius:12,border:`1px solid ${matchSubmitted?(isCorrect?THEME.success:isWrong?THEME.error:THEME.border):THEME.border}`,borderWidth:matchSubmitted?2:1}}>
+                <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"#fff",borderRadius:12,border:`1px solid ${THEME.border}`}}>
                   <div style={{flex:1,fontWeight:600,color:THEME.primary,fontSize:15}}>{pair.left}</div>
                   <div style={{color:THEME.textLight,fontWeight:700,fontSize:18}}>→</div>
                   <select value={selectedRight??""} onChange={e=>!matchSubmitted&&setMatchSel(p=>({...p,[i]:Number(e.target.value)}))}
@@ -568,21 +555,16 @@ function QuestionScreen({ question, qNum, total, onComplete }) {
                     <option value="" disabled>Выбрать...</option>
                     {shuffledRights.map((r,ri)=><option key={ri} value={r.originalIndex}>{r.text}</option>)}
                   </select>
-                  {matchSubmitted&&(isCorrect?<span>✅</span>:<span>❌</span>)}
                 </div>
               );
             })}
           </div>
-          {matchSubmitted&&<div style={{background:"#f0fdf4",border:`1px solid ${THEME.success}`,borderRadius:12,padding:"16px 20px",marginBottom:24}}>
-            <strong style={{color:"#065f46"}}>Правильные ответы:</strong>
-            {(question.pairs||[]).map((p,i)=><div key={i} style={{fontSize:13,color:"#065f46",marginTop:4}}>{p.left} → {p.right}</div>)}
-          </div>}
-          {!matchSubmitted&&<button className={`cta-button ${allMatchFilled?"active":""}`} disabled={!allMatchFilled} onClick={()=>setMatchSubmitted(true)} style={{marginBottom:24}}>Проверить соответствие</button>}
+          {!matchSubmitted&&<button className={`cta-button ${allMatchFilled?"active":""}`} disabled={!allMatchFilled} onClick={()=>setMatchSubmitted(true)} style={{marginBottom:24}}>Подтвердить соответствие</button>}
         </>
       )}
 
       <div style={{marginTop:qType==="matching"?0:16}}>
-        <button className={`cta-button ${isFullyRevealed?"active":""}`} disabled={!isFullyRevealed} onClick={handleNext}>
+        <button className={`cta-button ${canProceed?"active":""}`} disabled={!canProceed} onClick={handleNext}>
           {qNum<total?"Следующий вопрос →":"Завершить диагностику"}
         </button>
       </div>
@@ -1825,7 +1807,7 @@ export default function App() {
         });
         tgSend(lines.join("\n"));
       }catch(e){console.error("Ошибка сохранения:",e);}
-      setScreen("report");
+      setScreen("upload");
     }
   };
 
