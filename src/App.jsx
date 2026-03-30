@@ -324,17 +324,32 @@ function AuthScreen({ onRegister }) {
 }
 
 // ── ЭКРАН ВЫБОРА ДИАГНОСТИКИ ──────────────────────────────────────────────────
-function DiagnosticsScreen({ user, onSelectSection, onBack }) {
+function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
   const [sections,setSections]=useState([]);
   const [counts,setCounts]=useState({});
+  const [reportMap,setReportMap]=useState({}); // sectionId → expertReport
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
     const load = async ()=>{
       try {
-        const [secSnap,qSnap]=await Promise.all([getDocs(collection(db,"sections")),getDocs(collection(db,"questions"))]);
+        const [secSnap,qSnap,repSnap,resSnap]=await Promise.all([
+          getDocs(collection(db,"sections")),
+          getDocs(collection(db,"questions")),
+          getDocs(collection(db,"expertReports")),
+          getDocs(collection(db,"diagnosticResults")),
+        ]);
         const allSecs=secSnap.docs.map(d=>({id:d.id,...d.data()}));
         const allQs=qSnap.docs.map(d=>({id:d.id,...d.data()}));
+        // Build map: sectionId → expertReport for this user
+        const myResults=resSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.userPhone===user?.phone);
+        const myResultIds=new Set(myResults.map(r=>r.id));
+        const rMap={};
+        repSnap.docs.forEach(d=>{
+          const r={id:d.id,...d.data()};
+          if(myResultIds.has(r.resultId)) rMap[r.sectionId||r.resultId]=r;
+        });
+        setReportMap(rMap);
         // Filter sections based on student's goal and target
         const studentGoal = user?.goalKey;
         const studentTarget = user?.details; // e.g. "ЕНТ" or "8 класс"
@@ -407,10 +422,11 @@ function DiagnosticsScreen({ user, onSelectSection, onBack }) {
             {sections.map(sec=>{
               const qCount=counts[sec.id]||0;
               return (
-                <div key={sec.id} onClick={()=>qCount>0&&onSelectSection(sec)}
-                  style={{background:"#fff",borderRadius:16,border:`1px solid ${THEME.border}`,padding:"24px",cursor:qCount>0?"pointer":"default",transition:"all 0.2s",opacity:qCount===0?0.5:1,position:"relative",overflow:"hidden"}}
-                  onMouseEnter={e=>{if(qCount>0)e.currentTarget.style.boxShadow="0 8px 30px rgba(0,0,0,0.08)"; e.currentTarget.style.transform="translateY(-2px)";}}
-                  onMouseLeave={e=>{e.currentTarget.style.boxShadow=""; e.currentTarget.style.transform="";}}>
+                <div key={sec.id}
+                  style={{background:"#fff",borderRadius:16,border:`1px solid ${reportMap[sec.id]?THEME.accent:THEME.border}`,padding:"24px",transition:"all 0.2s",opacity:qCount===0?0.5:1,position:"relative",overflow:"hidden"}}
+                  onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 8px 30px rgba(0,0,0,0.08)";e.currentTarget.style.transform="translateY(-2px)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.boxShadow="";e.currentTarget.style.transform="";}}>
+                  {reportMap[sec.id]&&<div style={{position:"absolute",top:12,right:12,background:"rgba(212,175,55,0.15)",color:"#92680e",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:99}}>📋 Отчёт готов</div>}
                   <div style={{width:48,height:48,background:`${THEME.primary}`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:16}}>📋</div>
                   <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:18,color:THEME.primary,marginBottom:6}}>{sec.name}</h3>
                   {sec.description&&<p style={{color:THEME.textLight,fontSize:13,marginBottom:12,lineHeight:1.5}}>{sec.description}</p>}
@@ -418,10 +434,13 @@ function DiagnosticsScreen({ user, onSelectSection, onBack }) {
                     <span style={{background:"rgba(212,175,55,0.12)",color:"#92680e",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:99}}>{REG_GOALS[sec.goalKey]}</span>
                     {sec.specificTarget&&<span style={{background:THEME.bg,color:THEME.textLight,fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:99,border:`1px solid ${THEME.border}`}}>{sec.specificTarget}</span>}
                   </div>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${THEME.border}`,paddingTop:12,marginTop:8}}>
+                  <div style={{display:"flex",gap:8,justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${THEME.border}`,paddingTop:12,marginTop:8,flexWrap:"wrap"}}>
                     <span style={{fontSize:13,color:THEME.textLight,fontWeight:600}}>{qCount} вопросов</span>
-                    {qCount>0&&<span style={{background:THEME.primary,color:THEME.accent,fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:8}}>Начать →</span>}
-                    {qCount===0&&<span style={{color:THEME.textLight,fontSize:12}}>Нет вопросов</span>}
+                    <div style={{display:"flex",gap:8}}>
+                      {reportMap[sec.id]&&<button onClick={e=>{e.stopPropagation();onViewReport(reportMap[sec.id]);}} style={{background:`rgba(212,175,55,0.12)`,border:`1px solid ${THEME.accent}`,color:"#92680e",fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,cursor:"pointer"}}>📋 Отчёт</button>}
+                      {qCount>0&&<button onClick={()=>onSelectSection(sec)} style={{background:THEME.primary,color:THEME.accent,fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer"}}>Начать →</button>}
+                      {qCount===0&&<span style={{color:THEME.textLight,fontSize:12}}>Нет вопросов</span>}
+                    </div>
                   </div>
                 </div>
               );
@@ -865,6 +884,121 @@ function PathMap({ user, onBack }) {
   );
 }
 
+// ── RADAR CHART ───────────────────────────────────────────────────────────────
+function RadarChart({ data, size=260 }) {
+  if(!data||data.length<3) return <div style={{color:THEME.textLight,fontSize:13,textAlign:"center",padding:20}}>Недостаточно данных для диаграммы (мин. 3 темы)</div>;
+  const n=data.length, cx=size/2, cy=size/2, r=size*0.36;
+  const ang=i=>-Math.PI/2+i*(2*Math.PI/n);
+  const pt=(i,pct)=>({x:cx+r*(pct/100)*Math.cos(ang(i)),y:cy+r*(pct/100)*Math.sin(ang(i))});
+  const axPt=i=>({x:cx+r*Math.cos(ang(i)),y:cy+r*Math.sin(ang(i))});
+  const poly=pts=>pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const grids=[25,50,75,100];
+  return(
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{overflow:"visible",display:"block",margin:"0 auto"}}>
+      {grids.map(g=><polygon key={g} points={poly(data.map((_,i)=>pt(i,g)))} fill="none" stroke="#e2e8f0" strokeWidth="1"/>)}
+      {data.map((_,i)=>{const p=axPt(i);return<line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#e2e8f0" strokeWidth="1"/>;})}
+      <polygon points={poly(data.map((d,i)=>pt(i,d.value)))} fill="rgba(212,175,55,0.18)" stroke="#d4af37" strokeWidth="2"/>
+      {data.map((d,i)=>{const p=pt(i,d.value);return<circle key={i} cx={p.x} cy={p.y} r={4} fill="#d4af37"/>;})}
+      {data.map((d,i)=>{
+        const a=ang(i), lx=cx+(r+28)*Math.cos(a), ly=cy+(r+28)*Math.sin(a);
+        const anchor=lx<cx-4?"end":lx>cx+4?"start":"middle";
+        const shortLabel=d.label.length>14?d.label.slice(0,13)+"…":d.label;
+        return<text key={i} x={lx} y={ly} textAnchor={anchor} dominantBaseline="middle" fontSize="10" fontFamily="Inter,sans-serif" fill="#334155" fontWeight="600">{shortLabel} {d.value}%</text>;
+      })}
+    </svg>
+  );
+}
+
+// ── ПРОСМОТР ЭКСПЕРТНОГО ОТЧЁТА (ДЛЯ УЧЕНИКА) ────────────────────────────────
+function ExpertReportView({ report, onBack }) {
+  const zoneColor={correct:THEME.success,partial:THEME.warning,incorrect:THEME.error};
+  const zoneLabel={correct:"Верно",partial:"Частично",incorrect:"Неверно"};
+  return(
+    <div style={{minHeight:"100vh",background:THEME.bg}}>
+      <nav style={{background:THEME.primary,padding:"0 40px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <Logo size={32} light/>
+        <button onClick={onBack} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.2)",color:"rgba(255,255,255,0.7)",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontFamily:"'Inter',sans-serif"}}>← Назад</button>
+      </nav>
+      <div style={{maxWidth:900,margin:"0 auto",padding:"40px 24px"}}>
+        <div style={{marginBottom:32}}>
+          <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:26,fontWeight:800,color:THEME.primary,marginBottom:6}}>Экспертный отчёт</h1>
+          <p style={{color:THEME.textLight,fontSize:14}}>{report.sectionName} · {report.createdAt?new Date(report.createdAt).toLocaleDateString("ru-RU"):""}</p>
+        </div>
+
+        {/* 1. Общие параметры */}
+        <div style={{background:"#fff",borderRadius:16,border:`1px solid ${THEME.border}`,padding:"28px",marginBottom:24,borderTop:`4px solid ${THEME.accent}`}}>
+          <h2 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:18,color:THEME.primary,marginBottom:20}}>1. Общие параметры</h2>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
+            {[
+              {label:"Общий балл",value:`${report.generalParams?.score??"-"}%`,icon:"🎯"},
+              {label:"Точность решений",value:`${report.generalParams?.accuracy??"-"}%`,icon:"✅"},
+              {label:"Средний темп",value:report.generalParams?.avgPace?`${report.generalParams.avgPace} сек/задача`:"—",icon:"⏱"},
+            ].map((s,i)=>(
+              <div key={i} style={{background:THEME.bg,borderRadius:12,padding:"20px",textAlign:"center",border:`1px solid ${THEME.border}`}}>
+                <div style={{fontSize:28,marginBottom:8}}>{s.icon}</div>
+                <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:22,color:THEME.primary,marginBottom:4}}>{s.value}</div>
+                <div style={{fontSize:12,color:THEME.textLight,fontWeight:600}}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 2. Карта компетенций */}
+        {report.competencyMap?.length>0&&(
+          <div style={{background:"#fff",borderRadius:16,border:`1px solid ${THEME.border}`,padding:"28px",marginBottom:24}}>
+            <h2 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:18,color:THEME.primary,marginBottom:20}}>2. Карта компетенций</h2>
+            <RadarChart data={report.competencyMap.map(t=>({label:t.topic,value:t.percent}))} size={300}/>
+          </div>
+        )}
+
+        {/* 3. Таблица задач */}
+        {report.taskTable?.length>0&&(
+          <div style={{background:"#fff",borderRadius:16,border:`1px solid ${THEME.border}`,padding:"28px",marginBottom:24,overflowX:"auto"}}>
+            <h2 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:18,color:THEME.primary,marginBottom:20}}>3. Полный отчёт по задачам</h2>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead><tr style={{background:THEME.bg,borderBottom:`2px solid ${THEME.border}`}}>
+                {["#","Раздел","Статус","Анализ черновика","Вердикт эксперта"].map(h=>(
+                  <th key={h} style={{padding:"10px 14px",textAlign:"left",fontWeight:700,color:THEME.textLight,fontSize:11,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {report.taskTable.map((row,i)=>(
+                  <tr key={i} style={{borderBottom:`1px solid ${THEME.border}`,background:i%2===0?"#fff":THEME.bg+"80"}}>
+                    <td style={{padding:"10px 14px",fontWeight:700,color:THEME.primary}}>{row.num||i+1}</td>
+                    <td style={{padding:"10px 14px",color:THEME.textLight}}>{row.section}</td>
+                    <td style={{padding:"10px 14px"}}>
+                      <span style={{background:(zoneColor[row.status]||THEME.border)+"20",color:zoneColor[row.status]||THEME.textLight,fontWeight:700,fontSize:11,padding:"3px 10px",borderRadius:99}}>
+                        {zoneLabel[row.status]||row.status||"—"}
+                      </span>
+                    </td>
+                    <td style={{padding:"10px 14px",maxWidth:220,lineHeight:1.5}}>{row.draftAnalysis||"—"}</td>
+                    <td style={{padding:"10px 14px",maxWidth:220,lineHeight:1.5,fontWeight:600,color:THEME.primary}}>{row.expertVerdict||"—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* 4. Рекомендации и итоги */}
+        {[
+          {key:"recommendations",title:"Рекомендации",icon:"💡"},
+          {key:"globalPlan",title:"Глобальный план подготовки",icon:"🗺️"},
+          {key:"expertAssessment",title:"Итоговая экспертная оценка",icon:"🏆"},
+          {key:"parentSummary",title:"Резюме для родителя",icon:"👨‍👩‍👧"},
+        ].filter(s=>report[s.key]).map(s=>(
+          <div key={s.key} style={{background:"#fff",borderRadius:16,border:`1px solid ${THEME.border}`,padding:"28px",marginBottom:16}}>
+            <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:16,color:THEME.primary,marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:20}}>{s.icon}</span>{s.title}
+            </h3>
+            <p style={{color:THEME.text,fontSize:14,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{report[s.key]}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
 function AdminScreen({ onBack }) {
   const [tab,setTab]=useState("sections");
@@ -1118,7 +1252,107 @@ function AdminScreen({ onBack }) {
     }catch{alert("Ошибка.");}
   };
 
-  const TABS=[{id:"sections",label:"📂 Разделы"},{id:"questions",label:"❓ Вопросы"},{id:"students",label:"👥 Ученики"}];
+  // ─ Expert Reports ─
+  const [rStudentId,setRStudentId]=useState(null);     // selected student phone
+  const [rResults,setRResults]=useState([]);            // their diagnosticResults
+  const [rResultId,setRResultId]=useState(null);        // selected result id
+  const [rResultData,setRResultData]=useState(null);    // selected result data
+  const [rReports,setRReports]=useState({});            // map resultId→report
+  const [rLoading,setRLoading]=useState(false);
+  const emptyReport={generalParams:{score:"",accuracy:"",avgPace:""},competencyMap:[],taskTable:[],recommendations:"",globalPlan:"",expertAssessment:"",parentSummary:""};
+  const [rForm,setRForm]=useState(emptyReport);
+  const [rCsvText,setRCsvText]=useState("");
+  const [rSaving,setRSaving]=useState(false);
+
+  const loadStudentResults=async phone=>{
+    setRStudentId(phone);setRResultId(null);setRResultData(null);setRLoading(true);
+    try{
+      const snap=await getDocs(collection(db,"diagnosticResults"));
+      const res=snap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.userPhone===phone).sort((a,b)=>b.completedAt?.localeCompare(a.completedAt));
+      setRResults(res);
+      const repSnap=await getDocs(collection(db,"expertReports"));
+      const repMap={};
+      repSnap.docs.forEach(d=>{const r={id:d.id,...d.data()};repMap[r.resultId]=r;});
+      setRReports(repMap);
+    }catch(e){alert("Ошибка: "+e.message);}
+    setRLoading(false);
+  };
+
+  const openReportEditor=result=>{
+    setRResultId(result.id);setRResultData(result);
+    const existing=rReports[result.id];
+    if(existing){
+      setRForm({
+        generalParams:existing.generalParams||{score:"",accuracy:"",avgPace:""},
+        competencyMap:existing.competencyMap||[],
+        taskTable:existing.taskTable||[],
+        recommendations:existing.recommendations||"",
+        globalPlan:existing.globalPlan||"",
+        expertAssessment:existing.expertAssessment||"",
+        parentSummary:existing.parentSummary||"",
+      });
+    } else {
+      // Auto-build competency map from result answers
+      const topicMap={};
+      (result.answers||[]).forEach(a=>{
+        if(!topicMap[a.topic])topicMap[a.topic]={correct:0,total:0};
+        topicMap[a.topic].total++;
+        if(a.correct)topicMap[a.topic].correct++;
+      });
+      const competencyMap=Object.entries(topicMap).map(([topic,v])=>({topic,percent:Math.round((v.correct/v.total)*100)}));
+      setRForm({...emptyReport,
+        generalParams:{score:result.score||"",accuracy:result.score||"",avgPace:result.totalTime&&result.totalQuestions?Math.round(result.totalTime/result.totalQuestions):""},
+        competencyMap,
+      });
+    }
+  };
+
+  const saveReport=async()=>{
+    setRSaving(true);
+    try{
+      const stu=students.find(s=>s.id===rStudentId);
+      const data={
+        resultId:rResultId,
+        userId:rStudentId,
+        userName:stu?`${stu.firstName} ${stu.lastName}`:"",
+        sectionName:rResultData?.sectionName||"",
+        sectionId:rResultData?.sectionId||"",
+        generalParams:{score:Number(rForm.generalParams.score)||0,accuracy:Number(rForm.generalParams.accuracy)||0,avgPace:Number(rForm.generalParams.avgPace)||0},
+        competencyMap:rForm.competencyMap,
+        taskTable:rForm.taskTable,
+        recommendations:rForm.recommendations,
+        globalPlan:rForm.globalPlan,
+        expertAssessment:rForm.expertAssessment,
+        parentSummary:rForm.parentSummary,
+        createdAt:rReports[rResultId]?.createdAt||new Date().toISOString(),
+        updatedAt:new Date().toISOString(),
+      };
+      if(rReports[rResultId]){
+        await updateDoc(doc(db,"expertReports",rReports[rResultId].id),data);
+        setRReports(p=>({...p,[rResultId]:{...p[rResultId],...data}}));
+      } else {
+        const ref=await addDoc(collection(db,"expertReports"),data);
+        setRReports(p=>({...p,[rResultId]:{id:ref.id,...data}}));
+      }
+      alert("Отчёт сохранён!");
+    }catch(e){alert("Ошибка: "+e.message);}
+    setRSaving(false);
+  };
+
+  const importTaskCsv=()=>{
+    const lines=rCsvText.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#"));
+    if(!lines.length){alert("Нет данных.");return;}
+    const sep=lines[0].includes("\t")?"\t":";";
+    const rows=lines.map((l,i)=>{
+      const c=l.split(sep).map(s=>s.trim());
+      return{num:c[0]||String(i+1),section:c[1]||"",status:c[2]||"",draftAnalysis:c[3]||"",expertVerdict:c[4]||""};
+    });
+    setRForm(p=>({...p,taskTable:rows}));
+    setRCsvText("");
+    alert(`Импортировано ${rows.length} строк`);
+  };
+
+  const TABS=[{id:"sections",label:"📂 Разделы"},{id:"questions",label:"❓ Вопросы"},{id:"students",label:"👥 Ученики"},{id:"reports",label:"📋 Отчёты"}];
 
   return(
     <div style={{minHeight:"100vh",background:THEME.bg}}>
@@ -1458,6 +1692,150 @@ function AdminScreen({ onBack }) {
             )}
           </div>
         )}
+
+        {/* ── REPORTS ── */}
+        {!loading&&tab==="reports"&&(
+          <div>
+            {!rStudentId&&(
+              <>
+                <div className="admin-section-header"><div><h2 className="admin-section-title">Экспертные отчёты</h2><p style={{color:THEME.textLight,fontSize:14}}>Выберите ученика для составления отчёта</p></div></div>
+                {students.length===0?<div className="empty-state">Учеников нет.</div>:(
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:14}}>
+                    {students.map(s=>{
+                      const st=STUDENT_STATUSES.find(x=>x.value===s.status)||STUDENT_STATUSES[1];
+                      return(
+                        <div key={s.id} onClick={()=>loadStudentResults(s.id)} style={{background:"#fff",borderRadius:14,border:`1px solid ${THEME.border}`,padding:"20px",cursor:"pointer",transition:"all 0.2s"}}
+                          onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,0.08)"}
+                          onMouseLeave={e=>e.currentTarget.style.boxShadow=""}>
+                          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+                            <div style={{width:40,height:40,borderRadius:"50%",background:THEME.primary,color:THEME.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,flexShrink:0}}>{s.firstName?.[0]}{s.lastName?.[0]}</div>
+                            <div><div style={{fontWeight:700,color:THEME.primary,fontSize:14}}>{s.firstName} {s.lastName}</div><div style={{fontSize:11,color:st.color,fontWeight:700}}>{st.label}</div></div>
+                          </div>
+                          <div style={{fontSize:12,color:THEME.textLight}}>{s.goal} · {s.details}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+            {rStudentId&&!rResultId&&(
+              <>
+                <div className="admin-section-header">
+                  <div>
+                    <button onClick={()=>{setRStudentId(null);setRResults([]);}} style={{background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,cursor:"pointer",fontSize:13,padding:"6px 14px",borderRadius:8,marginBottom:12}}>← Все ученики</button>
+                    <h2 className="admin-section-title">{students.find(s=>s.id===rStudentId)?.firstName} {students.find(s=>s.id===rStudentId)?.lastName}</h2>
+                    <p style={{color:THEME.textLight,fontSize:14}}>Пройденные диагностики: {rResults.length}</p>
+                  </div>
+                </div>
+                {rLoading&&<div className="empty-state">Загрузка...</div>}
+                {!rLoading&&rResults.length===0&&<div className="empty-state">Диагностик не найдено.</div>}
+                {!rLoading&&rResults.length>0&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                    {rResults.map(r=>{
+                      const hasReport=!!rReports[r.id];
+                      return(
+                        <div key={r.id} onClick={()=>openReportEditor(r)} style={{background:"#fff",borderRadius:14,border:`1px solid ${hasReport?THEME.accent:THEME.border}`,padding:"20px 24px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",transition:"all 0.2s"}}
+                          onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,0.07)"}
+                          onMouseLeave={e=>e.currentTarget.style.boxShadow=""}>
+                          <div>
+                            <div style={{fontWeight:700,color:THEME.primary,fontSize:15,marginBottom:4}}>{r.sectionName||"Диагностика"}</div>
+                            <div style={{fontSize:12,color:THEME.textLight}}>{r.completedAt?new Date(r.completedAt).toLocaleString("ru-RU"):""} · {r.score}% · {r.totalQuestions} вопросов</div>
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
+                            {hasReport&&<span style={{background:"rgba(212,175,55,0.15)",color:"#92680e",fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:99}}>✅ Отчёт готов</span>}
+                            <span style={{fontSize:13,color:THEME.accent,fontWeight:700}}>Открыть →</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+            {rStudentId&&rResultId&&rResultData&&(
+              <>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:24}}>
+                  <button onClick={()=>{setRResultId(null);setRResultData(null);}} style={{background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,cursor:"pointer",fontSize:13,padding:"6px 14px",borderRadius:8}}>← Назад</button>
+                  <div><div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:18,color:THEME.primary}}>Отчёт: {rResultData.sectionName||"Диагностика"}</div>
+                  <div style={{fontSize:12,color:THEME.textLight}}>{students.find(s=>s.id===rStudentId)?.firstName} {students.find(s=>s.id===rStudentId)?.lastName} · {rResultData.completedAt?new Date(rResultData.completedAt).toLocaleString("ru-RU"):""}</div></div>
+                </div>
+
+                {/* Section 1: General params */}
+                <div className="admin-form-card">
+                  <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,marginBottom:20}}>1. Общие параметры</h3>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
+                    {[{key:"score",label:"Общий балл (%)"},{key:"accuracy",label:"Точность решений (%)"},{key:"avgPace",label:"Средний темп (сек/задача)"}].map(f=>(
+                      <div key={f.key} className="input-group" style={{marginBottom:0}}>
+                        <label className="input-label">{f.label}</label>
+                        <input type="number" className="input-field" value={rForm.generalParams[f.key]} onChange={e=>setRForm(p=>({...p,generalParams:{...p.generalParams,[f.key]:e.target.value}}))} placeholder="0"/>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section 2: Competency map */}
+                <div className="admin-form-card">
+                  <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,marginBottom:4}}>2. Карта компетенций</h3>
+                  <p style={{color:THEME.textLight,fontSize:13,marginBottom:16}}>Автозаполнено из результатов диагностики. Можно скорректировать.</p>
+                  {rForm.competencyMap.length>0&&<div style={{marginBottom:20}}><RadarChart data={rForm.competencyMap.map(t=>({label:t.topic,value:t.percent}))} size={280}/></div>}
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {rForm.competencyMap.map((t,i)=>(
+                      <div key={i} style={{display:"flex",gap:10,alignItems:"center"}}>
+                        <input type="text" className="input-field" style={{flex:2,padding:"8px 12px"}} value={t.topic} onChange={e=>setRForm(p=>({...p,competencyMap:p.competencyMap.map((x,j)=>j===i?{...x,topic:e.target.value}:x)}))} placeholder="Тема"/>
+                        <input type="number" className="input-field" style={{width:90,padding:"8px 12px"}} value={t.percent} onChange={e=>setRForm(p=>({...p,competencyMap:p.competencyMap.map((x,j)=>j===i?{...x,percent:Number(e.target.value)}:x)}))} placeholder="%" min="0" max="100"/>
+                        <button onClick={()=>setRForm(p=>({...p,competencyMap:p.competencyMap.filter((_,j)=>j!==i)}))} style={{background:"transparent",border:"none",color:THEME.textLight,cursor:"pointer",fontSize:20,padding:"0 4px"}}>×</button>
+                      </div>
+                    ))}
+                    <button onClick={()=>setRForm(p=>({...p,competencyMap:[...p.competencyMap,{topic:"",percent:0}]}))} style={{background:"transparent",border:`1px dashed ${THEME.border}`,color:THEME.textLight,cursor:"pointer",borderRadius:8,padding:"8px",fontSize:13,marginTop:4}}>+ Добавить тему</button>
+                  </div>
+                </div>
+
+                {/* Section 3: Task table */}
+                <div className="admin-form-card">
+                  <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,marginBottom:4}}>3. Таблица задач</h3>
+                  <p style={{color:THEME.textLight,fontSize:13,marginBottom:16}}>Формат CSV: <code style={{fontSize:11}}>номер;раздел;статус(correct/partial/incorrect);анализ черновика;вердикт эксперта</code></p>
+                  <textarea className="input-field" rows={5} style={{fontFamily:"'Courier New',monospace",fontSize:12,marginBottom:8}} value={rCsvText} onChange={e=>setRCsvText(e.target.value)} placeholder={"1;Алгебра;correct;Решение верное, все шаги выполнены;Задача выполнена отлично\n2;Геометрия;partial;Верный подход, арифметическая ошибка;Нужно проверять вычисления\n3;Алгебра;incorrect;Неверная формула;Повторить тему степеней"}/>
+                  <button onClick={importTaskCsv} disabled={!rCsvText.trim()} className={`cta-button ${rCsvText.trim()?"active":""}`} style={{width:"auto",padding:"8px 20px",fontSize:13,marginBottom:16}}>Загрузить из CSV</button>
+                  {rForm.taskTable.length>0&&(
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                        <thead><tr style={{background:THEME.bg}}>{["#","Раздел","Статус","Анализ черновика","Вердикт эксперта",""].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontWeight:700,color:THEME.textLight,fontSize:10,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          {rForm.taskTable.map((row,i)=>(
+                            <tr key={i} style={{borderBottom:`1px solid ${THEME.border}`}}>
+                              <td style={{padding:"8px 12px",fontWeight:700}}>{row.num||i+1}</td>
+                              <td style={{padding:"8px 12px"}}><input type="text" value={row.section} onChange={e=>setRForm(p=>({...p,taskTable:p.taskTable.map((x,j)=>j===i?{...x,section:e.target.value}:x)}))} style={{border:`1px solid ${THEME.border}`,borderRadius:6,padding:"4px 8px",width:"100%",fontSize:12}}/></td>
+                              <td style={{padding:"8px 12px"}}>
+                                <select value={row.status} onChange={e=>setRForm(p=>({...p,taskTable:p.taskTable.map((x,j)=>j===i?{...x,status:e.target.value}:x)}))} style={{border:`1px solid ${THEME.border}`,borderRadius:6,padding:"4px 8px",fontSize:12}}>
+                                  <option value="correct">Верно</option><option value="partial">Частично</option><option value="incorrect">Неверно</option>
+                                </select>
+                              </td>
+                              <td style={{padding:"8px 12px"}}><input type="text" value={row.draftAnalysis} onChange={e=>setRForm(p=>({...p,taskTable:p.taskTable.map((x,j)=>j===i?{...x,draftAnalysis:e.target.value}:x)}))} style={{border:`1px solid ${THEME.border}`,borderRadius:6,padding:"4px 8px",width:"100%",fontSize:12}}/></td>
+                              <td style={{padding:"8px 12px"}}><input type="text" value={row.expertVerdict} onChange={e=>setRForm(p=>({...p,taskTable:p.taskTable.map((x,j)=>j===i?{...x,expertVerdict:e.target.value}:x)}))} style={{border:`1px solid ${THEME.border}`,borderRadius:6,padding:"4px 8px",width:"100%",fontSize:12}}/></td>
+                              <td style={{padding:"8px 4px"}}><button onClick={()=>setRForm(p=>({...p,taskTable:p.taskTable.filter((_,j)=>j!==i)}))} style={{background:"transparent",border:"none",color:THEME.textLight,cursor:"pointer",fontSize:18}}>×</button></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <button onClick={()=>setRForm(p=>({...p,taskTable:[...p.taskTable,{num:p.taskTable.length+1,section:"",status:"correct",draftAnalysis:"",expertVerdict:""}]}))} style={{background:"transparent",border:`1px dashed ${THEME.border}`,color:THEME.textLight,cursor:"pointer",borderRadius:8,padding:"8px 16px",fontSize:12,marginTop:8}}>+ Строка</button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 4: Text fields */}
+                {[{key:"recommendations",label:"Рекомендации"},{key:"globalPlan",label:"Глобальный план подготовки"},{key:"expertAssessment",label:"Итоговая экспертная оценка"},{key:"parentSummary",label:"Резюме для родителя"}].map(f=>(
+                  <div key={f.key} className="admin-form-card" style={{borderTop:`4px solid ${THEME.primary}`}}>
+                    <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,marginBottom:12}}>{f.label}</h3>
+                    <textarea className="input-field" rows={4} value={rForm[f.key]} onChange={e=>setRForm(p=>({...p,[f.key]:e.target.value}))} placeholder={`Введите ${f.label.toLowerCase()}...`}/>
+                  </div>
+                ))}
+
+                <button onClick={saveReport} disabled={rSaving} className="cta-button active" style={{marginTop:8}}>{rSaving?"Сохраняю...":"💾 Сохранить отчёт"}</button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1751,12 +2129,14 @@ export default function App() {
   const [answers,setAnswers]=useState([]);
   const [report,setReport]=useState(null);
   const [lastResultId,setLastResultId]=useState(null);
+  const [viewingReport,setViewingReport]=useState(null);
 
   const handleRegister=u=>{setUser(u);setScreen("dashboard");};
   const goHome=()=>setScreen("dashboard");
   const viewPlan=()=>setScreen("plan");
   const openAdmin=()=>setScreen("admin");
   const openDiagnostics=()=>setScreen("diagnostics");
+  const openReport=r=>{setViewingReport(r);setScreen("report_view");};
 
   const startQuiz=async(section)=>{
     try{
@@ -1972,7 +2352,8 @@ export default function App() {
       {screen==="auth"&&<AuthScreen onRegister={handleRegister}/>}
       {screen==="dashboard"&&<DashboardScreen user={user} onOpenDiagnostics={openDiagnostics} onViewPlan={viewPlan} onOpenAdmin={openAdmin}/>}
       {screen==="admin"&&<AdminScreen onBack={goHome}/>}
-      {screen==="diagnostics"&&<DiagnosticsScreen user={user} onSelectSection={sec=>startQuiz(sec)} onBack={goHome}/>}
+      {screen==="diagnostics"&&<DiagnosticsScreen user={user} onSelectSection={sec=>startQuiz(sec)} onViewReport={openReport} onBack={goHome}/>}
+      {screen==="report_view"&&viewingReport&&<ExpertReportView report={viewingReport} onBack={()=>setScreen("diagnostics")}/>}
       {screen==="question"&&questions.length>0&&<QuestionScreen question={questions[qIndex]} qNum={qIndex+1} total={questions.length} onComplete={handleAnswer}/>}
       {screen==="report"&&report&&(
         <>
