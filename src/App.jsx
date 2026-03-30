@@ -17,6 +17,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY || "";
+
 // ── КОНСТАНТЫ ─────────────────────────────────────────────────────────────────
 const FALLBACK_QUESTIONS = [
   { id:"f1", sectionName:"Алгебра", topic:"Линейные уравнения", type:"mcq", text:"Решите уравнение: 3x + 7 = 22", options:["x = 5","x = 3","x = 7","x = 4"], correct:0, goals:["exam","gaps","future"] },
@@ -53,6 +55,70 @@ const QUESTION_TYPES = [
 const DAY_NAMES_SHORT = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
 const DAY_NAMES_FULL  = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"];
 const THEME = { primary:"#0f172a", accent:"#d4af37", bg:"#f8fafc", surface:"#ffffff", text:"#334155", textLight:"#64748b", border:"#e2e8f0", success:"#10B981", warning:"#F59E0B", error:"#EF4444" };
+
+// ── AI АНАЛИЗ ─────────────────────────────────────────────────────────────────
+async function analyzePhoto(imageBase64, mediaType, answers) {
+  const ctx = answers.map((a,i)=>
+    `Задание ${i+1}: тема «${a.topic}» (раздел: ${a.section}). ` +
+    `Ответ: ${a.correct?"ВЕРНО":"НЕВЕРНО"}. ` +
+    `Время выполнения: ${a.timeSpent}с. ` +
+    `Уверенность ученика: ${a.confidence??"-"}/5.`
+  ).join("\n");
+
+  const prompt = `Ты — педагогический ИИ-ассистент. Перед тобой рукописные записи ученика после диагностического теста.
+
+КОНТЕКСТ ДИАГНОСТИКИ:
+${ctx}
+
+ЗАДАЧА: Проанализируй фото рукописных записей ученика. Для каждой темы из контекста:
+1. Определи насколько пошагово и правильно решил задачу ученик (каждый шаг — отдельный навык)
+2. Учти время выполнения (долго = труднее материал), уровень уверенности и наличие ошибок
+3. Назначь зону:
+   - "red" = грубые ошибки, не понимает базу, нужна срочная проработка
+   - "yellow" = частичное понимание, есть ошибки в деталях или шагах
+   - "green" = понимает, но есть мелкие недочёты, нужна доработка
+4. Укажи конкретные навыки которые нужно проработать
+
+Отвечай ТОЛЬКО в JSON, без лишнего текста:
+{
+  "topics": [
+    {
+      "topic": "название темы",
+      "section": "раздел",
+      "zone": "red",
+      "reason": "краткое обоснование на русском",
+      "skills": ["конкретный навык 1", "конкретный навык 2"]
+    }
+  ]
+}`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": ANTHROPIC_KEY,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+      "anthropic-dangerous-direct-browser-calls": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-opus-4-6",
+      max_tokens: 2048,
+      messages: [{
+        role: "user",
+        content: [
+          { type:"image", source:{ type:"base64", media_type: mediaType, data: imageBase64 } },
+          { type:"text", text: prompt }
+        ]
+      }]
+    })
+  });
+  if (!res.ok) { const err = await res.text(); throw new Error(err); }
+  const data = await res.json();
+  const text = data.content[0].text;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("Не удалось распознать ответ ИИ");
+  return JSON.parse(match[0]);
+}
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
@@ -440,7 +506,7 @@ function QuestionScreen({ question, qNum, total, onComplete }) {
 }
 
 // ── ОТЧЁТ ─────────────────────────────────────────────────────────────────────
-function ReportScreen({ report, user, onViewPlan, onBack }) {
+function ReportScreen({ report, user, onUpload, onViewPlan, onBack }) {
   const { answers } = report;
   const correct=answers.filter(a=>a.correct).length;
   const score=Math.round((correct/answers.length)*100);
@@ -470,9 +536,296 @@ function ReportScreen({ report, user, onViewPlan, onBack }) {
           </div>
         ))}
       </div>
-      <div style={{display:"flex",gap:16,marginTop:40,flexWrap:"wrap"}}>
-        <button onClick={onBack} className="cta-button active" style={{background:"#fff",color:THEME.primary,border:`1px solid ${THEME.border}`,boxShadow:"none"}}>← Главная</button>
-        <button onClick={onViewPlan} className="cta-button active">Открыть Трек Развития →</button>
+      {/* Upload CTA */}
+      <div style={{background:"linear-gradient(135deg,#0f172a 0%,#1e3a8a 100%)",borderRadius:16,padding:"28px 32px",marginTop:32,display:"flex",alignItems:"center",justifyContent:"space-between",gap:24,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:18,color:"#fff",marginBottom:6}}>📸 Загрузи фото своих записей</div>
+          <div style={{fontSize:14,color:"rgba(255,255,255,0.65)",lineHeight:1.5}}>ИИ проанализирует каждый шаг решения и составит твой индивидуальный план обучения с приоритетами по зонам.</div>
+        </div>
+        <div style={{display:"flex",gap:12,flexShrink:0,flexWrap:"wrap"}}>
+          <button onClick={onBack} style={{padding:"12px 20px",borderRadius:8,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.7)",fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,cursor:"pointer"}}>← Главная</button>
+          <button onClick={onViewPlan} style={{padding:"12px 20px",borderRadius:8,border:"none",background:"rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.7)",fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,cursor:"pointer"}}>План без анализа</button>
+          <button onClick={onUpload} style={{padding:"12px 24px",borderRadius:8,border:"none",background:THEME.accent,color:THEME.primary,fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,cursor:"pointer",boxShadow:"0 4px 15px rgba(212,175,55,0.3)"}}>📸 Загрузить записи →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ЗАГРУЗКА ФОТО И АНАЛИЗ ────────────────────────────────────────────────────
+function UploadAnalysisScreen({ answers, user, resultId, onDone, onSkip }) {
+  const [files, setFiles] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [progress, setProgress] = useState("");
+  const [error, setError] = useState("");
+
+  const handleFiles = e => {
+    const selected = Array.from(e.target.files).slice(0,5);
+    setFiles(selected);
+    setPreviews(selected.map(f => URL.createObjectURL(f)));
+    setError("");
+  };
+
+  const handleAnalyze = async () => {
+    if (!files.length) { setError("Выберите хотя бы одно фото."); return; }
+    if (!ANTHROPIC_KEY) { setError("API-ключ не настроен. Добавьте VITE_ANTHROPIC_KEY в файл .env и перезапустите приложение."); return; }
+    setAnalyzing(true); setError("");
+    try {
+      const allTopics = [];
+      for (let i = 0; i < files.length; i++) {
+        setProgress(`Анализирую фото ${i+1} из ${files.length}...`);
+        const f = files[i];
+        const base64 = await new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result.split(",")[1]);
+          reader.onerror = rej;
+          reader.readAsDataURL(f);
+        });
+        const result = await analyzePhoto(base64, f.type || "image/jpeg", answers);
+        allTopics.push(...(result.topics || []));
+      }
+      // Merge duplicates — take worst zone per topic
+      const zoneRank = { red:0, yellow:1, green:2 };
+      const merged = {};
+      allTopics.forEach(t => {
+        const key = `${t.section}|${t.topic}`;
+        if (!merged[key] || zoneRank[t.zone] < zoneRank[merged[key].zone]) merged[key] = t;
+      });
+      const finalTopics = Object.values(merged);
+
+      setProgress("Сохраняю результаты...");
+      if (resultId) {
+        await updateDoc(doc(db, "diagnosticResults", resultId), {
+          zoneAnalysis: finalTopics,
+          analyzedAt: new Date().toISOString()
+        });
+      }
+      onDone(finalTopics);
+    } catch(e) {
+      console.error(e);
+      setError("Ошибка анализа: " + e.message);
+    }
+    setAnalyzing(false); setProgress("");
+  };
+
+  const zoneColors = { red: THEME.error, yellow: THEME.warning, green: THEME.success };
+
+  return (
+    <div style={{minHeight:"100vh",background:THEME.bg}}>
+      <nav style={{background:THEME.primary,padding:"0 40px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <Logo size={32} light/>
+        <button onClick={onSkip} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.2)",color:"rgba(255,255,255,0.7)",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontFamily:"'Inter',sans-serif"}}>Пропустить</button>
+      </nav>
+      <div style={{maxWidth:760,margin:"0 auto",padding:"48px 24px"}}>
+        <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:28,fontWeight:800,color:THEME.primary,marginBottom:8}}>Загрузи фото записей</h1>
+        <p style={{color:THEME.textLight,fontSize:16,marginBottom:36,lineHeight:1.6}}>ИИ проанализирует твои рукописные решения, оценит каждый шаг и составит персональный план по приоритетам.</p>
+
+        {/* Upload zone */}
+        <label style={{display:"block",border:`2px dashed ${files.length?THEME.success:THEME.border}`,borderRadius:16,padding:"48px 24px",textAlign:"center",cursor:"pointer",background:files.length?"rgba(16,185,129,0.03)":"#fff",transition:"all 0.2s",marginBottom:24}}>
+          <div style={{fontSize:40,marginBottom:12}}>{files.length?"✅":"📷"}</div>
+          <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:16,color:THEME.primary,marginBottom:6}}>
+            {files.length?`Выбрано фото: ${files.length}`:"Нажми чтобы выбрать фото"}
+          </div>
+          <div style={{fontSize:13,color:THEME.textLight}}>JPG, PNG, HEIC — до 5 фото. Сделай чёткое фото при хорошем освещении.</div>
+          <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={handleFiles}/>
+        </label>
+
+        {/* Previews */}
+        {previews.length>0 && (
+          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:28}}>
+            {previews.map((p,i)=>(
+              <div key={i} style={{position:"relative",width:120,height:120,borderRadius:12,overflow:"hidden",border:`2px solid ${THEME.border}`}}>
+                <img src={p} alt={`Фото ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* What AI checks */}
+        <div style={{background:"#fff",border:`1px solid ${THEME.border}`,borderRadius:16,padding:"24px 28px",marginBottom:28}}>
+          <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:15,color:THEME.primary,marginBottom:16}}>Что анализирует ИИ:</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
+            {[
+              {icon:"⏱️",label:"Время выполнения",desc:"Сколько времени ушло на каждую задачу"},
+              {icon:"🎯",label:"Пошаговость",desc:"Правильность каждого шага решения"},
+              {icon:"💡",label:"Уверенность",desc:"Уровень уверенности при ответе"},
+            ].map((item,i)=>(
+              <div key={i} style={{textAlign:"center",padding:"16px 12px",background:THEME.bg,borderRadius:12}}>
+                <div style={{fontSize:24,marginBottom:8}}>{item.icon}</div>
+                <div style={{fontWeight:700,fontSize:13,color:THEME.primary,marginBottom:4}}>{item.label}</div>
+                <div style={{fontSize:11,color:THEME.textLight,lineHeight:1.4}}>{item.desc}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:16,display:"flex",gap:12,justifyContent:"center"}}>
+            {[{zone:"red",label:"Красная зона — грубые ошибки"},{zone:"yellow",label:"Жёлтая — частичное понимание"},{zone:"green",label:"Зелёная — мелкие недочёты"}].map(z=>(
+              <div key={z.zone} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:THEME.textLight}}>
+                <div style={{width:10,height:10,borderRadius:"50%",background:zoneColors[z.zone],flexShrink:0}}/>
+                {z.label}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {error && <div style={{background:"rgba(239,68,68,0.08)",border:`1px solid ${THEME.error}`,borderRadius:12,padding:"14px 18px",color:THEME.error,fontSize:14,marginBottom:20}}>{error}</div>}
+
+        {analyzing && (
+          <div style={{background:"rgba(15,23,42,0.04)",border:`1px solid ${THEME.border}`,borderRadius:12,padding:"20px 24px",marginBottom:20,textAlign:"center"}}>
+            <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,color:THEME.primary,marginBottom:6}}>{progress}</div>
+            <div style={{fontSize:13,color:THEME.textLight}}>Не закрывай страницу во время анализа</div>
+          </div>
+        )}
+
+        <button onClick={handleAnalyze} disabled={!files.length||analyzing} className={`cta-button ${files.length&&!analyzing?"active":""}`}>
+          {analyzing?"Анализирую...":"🤖 Анализировать записи и составить план"}
+        </button>
+        <button onClick={onSkip} style={{width:"100%",marginTop:12,padding:"14px",borderRadius:8,border:`1px solid ${THEME.border}`,background:"transparent",color:THEME.textLight,fontFamily:"'Montserrat',sans-serif",fontWeight:600,fontSize:14,cursor:"pointer"}}>Пропустить — перейти к плану без анализа</button>
+      </div>
+    </div>
+  );
+}
+
+// ── ИНДИВИДУАЛЬНЫЙ ПЛАН ОБУЧЕНИЯ ──────────────────────────────────────────────
+function IndividualPlanScreen({ user, onBack }) {
+  const [topics, setTopics] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  useEffect(()=>{
+    const load = async () => {
+      try {
+        const snap = await getDocs(collection(db,"diagnosticResults"));
+        const results = snap.docs
+          .map(d=>({id:d.id,...d.data()}))
+          .filter(r=>r.userPhone===user?.phone && r.zoneAnalysis?.length)
+          .sort((a,b)=>a.completedAt?.localeCompare(b.completedAt)); // oldest first
+        if (results.length) setLastUpdated(results[results.length-1].completedAt);
+
+        // Merge: latest result per topic wins, but take worst zone across last 2 attempts
+        const zoneRank = { red:0, yellow:1, green:2 };
+        const topicMap = {};
+        results.forEach(r => {
+          (r.zoneAnalysis||[]).forEach(t => {
+            const key = `${t.section}|||${t.topic}`;
+            const existing = topicMap[key];
+            if (!existing) { topicMap[key] = { ...t, date: r.completedAt }; }
+            else {
+              // If newer attempt is worse or same, update
+              if (zoneRank[t.zone] <= zoneRank[existing.zone]) {
+                topicMap[key] = { ...t, date: r.completedAt };
+              }
+            }
+          });
+        });
+
+        const all = Object.values(topicMap);
+        all.sort((a,b) => zoneRank[a.zone] - zoneRank[b.zone]);
+        setTopics(all);
+      } catch(e){ console.error(e); }
+      setLoading(false);
+    };
+    load();
+  },[user?.phone]);
+
+  const zones = {
+    red:    { label:"🔴 Критическая зона",    desc:"Требует немедленной проработки",           color:THEME.error,   bg:"rgba(239,68,68,0.06)",   border:"rgba(239,68,68,0.2)"  },
+    yellow: { label:"🟡 Требует внимания",     desc:"Понимание частичное, нужно закрепить",     color:"#b45309",     bg:"rgba(245,158,11,0.06)",   border:"rgba(245,158,11,0.25)" },
+    green:  { label:"🟢 Небольшие недочёты",   desc:"В целом понятно, доработать детали",       color:"#065f46",     bg:"rgba(16,185,129,0.06)",   border:"rgba(16,185,129,0.2)"  },
+  };
+
+  const grouped = {
+    red:    topics.filter(t=>t.zone==="red"),
+    yellow: topics.filter(t=>t.zone==="yellow"),
+    green:  topics.filter(t=>t.zone==="green"),
+  };
+  const totalTopics = topics.length;
+  const redPct = totalTopics ? Math.round((grouped.red.length/totalTopics)*100) : 0;
+
+  return (
+    <div style={{minHeight:"100vh",background:THEME.bg}}>
+      <nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <Logo size={32}/>
+        <button onClick={onBack} className="cta-button active" style={{width:"auto",padding:"10px 20px"}}>← Главная</button>
+      </nav>
+      <div style={{maxWidth:920,margin:"0 auto",padding:"48px 24px"}}>
+        <div style={{marginBottom:36}}>
+          <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:30,fontWeight:800,color:THEME.primary,marginBottom:6}}>Индивидуальный план обучения</h1>
+          <p style={{color:THEME.textLight,fontSize:15}}>{user?.firstName} {user?.lastName} · {user?.goal} · {user?.details}</p>
+          {lastUpdated && <p style={{color:THEME.textLight,fontSize:13,marginTop:4}}>Обновлён: {new Date(lastUpdated).toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"})}</p>}
+        </div>
+
+        {loading && <div style={{textAlign:"center",padding:80,color:THEME.textLight}}>Загрузка плана...</div>}
+
+        {!loading && topics.length===0 && (
+          <div style={{textAlign:"center",padding:80}}>
+            <div style={{fontSize:56,marginBottom:20}}>🎯</div>
+            <h3 style={{fontFamily:"'Montserrat',sans-serif",fontSize:22,color:THEME.primary,marginBottom:12}}>План пока пуст</h3>
+            <p style={{color:THEME.textLight,maxWidth:420,margin:"0 auto",lineHeight:1.6}}>Пройди диагностику и загрузи фото своих записей — ИИ проанализирует твои ответы и составит персональный план с приоритетами.</p>
+            <button onClick={onBack} className="cta-button active" style={{width:"auto",padding:"14px 28px",marginTop:28}}>Перейти к диагностике</button>
+          </div>
+        )}
+
+        {!loading && topics.length>0 && (
+          <>
+            {/* Summary bar */}
+            <div style={{background:"#fff",border:`1px solid ${THEME.border}`,borderRadius:16,padding:"24px 28px",marginBottom:28,display:"flex",gap:24,flexWrap:"wrap",alignItems:"center"}}>
+              <div style={{flex:1,minWidth:200}}>
+                <div style={{fontSize:13,fontWeight:600,color:THEME.textLight,marginBottom:8}}>Распределение по зонам</div>
+                <div style={{height:10,borderRadius:99,overflow:"hidden",display:"flex",gap:2}}>
+                  {grouped.red.length>0    && <div style={{flex:grouped.red.length,   background:THEME.error,  borderRadius:99}}/>}
+                  {grouped.yellow.length>0 && <div style={{flex:grouped.yellow.length,background:THEME.warning,borderRadius:99}}/>}
+                  {grouped.green.length>0  && <div style={{flex:grouped.green.length, background:THEME.success,borderRadius:99}}/>}
+                </div>
+              </div>
+              {Object.entries(grouped).map(([zone,arr])=>arr.length>0&&(
+                <div key={zone} style={{textAlign:"center"}}>
+                  <div style={{fontFamily:"'Montserrat',sans-serif",fontSize:22,fontWeight:800,color:zones[zone].color}}>{arr.length}</div>
+                  <div style={{fontSize:12,color:THEME.textLight}}>{zone==="red"?"критичных":zone==="yellow"?"в работе":"в порядке"}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Topic groups */}
+            {["red","yellow","green"].map(zone => grouped[zone].length>0 && (
+              <div key={zone} style={{marginBottom:28}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+                  <h2 style={{fontFamily:"'Montserrat',sans-serif",fontSize:18,fontWeight:800,color:zones[zone].color}}>{zones[zone].label}</h2>
+                  <span style={{fontSize:13,color:THEME.textLight}}>{zones[zone].desc}</span>
+                  <span style={{marginLeft:"auto",background:zones[zone].bg,color:zones[zone].color,fontWeight:700,fontSize:13,padding:"3px 12px",borderRadius:99,border:`1px solid ${zones[zone].border}`}}>{grouped[zone].length} тем</span>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {grouped[zone].map((t,i)=>(
+                    <div key={i} style={{background:"#fff",borderRadius:14,border:`1px solid ${zones[zone].border}`,borderLeft:`5px solid ${zones[zone].color}`,padding:"20px 24px"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
+                        <div style={{flex:1}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                            <span style={{background:THEME.primary,color:THEME.accent,fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:6,textTransform:"uppercase"}}>{t.section}</span>
+                            <span style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:16,color:THEME.primary}}>{t.topic}</span>
+                          </div>
+                          {t.reason && <p style={{color:THEME.textLight,fontSize:14,lineHeight:1.5,marginBottom:t.skills?.length?12:0}}>{t.reason}</p>}
+                          {t.skills?.length>0 && (
+                            <div>
+                              <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:8}}>Навыки для проработки:</div>
+                              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                                {t.skills.map((s,si)=>(
+                                  <span key={si} style={{background:zones[zone].bg,color:zones[zone].color,border:`1px solid ${zones[zone].border}`,fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:99}}>{s}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div style={{flexShrink:0,width:36,height:36,borderRadius:10,background:zones[zone].bg,border:`1px solid ${zones[zone].border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
+                          {zone==="red"?"🔴":zone==="yellow"?"🟡":"🟢"}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );
@@ -1153,10 +1506,11 @@ export default function App() {
   const [qIndex,setQIndex]=useState(0);
   const [answers,setAnswers]=useState([]);
   const [report,setReport]=useState(null);
+  const [lastResultId,setLastResultId]=useState(null);
 
   const handleRegister=u=>{setUser(u);setScreen("dashboard");};
   const goHome=()=>setScreen("dashboard");
-  const viewPlan=()=>setScreen("rpgmap");
+  const viewPlan=()=>setScreen("plan");
   const openAdmin=()=>setScreen("admin");
   const openDiagnostics=()=>setScreen("diagnostics");
 
@@ -1177,14 +1531,13 @@ export default function App() {
     if(qIndex+1<questions.length){
       setQIndex(qIndex+1);
     } else {
-      const finalReport={answers:next};
-      setReport(finalReport);
-      // Save result to Firestore
+      setReport({answers:next});
+      // Save result to Firestore, capture ID
       try{
         const correct=next.filter(a=>a.correct).length;
         const totalTime=next.reduce((s,a)=>s+(a.timeSpent||0),0);
         const weakTopics=next.filter(a=>!a.correct).map(a=>({topic:a.topic,section:a.section}));
-        await addDoc(collection(db,"diagnosticResults"),{
+        const ref=await addDoc(collection(db,"diagnosticResults"),{
           userPhone:user?.phone,
           userName:`${user?.firstName} ${user?.lastName}`,
           completedAt:new Date().toISOString(),
@@ -1193,8 +1546,10 @@ export default function App() {
           score:Math.round((correct/next.length)*100),
           totalTime,
           weakTopics,
+          answers: next.map(a=>({topic:a.topic,section:a.section,correct:a.correct,confidence:a.confidence,timeSpent:a.timeSpent}))
         });
-      }catch(e){console.error("Ошибка сохранения результата:",e);}
+        setLastResultId(ref.id);
+      }catch(e){console.error("Ошибка сохранения:",e);}
       setScreen("report");
     }
   };
@@ -1365,15 +1720,19 @@ export default function App() {
       {screen==="report"&&report&&(
         <>
           <nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"16px 32px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><Logo size={32}/><button onClick={goHome} className="cta-button active" style={{width:"auto",padding:"10px 20px"}}>← Главная</button></nav>
-          <ReportScreen report={report} user={user} onViewPlan={viewPlan} onBack={goHome}/>
+          <ReportScreen report={report} user={user} onUpload={()=>setScreen("upload")} onViewPlan={viewPlan} onBack={goHome}/>
         </>
       )}
-      {screen==="rpgmap"&&(
-        <>
-          <nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"16px 32px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><Logo size={32}/><button onClick={goHome} className="cta-button active" style={{width:"auto",padding:"10px 20px"}}>← Главная</button></nav>
-          <PathMap user={user} onBack={goHome}/>
-        </>
+      {screen==="upload"&&report&&(
+        <UploadAnalysisScreen
+          answers={report.answers}
+          user={user}
+          resultId={lastResultId}
+          onDone={()=>setScreen("plan")}
+          onSkip={()=>setScreen("plan")}
+        />
       )}
+      {screen==="plan"&&<IndividualPlanScreen user={user} onBack={goHome}/>}
     </>
   );
 }
