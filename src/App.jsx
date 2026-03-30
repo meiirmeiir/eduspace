@@ -606,66 +606,45 @@ function ReportScreen({ report, user, onUpload, onViewPlan, onBack }) {
   );
 }
 
-// ── ЗАГРУЗКА ФОТО И АНАЛИЗ ────────────────────────────────────────────────────
-function UploadAnalysisScreen({ answers, user, resultId, onDone, onSkip }) {
+// ── ЗАГРУЗКА ФОТО ─────────────────────────────────────────────────────────────
+function UploadAnalysisScreen({ user, onDone, onSkip }) {
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [progress, setProgress] = useState("");
+  const [sending, setSending] = useState(false);
+  const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
   const handleFiles = e => {
-    const selected = Array.from(e.target.files).slice(0,5);
+    const selected = Array.from(e.target.files).slice(0,10);
     setFiles(selected);
     setPreviews(selected.map(f => URL.createObjectURL(f)));
     setError("");
   };
 
-  const handleAnalyze = async () => {
+  const handleSend = async () => {
     if (!files.length) { setError("Выберите хотя бы одно фото."); return; }
-    if (!ANTHROPIC_KEY) { setError("API-ключ не настроен. Добавьте VITE_ANTHROPIC_KEY в файл .env и перезапустите приложение."); return; }
-    setAnalyzing(true); setError("");
+    setSending(true); setError("");
     try {
-      const allTopics = [];
       for (let i = 0; i < files.length; i++) {
-        setProgress(`Анализирую фото ${i+1} из ${files.length}...`);
-        const f = files[i];
-        const base64 = await new Promise((res, rej) => {
-          const reader = new FileReader();
-          reader.onload = () => res(reader.result.split(",")[1]);
-          reader.onerror = rej;
-          reader.readAsDataURL(f);
-        });
-        // Отправка фото в Telegram
-        tgPhoto(f, `📷 Решение ученика\n👤 ${user?.firstName} ${user?.lastName} (${user?.phone})\nФото ${i+1} из ${files.length}`);
-        const result = await analyzePhoto(base64, f.type || "image/jpeg", answers);
-        allTopics.push(...(result.topics || []));
+        await tgPhoto(files[i], `📷 Фото решений (${i+1}/${files.length})\n👤 ${user?.firstName} ${user?.lastName}\n📞 ${user?.phone}`);
       }
-      // Merge duplicates — take worst zone per topic
-      const zoneRank = { red:0, yellow:1, green:2 };
-      const merged = {};
-      allTopics.forEach(t => {
-        const key = `${t.section}|${t.topic}`;
-        if (!merged[key] || zoneRank[t.zone] < zoneRank[merged[key].zone]) merged[key] = t;
-      });
-      const finalTopics = Object.values(merged);
-
-      setProgress("Сохраняю результаты...");
-      if (resultId) {
-        await updateDoc(doc(db, "diagnosticResults", resultId), {
-          zoneAnalysis: finalTopics,
-          analyzedAt: new Date().toISOString()
-        });
-      }
-      onDone(finalTopics);
+      setDone(true);
+      setTimeout(() => onDone(), 2000);
     } catch(e) {
-      console.error(e);
-      setError("Ошибка анализа: " + e.message);
+      setError("Ошибка отправки: " + e.message);
     }
-    setAnalyzing(false); setProgress("");
+    setSending(false);
   };
 
-  const zoneColors = { red: THEME.error, yellow: THEME.warning, green: THEME.success };
+  if (done) return (
+    <div style={{minHeight:"100vh",background:THEME.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:64,marginBottom:16}}>✅</div>
+        <div style={{fontFamily:"'Montserrat',sans-serif",fontSize:22,fontWeight:800,color:THEME.primary,marginBottom:8}}>Фото отправлены!</div>
+        <div style={{color:THEME.textLight,fontSize:15}}>Возвращаемся в главное меню...</div>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{minHeight:"100vh",background:THEME.bg}}>
@@ -673,70 +652,41 @@ function UploadAnalysisScreen({ answers, user, resultId, onDone, onSkip }) {
         <Logo size={32} light/>
         <button onClick={onSkip} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.2)",color:"rgba(255,255,255,0.7)",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontFamily:"'Inter',sans-serif"}}>Пропустить</button>
       </nav>
-      <div style={{maxWidth:760,margin:"0 auto",padding:"48px 24px"}}>
-        <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:28,fontWeight:800,color:THEME.primary,marginBottom:8}}>Загрузи фото записей</h1>
-        <p style={{color:THEME.textLight,fontSize:16,marginBottom:36,lineHeight:1.6}}>ИИ проанализирует твои рукописные решения, оценит каждый шаг и составит персональный план по приоритетам.</p>
+      <div style={{maxWidth:680,margin:"0 auto",padding:"48px 24px"}}>
+        <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:28,fontWeight:800,color:THEME.primary,marginBottom:8}}>Загрузи фото решений</h1>
+        <p style={{color:THEME.textLight,fontSize:16,marginBottom:36,lineHeight:1.6}}>Сфотографируй свои записи и отправь преподавателю для проверки.</p>
 
-        {/* Upload zone */}
         <label style={{display:"block",border:`2px dashed ${files.length?THEME.success:THEME.border}`,borderRadius:16,padding:"48px 24px",textAlign:"center",cursor:"pointer",background:files.length?"rgba(16,185,129,0.03)":"#fff",transition:"all 0.2s",marginBottom:24}}>
           <div style={{fontSize:40,marginBottom:12}}>{files.length?"✅":"📷"}</div>
           <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:16,color:THEME.primary,marginBottom:6}}>
             {files.length?`Выбрано фото: ${files.length}`:"Нажми чтобы выбрать фото"}
           </div>
-          <div style={{fontSize:13,color:THEME.textLight}}>JPG, PNG, HEIC — до 5 фото. Сделай чёткое фото при хорошем освещении.</div>
+          <div style={{fontSize:13,color:THEME.textLight}}>JPG, PNG, HEIC — до 10 фото. Сделай чёткое фото при хорошем освещении.</div>
           <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={handleFiles}/>
         </label>
 
-        {/* Previews */}
         {previews.length>0 && (
           <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:28}}>
             {previews.map((p,i)=>(
-              <div key={i} style={{position:"relative",width:120,height:120,borderRadius:12,overflow:"hidden",border:`2px solid ${THEME.border}`}}>
+              <div key={i} style={{width:110,height:110,borderRadius:12,overflow:"hidden",border:`2px solid ${THEME.border}`}}>
                 <img src={p} alt={`Фото ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
               </div>
             ))}
           </div>
         )}
 
-        {/* What AI checks */}
-        <div style={{background:"#fff",border:`1px solid ${THEME.border}`,borderRadius:16,padding:"24px 28px",marginBottom:28}}>
-          <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:15,color:THEME.primary,marginBottom:16}}>Что анализирует ИИ:</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
-            {[
-              {icon:"⏱️",label:"Время выполнения",desc:"Сколько времени ушло на каждую задачу"},
-              {icon:"🎯",label:"Пошаговость",desc:"Правильность каждого шага решения"},
-              {icon:"💡",label:"Уверенность",desc:"Уровень уверенности при ответе"},
-            ].map((item,i)=>(
-              <div key={i} style={{textAlign:"center",padding:"16px 12px",background:THEME.bg,borderRadius:12}}>
-                <div style={{fontSize:24,marginBottom:8}}>{item.icon}</div>
-                <div style={{fontWeight:700,fontSize:13,color:THEME.primary,marginBottom:4}}>{item.label}</div>
-                <div style={{fontSize:11,color:THEME.textLight,lineHeight:1.4}}>{item.desc}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{marginTop:16,display:"flex",gap:12,justifyContent:"center"}}>
-            {[{zone:"red",label:"Красная зона — грубые ошибки"},{zone:"yellow",label:"Жёлтая — частичное понимание"},{zone:"green",label:"Зелёная — мелкие недочёты"}].map(z=>(
-              <div key={z.zone} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:THEME.textLight}}>
-                <div style={{width:10,height:10,borderRadius:"50%",background:zoneColors[z.zone],flexShrink:0}}/>
-                {z.label}
-              </div>
-            ))}
-          </div>
-        </div>
-
         {error && <div style={{background:"rgba(239,68,68,0.08)",border:`1px solid ${THEME.error}`,borderRadius:12,padding:"14px 18px",color:THEME.error,fontSize:14,marginBottom:20}}>{error}</div>}
 
-        {analyzing && (
-          <div style={{background:"rgba(15,23,42,0.04)",border:`1px solid ${THEME.border}`,borderRadius:12,padding:"20px 24px",marginBottom:20,textAlign:"center"}}>
-            <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,color:THEME.primary,marginBottom:6}}>{progress}</div>
-            <div style={{fontSize:13,color:THEME.textLight}}>Не закрывай страницу во время анализа</div>
+        {sending && (
+          <div style={{background:"rgba(15,23,42,0.04)",border:`1px solid ${THEME.border}`,borderRadius:12,padding:"16px 20px",marginBottom:20,textAlign:"center",color:THEME.textLight,fontSize:14}}>
+            Отправляю фото... Не закрывай страницу.
           </div>
         )}
 
-        <button onClick={handleAnalyze} disabled={!files.length||analyzing} className={`cta-button ${files.length&&!analyzing?"active":""}`}>
-          {analyzing?"Анализирую...":"🤖 Анализировать записи и составить план"}
+        <button onClick={handleSend} disabled={!files.length||sending} className={`cta-button ${files.length&&!sending?"active":""}`}>
+          {sending?"Отправляю...":"📤 Отправить фото преподавателю"}
         </button>
-        <button onClick={onSkip} style={{width:"100%",marginTop:12,padding:"14px",borderRadius:8,border:`1px solid ${THEME.border}`,background:"transparent",color:THEME.textLight,fontFamily:"'Montserrat',sans-serif",fontWeight:600,fontSize:14,cursor:"pointer"}}>Пропустить — перейти к плану без анализа</button>
+        <button onClick={onSkip} style={{width:"100%",marginTop:12,padding:"14px",borderRadius:8,border:`1px solid ${THEME.border}`,background:"transparent",color:THEME.textLight,fontFamily:"'Montserrat',sans-serif",fontWeight:600,fontSize:14,cursor:"pointer"}}>Пропустить</button>
       </div>
     </div>
   );
@@ -2017,13 +1967,11 @@ export default function App() {
           <ReportScreen report={report} user={user} onUpload={()=>setScreen("upload")} onViewPlan={viewPlan} onBack={goHome}/>
         </>
       )}
-      {screen==="upload"&&report&&(
+      {screen==="upload"&&(
         <UploadAnalysisScreen
-          answers={report.answers}
           user={user}
-          resultId={lastResultId}
-          onDone={()=>setScreen("plan")}
-          onSkip={()=>setScreen("plan")}
+          onDone={()=>setScreen("dashboard")}
+          onSkip={()=>setScreen("dashboard")}
         />
       )}
       {screen==="plan"&&<IndividualPlanScreen user={user} onBack={goHome}/>}
