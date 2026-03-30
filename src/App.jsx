@@ -858,11 +858,13 @@ function AdminScreen({ onBack }) {
   const emptySecForm = {name:"",description:"",goalKey:"",specificTarget:""};
   const [secForm,setSecForm]=useState(emptySecForm);
   const [showSecForm,setShowSecForm]=useState(false);
+  const [editingSection,setEditingSection]=useState(null); // id of section being edited
 
   // Question form
   const emptyQForm = {sectionId:"",sectionName:"",topic:"",text:"",type:"mcq",options:["","","",""],correct:0,correctAnswers:[],pairs:[{left:"",right:""},{left:"",right:""}],goals:[]};
   const [qForm,setQForm]=useState(emptyQForm);
   const [showQForm,setShowQForm]=useState(false);
+  const [editingQuestion,setEditingQuestion]=useState(null); // id of question being edited
   const [filterSec,setFilterSec]=useState("all");
   const [filterGoal,setFilterGoal]=useState("all");
 
@@ -880,6 +882,10 @@ function AdminScreen({ onBack }) {
   },[]);
 
   // ─ Sections ─
+  const openAddSection=()=>{setSecForm(emptySecForm);setEditingSection(null);setShowSecForm(true);};
+  const openEditSection=s=>{setSecForm({name:s.name,description:s.description||"",goalKey:s.goalKey,specificTarget:s.specificTarget});setEditingSection(s.id);setShowSecForm(true);};
+  const closeSecForm=()=>{setShowSecForm(false);setEditingSection(null);setSecForm(emptySecForm);};
+
   const addSection=async e=>{
     e.preventDefault();
     if(!secForm.name.trim()||!secForm.goalKey||!secForm.specificTarget){alert("Заполните все поля.");return;}
@@ -887,8 +893,18 @@ function AdminScreen({ onBack }) {
       const data={...secForm,name:secForm.name.trim(),createdAt:new Date().toISOString()};
       const ref=await addDoc(collection(db,"sections"),data);
       setSections(p=>[...p,{id:ref.id,...data}]);
-      setSecForm(emptySecForm); setShowSecForm(false);
+      closeSecForm();
     }catch{alert("Ошибка.");}
+  };
+  const saveSection=async e=>{
+    e.preventDefault();
+    if(!secForm.name.trim()||!secForm.goalKey||!secForm.specificTarget){alert("Заполните все поля.");return;}
+    try{
+      const data={name:secForm.name.trim(),description:secForm.description,goalKey:secForm.goalKey,specificTarget:secForm.specificTarget};
+      await updateDoc(doc(db,"sections",editingSection),data);
+      setSections(p=>p.map(s=>s.id===editingSection?{...s,...data}:s));
+      closeSecForm();
+    }catch{alert("Ошибка при сохранении.");}
   };
   const delSection=async id=>{
     if(!confirm("Удалить раздел?"))return;
@@ -911,21 +927,59 @@ function AdminScreen({ onBack }) {
   const toggleCorrectAnswer=i=>setQForm(p=>({...p,correctAnswers:p.correctAnswers.includes(i)?p.correctAnswers.filter(x=>x!==i):[...p.correctAnswers,i]}));
   const toggleGoalQ=k=>setQForm(p=>({...p,goals:p.goals.includes(k)?p.goals.filter(g=>g!==k):[...p.goals,k]}));
 
+  const buildQData=()=>{
+    const data={sectionId:qForm.sectionId,sectionName:qForm.sectionName,topic:qForm.topic,text:qForm.text,type:qForm.type,goals:qForm.goals};
+    if(qForm.type==="mcq"){data.options=qForm.options.map(o=>o.trim());data.correct=qForm.correct;}
+    else if(qForm.type==="multiple"){data.options=qForm.options.map(o=>o.trim());data.correctAnswers=qForm.correctAnswers;}
+    else if(qForm.type==="matching"){data.pairs=qForm.pairs;}
+    return data;
+  };
+  const validateQForm=()=>{
+    if(!qForm.sectionId||!qForm.topic.trim()||!qForm.text.trim()||!qForm.goals.length){alert("Заполните все обязательные поля.");return false;}
+    if(qForm.type==="mcq"&&qForm.options.some(o=>!o.trim())){alert("Заполните все варианты ответа.");return false;}
+    if(qForm.type==="multiple"&&(qForm.options.some(o=>!o.trim())||qForm.correctAnswers.length===0)){alert("Заполните варианты и отметьте правильные.");return false;}
+    if(qForm.type==="matching"&&qForm.pairs.some(p=>!p.left.trim()||!p.right.trim())){alert("Заполните все пары соответствия.");return false;}
+    return true;
+  };
+
+  const openAddQuestion=()=>{setQForm(emptyQForm);setEditingQuestion(null);setShowQForm(true);};
+  const openEditQuestion=q=>{
+    setQForm({
+      sectionId:q.sectionId||"",sectionName:q.sectionName||"",topic:q.topic||"",text:q.text||"",
+      type:q.type||"mcq",goals:q.goals||[],
+      options:q.options?.length?q.options:["","","",""],
+      correct:q.correct||0,
+      correctAnswers:q.correctAnswers||[],
+      pairs:q.pairs?.length?q.pairs:[{left:"",right:""},{left:"",right:""}]
+    });
+    setEditingQuestion(q.id);
+    setShowQForm(true);
+  };
+  const closeQForm=()=>{setShowQForm(false);setEditingQuestion(null);setQForm(emptyQForm);};
+
   const addQuestion=async e=>{
     e.preventDefault();
-    if(!qForm.sectionId||!qForm.topic.trim()||!qForm.text.trim()||!qForm.goals.length){alert("Заполните все обязательные поля.");return;}
-    if(qForm.type==="mcq"&&qForm.options.some(o=>!o.trim())){alert("Заполните все варианты ответа.");return;}
-    if(qForm.type==="multiple"&&(qForm.options.some(o=>!o.trim())||qForm.correctAnswers.length===0)){alert("Заполните варианты и отметьте правильные.");return;}
-    if(qForm.type==="matching"&&qForm.pairs.some(p=>!p.left.trim()||!p.right.trim())){alert("Заполните все пары соответствия.");return;}
+    if(!validateQForm())return;
     try{
-      const data = { sectionId:qForm.sectionId, sectionName:qForm.sectionName, topic:qForm.topic, text:qForm.text, type:qForm.type, goals:qForm.goals, createdAt:new Date().toISOString() };
-      if(qForm.type==="mcq"){ data.options=qForm.options.map(o=>o.trim()); data.correct=qForm.correct; }
-      else if(qForm.type==="multiple"){ data.options=qForm.options.map(o=>o.trim()); data.correctAnswers=qForm.correctAnswers; }
-      else if(qForm.type==="matching"){ data.pairs=qForm.pairs; }
+      const data={...buildQData(),createdAt:new Date().toISOString()};
       const ref=await addDoc(collection(db,"questions"),data);
       setQuestions(p=>[...p,{id:ref.id,...data}]);
-      setQForm(emptyQForm); setShowQForm(false);
+      closeQForm();
     }catch{alert("Ошибка.");}
+  };
+  const saveQuestion=async e=>{
+    e.preventDefault();
+    if(!validateQForm())return;
+    try{
+      const data=buildQData();
+      // Clear fields that don't belong to new type
+      const clearFields={};
+      if(data.type!=="mcq"&&data.type!=="multiple"){clearFields.options=null;clearFields.correct=null;clearFields.correctAnswers=null;}
+      if(data.type!=="matching"){clearFields.pairs=null;}
+      await updateDoc(doc(db,"questions",editingQuestion),{...data,...clearFields});
+      setQuestions(p=>p.map(q=>q.id===editingQuestion?{...q,...data}:q));
+      closeQForm();
+    }catch(e){alert("Ошибка при сохранении: "+e.message);}
   };
   const delQuestion=async id=>{
     if(!confirm("Удалить вопрос?"))return;
@@ -968,12 +1022,12 @@ function AdminScreen({ onBack }) {
           <div>
             <div className="admin-section-header">
               <div><h2 className="admin-section-title">Разделы диагностики</h2><p style={{color:THEME.textLight,fontSize:14}}>Каждый раздел привязан к цели и экзамену/классу</p></div>
-              <button className="add-btn" onClick={()=>setShowSecForm(true)}>+ Новый раздел</button>
+              <button className="add-btn" onClick={openAddSection}>+ Новый раздел</button>
             </div>
             {showSecForm&&(
               <div className="admin-form-card">
-                <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,marginBottom:20}}>Новый раздел</h3>
-                <form onSubmit={addSection}>
+                <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,marginBottom:20}}>{editingSection?"Редактировать раздел":"Новый раздел"}</h3>
+                <form onSubmit={editingSection?saveSection:addSection}>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
                     <div className="input-group" style={{marginBottom:0}}>
                       <label className="input-label">Название раздела *</label>
@@ -1001,8 +1055,8 @@ function AdminScreen({ onBack }) {
                     <input type="text" className="input-field" value={secForm.description} onChange={e=>setSecForm(p=>({...p,description:e.target.value}))} placeholder="Краткое описание раздела..."/>
                   </div>
                   <div style={{display:"flex",gap:12}}>
-                    <button type="button" className="cta-button" style={{background:"#fff",border:`1px solid ${THEME.border}`,color:THEME.text}} onClick={()=>setShowSecForm(false)}>Отмена</button>
-                    <button type="submit" className="cta-button active">Добавить</button>
+                    <button type="button" className="cta-button" style={{background:"#fff",border:`1px solid ${THEME.border}`,color:THEME.text}} onClick={closeSecForm}>Отмена</button>
+                    <button type="submit" className="cta-button active">{editingSection?"Сохранить":"Добавить"}</button>
                   </div>
                 </form>
               </div>
@@ -1021,7 +1075,10 @@ function AdminScreen({ onBack }) {
                         </div>
                         <div style={{fontSize:12,color:THEME.textLight}}>{questions.filter(q=>q.sectionId===s.id).length} вопросов</div>
                       </div>
-                      <button onClick={()=>delSection(s.id)} style={{background:"transparent",border:"none",color:THEME.textLight,cursor:"pointer",fontSize:20,padding:"0 4px",marginLeft:8}}>×</button>
+                      <div style={{display:"flex",gap:4,marginLeft:8,flexShrink:0}}>
+                        <button onClick={()=>openEditSection(s)} style={{background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,cursor:"pointer",fontSize:13,padding:"4px 10px",borderRadius:6}} title="Редактировать">✏️</button>
+                        <button onClick={()=>delSection(s.id)} style={{background:"transparent",border:"none",color:THEME.textLight,cursor:"pointer",fontSize:20,padding:"0 4px"}} title="Удалить">×</button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1035,7 +1092,7 @@ function AdminScreen({ onBack }) {
           <div>
             <div className="admin-section-header">
               <div><h2 className="admin-section-title">Вопросы для диагностики</h2><p style={{color:THEME.textLight,fontSize:14}}>Показано {filteredQ.length} из {questions.length}</p></div>
-              <button className="add-btn" onClick={()=>setShowQForm(true)} disabled={sections.length===0} title={sections.length===0?"Сначала создайте раздел":""}>+ Новый вопрос</button>
+              <button className="add-btn" onClick={openAddQuestion} disabled={sections.length===0} title={sections.length===0?"Сначала создайте раздел":""}>+ Новый вопрос</button>
             </div>
             {/* Filters */}
             <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap"}}>
@@ -1048,11 +1105,11 @@ function AdminScreen({ onBack }) {
                 {Object.entries(REG_GOALS).map(([k,v])=><option key={k} value={k}>{v}</option>)}
               </select>
             </div>
-            {/* Add Question Form */}
+            {/* Add/Edit Question Form */}
             {showQForm&&(
               <div className="admin-form-card">
-                <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,marginBottom:20}}>Новый вопрос</h3>
-                <form onSubmit={addQuestion}>
+                <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,marginBottom:20}}>{editingQuestion?"Редактировать вопрос":"Новый вопрос"}</h3>
+                <form onSubmit={editingQuestion?saveQuestion:addQuestion}>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:0}}>
                     <div className="input-group" style={{marginBottom:0}}>
                       <label className="input-label">Раздел *</label>
@@ -1135,8 +1192,8 @@ function AdminScreen({ onBack }) {
                     </div>
                   </div>
                   <div style={{display:"flex",gap:12}}>
-                    <button type="button" className="cta-button" style={{background:"#fff",border:`1px solid ${THEME.border}`,color:THEME.text}} onClick={()=>setShowQForm(false)}>Отмена</button>
-                    <button type="submit" className="cta-button active">Добавить вопрос</button>
+                    <button type="button" className="cta-button" style={{background:"#fff",border:`1px solid ${THEME.border}`,color:THEME.text}} onClick={closeQForm}>Отмена</button>
+                    <button type="submit" className="cta-button active">{editingQuestion?"Сохранить вопрос":"Добавить вопрос"}</button>
                   </div>
                 </form>
               </div>
@@ -1169,7 +1226,10 @@ function AdminScreen({ onBack }) {
                           </div>
                         )}
                       </div>
-                      <button onClick={()=>delQuestion(q.id)} style={{background:"transparent",border:"none",color:THEME.textLight,cursor:"pointer",fontSize:20,flexShrink:0}}>×</button>
+                      <div style={{display:"flex",gap:4,flexShrink:0}}>
+                        <button onClick={()=>openEditQuestion(q)} style={{background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,cursor:"pointer",fontSize:13,padding:"4px 10px",borderRadius:6}} title="Редактировать">✏️</button>
+                        <button onClick={()=>delQuestion(q.id)} style={{background:"transparent",border:"none",color:THEME.textLight,cursor:"pointer",fontSize:20,padding:"0 4px"}} title="Удалить">×</button>
+                      </div>
                     </div>
                   </div>
                 ))}
