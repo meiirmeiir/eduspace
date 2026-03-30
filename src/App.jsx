@@ -178,12 +178,39 @@ function DiagnosticsScreen({ user, onSelectSection, onBack }) {
         const [secSnap,qSnap]=await Promise.all([getDocs(collection(db,"sections")),getDocs(collection(db,"questions"))]);
         const allSecs=secSnap.docs.map(d=>({id:d.id,...d.data()}));
         const allQs=qSnap.docs.map(d=>({id:d.id,...d.data()}));
-        // Filter sections matching student's goal and target
-        const filtered=allSecs.filter(s=>{
-          if(s.goalKey!==user?.goalKey) return false;
-          if(s.specificTarget && s.specificTarget!==user?.details) return false;
-          return true;
+        // Filter sections based on student's goal and target
+        const studentGoal = user?.goalKey;
+        const studentTarget = user?.details; // e.g. "ЕНТ" or "8 класс"
+        const gradeIndex = GRADES_LIST.indexOf(studentTarget);
+
+        const filtered = allSecs.filter(s => {
+          if (s.goalKey !== studentGoal) return false;
+          if (!s.specificTarget) return false;
+
+          if (studentGoal === "exam") {
+            // Show only sections for the student's specific exam
+            return s.specificTarget === studentTarget;
+          }
+
+          if (studentGoal === "gaps") {
+            // Show sections for all classes up to and including student's class
+            const sIdx = GRADES_LIST.indexOf(s.specificTarget);
+            return sIdx !== -1 && gradeIndex !== -1 && sIdx <= gradeIndex;
+          }
+
+          if (studentGoal === "future") {
+            // Show sections for student's class and all subsequent classes
+            const sIdx = GRADES_LIST.indexOf(s.specificTarget);
+            return sIdx !== -1 && gradeIndex !== -1 && sIdx >= gradeIndex;
+          }
+
+          return false;
         });
+
+        // Sort by grade order for gaps/future goals
+        if (studentGoal === "gaps" || studentGoal === "future") {
+          filtered.sort((a, b) => GRADES_LIST.indexOf(a.specificTarget) - GRADES_LIST.indexOf(b.specificTarget));
+        }
         // Count questions per section
         const c={};
         allQs.forEach(q=>{ if(q.sectionId) c[q.sectionId]=(c[q.sectionId]||0)+1; });
