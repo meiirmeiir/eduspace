@@ -203,8 +203,11 @@ function AuthScreen({ onRegister }) {
       const snap=await getDoc(doc(db,"users",cp));
       if(snap.exists()){
         const data=snap.data();
-        if(data.password && data.status!=="trial"){ setFoundUser(data); setStep(3); }
-        else onRegister(data);
+        if(data.status!=="trial"){
+          setFoundUser(data);
+          if(data.password) setStep(3);   // уже есть пароль → ввести
+          else setStep(4);                // пароля нет → создать
+        } else onRegister(data);
       } else setStep(2);
     }
     catch{ alert("Ошибка соединения."); }
@@ -215,6 +218,19 @@ function AuthScreen({ onRegister }) {
     e.preventDefault();
     if(password===foundUser.password) onRegister(foundUser);
     else { alert("Неверный пароль. Попробуйте ещё раз."); setPassword(""); }
+  };
+
+  const [confirmPwd,setConfirmPwd]=useState("");
+  const createPassword = async e => {
+    e.preventDefault();
+    if(password.length<4){alert("Пароль должен быть не менее 4 символов.");return;}
+    if(password!==confirmPwd){alert("Пароли не совпадают.");return;}
+    setLoading(true);
+    try{
+      await updateDoc(doc(db,"users",foundUser.phone),{password});
+      onRegister({...foundUser,password});
+    }catch{ alert("Ошибка при сохранении пароля."); }
+    setLoading(false);
   };
 
   const register = async e => {
@@ -246,8 +262,8 @@ function AuthScreen({ onRegister }) {
       <div className="split-right">
         <div className="form-card">
           <div className="form-header">
-            <h2>{step===1?"Войти в систему":step===2?"Создать профиль":"Введите пароль"}</h2>
-            <p>{step===1?"Введите номер WhatsApp для входа.":step===2?"Мы вас не нашли. Давайте познакомимся!":"Ваш аккаунт защищён паролем."}</p>
+            <h2>{step===1?"Войти в систему":step===2?"Создать профиль":step===3?"Введите пароль":"Создайте пароль"}</h2>
+            <p>{step===1?"Введите номер WhatsApp для входа.":step===2?"Мы вас не нашли. Давайте познакомимся!":step===3?"Ваш аккаунт защищён паролем.":"Придумайте пароль для входа в аккаунт."}</p>
           </div>
           {step===3?(
             <form onSubmit={checkPassword}>
@@ -257,6 +273,21 @@ function AuthScreen({ onRegister }) {
               </div>
               <button type="submit" className={`cta-button ${password?"active":""}`} disabled={!password}>Войти →</button>
               <button type="button" style={{width:"100%",marginTop:10,padding:"12px",borderRadius:8,border:`1px solid ${THEME.border}`,background:"transparent",color:THEME.textLight,fontFamily:"'Montserrat',sans-serif",fontWeight:600,fontSize:13,cursor:"pointer"}} onClick={()=>{setStep(1);setFoundUser(null);setPassword("");}}>← Назад</button>
+            </form>
+          ):step===4?(
+            <form onSubmit={createPassword}>
+              <div className="input-group">
+                <label className="input-label">Новый пароль</label>
+                <input type="password" className="input-field" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Минимум 4 символа..." autoFocus required/>
+              </div>
+              <div className="input-group">
+                <label className="input-label">Повторите пароль</label>
+                <input type="password" className="input-field" value={confirmPwd} onChange={e=>setConfirmPwd(e.target.value)} placeholder="Повторите пароль..." required/>
+              </div>
+              <button type="submit" className={`cta-button ${password&&confirmPwd?"active":""}`} disabled={!password||!confirmPwd||loading}>
+                {loading?"Сохраняю...":"Сохранить и войти →"}
+              </button>
+              <button type="button" style={{width:"100%",marginTop:10,padding:"12px",borderRadius:8,border:`1px solid ${THEME.border}`,background:"transparent",color:THEME.textLight,fontFamily:"'Montserrat',sans-serif",fontWeight:600,fontSize:13,cursor:"pointer"}} onClick={()=>{setStep(1);setFoundUser(null);setPassword("");setConfirmPwd("");}}>← Назад</button>
             </form>
           ):(
             <form onSubmit={step===1?checkUser:register}>
