@@ -868,6 +868,12 @@ function AdminScreen({ onBack }) {
   const [filterSec,setFilterSec]=useState("all");
   const [filterGoal,setFilterGoal]=useState("all");
 
+  // CSV import
+  const [showCsvImport,setShowCsvImport]=useState(false);
+  const [csvSectionId,setCsvSectionId]=useState("");
+  const [csvText,setCsvText]=useState("");
+  const [csvImporting,setCsvImporting]=useState(false);
+
   useEffect(()=>{
     const load=async()=>{
       try{
@@ -986,6 +992,83 @@ function AdminScreen({ onBack }) {
     try{await deleteDoc(doc(db,"questions",id)); setQuestions(p=>p.filter(q=>q.id!==id));}catch{alert("Ошибка.");}
   };
 
+  // ─ CSV Bulk Import ─
+  // Format (tab or semicolon separated):
+  // mcq:   mcq ; topic ; question text ; opt1 ; opt2 ; opt3 ; opt4 ; correct_index(0-based) ; goals(exam,gaps,future)
+  // multiple: multiple ; topic ; question text ; opt1 ; opt2 ; opt3 ; opt4 ; correct_indices(0,1) ; goals
+  // matching: matching ; topic ; question text ; left1=right1 ; left2=right2 ; ... ; goals
+  const parseCsvRow=(row,sep)=>{
+    const c=row.split(sep).map(s=>s.trim());
+    if(c.length<3)return null;
+    const type=c[0].toLowerCase();
+    const topic=c[1];
+    const text=c[2];
+    const goalsRaw=c[c.length-1];
+    const goals=goalsRaw.split(",").map(g=>g.trim()).filter(g=>["exam","gaps","future"].includes(g));
+    if(!type||!topic||!text||!goals.length)return null;
+    if(type==="mcq"){
+      const opts=c.slice(3,c.length-2);
+      const correctIdx=parseInt(c[c.length-2]);
+      if(opts.length<2||isNaN(correctIdx))return null;
+      return{type:"mcq",topic,text,goals,options:opts,correct:correctIdx};
+    }
+    if(type==="multiple"){
+      const opts=c.slice(3,c.length-2);
+      const correctAnswers=(c[c.length-2]||"").split(",").map(x=>parseInt(x.trim())).filter(x=>!isNaN(x));
+      if(opts.length<2||!correctAnswers.length)return null;
+      return{type:"multiple",topic,text,goals,options:opts,correctAnswers};
+    }
+    if(type==="matching"){
+      const pairs=c.slice(3,c.length-1).map(p=>{const[l,...r]=p.split("=");return{left:l.trim(),right:r.join("=").trim()};}).filter(p=>p.left&&p.right);
+      if(pairs.length<2)return null;
+      return{type:"matching",topic,text,goals,pairs};
+    }
+    return null;
+  };
+
+  const handleCsvImport=async()=>{
+    if(!csvSectionId){alert("Выберите раздел для импорта.");return;}
+    const sec=sections.find(s=>s.id===csvSectionId);
+    if(!sec)return;
+    const lines=csvText.split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("#"));
+    if(!lines.length){alert("Нет данных для импорта.");return;}
+    // Auto-detect separator: semicolon or tab
+    const sep=lines[0].includes("\t")?"\t":";";
+    const parsed=lines.map(l=>parseCsvRow(l,sep)).filter(Boolean);
+    if(!parsed.length){alert("Не удалось распознать ни одной строки. Проверьте формат.");return;}
+    if(!confirm(`Импортировать ${parsed.length} вопросов в раздел «${sec.name}»?`))return;
+    setCsvImporting(true);
+    try{
+      const added=[];
+      for(const q of parsed){
+        const data={...q,sectionId:sec.id,sectionName:sec.name,createdAt:new Date().toISOString()};
+        const ref=await addDoc(collection(db,"questions"),data);
+        added.push({id:ref.id,...data});
+      }
+      setQuestions(p=>[...p,...added]);
+      setShowCsvImport(false);
+      setCsvText("");
+      setCsvSectionId("");
+      alert(`Успешно импортировано ${added.length} вопросов!`);
+    }catch(e){alert("Ошибка при импорте: "+e.message);}
+    setCsvImporting(false);
+  };
+
+  const downloadCsvTemplate=()=>{
+    const header="# Формат: type;topic;question_text;[options...];correct_index_or_pairs;goals\n"+
+      "# type: mcq | multiple | matching\n"+
+      "# goals: через запятую из exam,gaps,future\n"+
+      "# Пример MCQ:\n"+
+      "mcq;Линейные уравнения;Решите: 3x+7=22;x=5;x=3;x=7;x=4;0;exam,gaps\n"+
+      "# Пример Multiple (несколько верных):\n"+
+      "multiple;Свойства степеней;Что верно для a^n?;a^n=a*n;a^n*a^m=a^(n+m);a^0=1;(a^n)^m=a^(nm);1,2,3;future\n"+
+      "# Пример Matching (левая=правая):\n"+
+      "matching;Формулы;Сопоставьте формулы;S=bh/2=Площадь треугольника;C=2πr=Длина окружности;V=lwh=Объём прямоугольника;exam,gaps,future\n";
+    const blob=new Blob([header],{type:"text/plain;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download="questions_template.csv";a.click();URL.revokeObjectURL(url);
+  };
+
   const filteredQ=questions.filter(q=>{
     const sOk=filterSec==="all"||q.sectionId===filterSec;
     const gOk=filterGoal==="all"||(q.goals||[]).includes(filterGoal);
@@ -1092,8 +1175,43 @@ function AdminScreen({ onBack }) {
           <div>
             <div className="admin-section-header">
               <div><h2 className="admin-section-title">Вопросы для диагностики</h2><p style={{color:THEME.textLight,fontSize:14}}>Показано {filteredQ.length} из {questions.length}</p></div>
-              <button className="add-btn" onClick={openAddQuestion} disabled={sections.length===0} title={sections.length===0?"Сначала создайте раздел":""}>+ Новый вопрос</button>
+              <div style={{display:"flex",gap:10}}>
+                <button className="add-btn" style={{background:"#fff",border:`1px solid ${THEME.accent}`,color:THEME.accent}} onClick={()=>{setShowCsvImport(v=>!v);setShowQForm(false);}} disabled={sections.length===0}>📋 Импорт CSV</button>
+                <button className="add-btn" onClick={()=>{openAddQuestion();setShowCsvImport(false);}} disabled={sections.length===0} title={sections.length===0?"Сначала создайте раздел":""}>+ Новый вопрос</button>
+              </div>
             </div>
+            {/* CSV Import Panel */}
+            {showCsvImport&&(
+              <div className="admin-form-card" style={{marginBottom:24}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                  <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,color:THEME.primary,margin:0}}>Массовый импорт вопросов (CSV)</h3>
+                  <button onClick={downloadCsvTemplate} style={{background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,cursor:"pointer",fontSize:13,padding:"6px 14px",borderRadius:8,fontFamily:"'Inter',sans-serif"}}>⬇ Скачать шаблон</button>
+                </div>
+                <div style={{background:"#f8fafc",border:`1px solid ${THEME.border}`,borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:12,color:THEME.textLight,lineHeight:1.7}}>
+                  <strong style={{color:THEME.text}}>Формат строки (разделитель — точка с запятой <code>;</code>):</strong><br/>
+                  <code>mcq ; тема ; текст вопроса ; вар1 ; вар2 ; вар3 ; вар4 ; индекс_верного(0) ; цели</code><br/>
+                  <code>multiple ; тема ; текст ; вар1 ; вар2 ; вар3 ; верные_индексы(0,2) ; цели</code><br/>
+                  <code>matching ; тема ; текст ; левое1=правое1 ; левое2=правое2 ; цели</code><br/>
+                  <strong>цели</strong> — через запятую: <code>exam</code>, <code>gaps</code>, <code>future</code>
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Раздел для импорта *</label>
+                  <select className="input-field" value={csvSectionId} onChange={e=>setCsvSectionId(e.target.value)}>
+                    <option value="" disabled>Выберите раздел...</option>
+                    {sections.map(s=><option key={s.id} value={s.id}>{s.name} ({s.specificTarget})</option>)}
+                  </select>
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Данные (каждый вопрос — новая строка)</label>
+                  <textarea className="input-field" rows={10} style={{fontFamily:"'Courier New',monospace",fontSize:12}} value={csvText} onChange={e=>setCsvText(e.target.value)} placeholder={"mcq;Линейные уравнения;Решите: 3x+7=22;x=5;x=3;x=7;x=4;0;exam,gaps\nmultiple;Степени;Что верно?;a^n*a^m=a^(n+m);a^0=1;a^n=a*n;0,1;future\nmatching;Формулы;Сопоставьте;S=bh/2=Площадь треугольника;C=2πr=Длина окружности;exam,gaps,future"}/>
+                </div>
+                <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                  <button type="button" className="cta-button" style={{background:"#fff",border:`1px solid ${THEME.border}`,color:THEME.text}} onClick={()=>{setShowCsvImport(false);setCsvText("");setCsvSectionId("");}}>Отмена</button>
+                  <button type="button" className="cta-button active" onClick={handleCsvImport} disabled={csvImporting}>{csvImporting?"Импортирую...":"Импортировать"}</button>
+                  {csvText&&<span style={{fontSize:12,color:THEME.textLight}}>{csvText.split("\n").filter(l=>l.trim()&&!l.startsWith("#")).length} строк</span>}
+                </div>
+              </div>
+            )}
             {/* Filters */}
             <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap"}}>
               <select className="input-field" style={{width:"auto",minWidth:180}} value={filterSec} onChange={e=>setFilterSec(e.target.value)}>
