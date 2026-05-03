@@ -11,7 +11,7 @@ import './MapStyles.css';
 import { useTheme } from './ThemeContext.jsx';
 import { useNpc } from './NpcContext.jsx';
 import { initializeApp } from "firebase/app";
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import {
   doc, getDoc, getDocFromServer, setDoc, updateDoc,
   collection, getDocs, addDoc, deleteDoc, onSnapshot, db,
