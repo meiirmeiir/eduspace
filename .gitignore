@@ -1,4 +1,15 @@
 node_modules/
 dist/
+.firebase/
+.vercel/
+
+# Secrets
 .env
-.env.local
+.env.*
+!.env.example
+fb_sa*
+serviceAccount*
+service-account*
+*-credentials.json
+*.pem
+*.key
