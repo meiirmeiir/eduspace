@@ -10,9 +10,9 @@ import NpcGuide from './components/NpcGuide.jsx';
 import './MapStyles.css';
 import { useTheme } from './ThemeContext.jsx';
 import { useNpc } from './NpcContext.jsx';
-import { initializeApp } from "firebase/app";
 // TODO: re-enable App Check after Firestore Rules are validated
 // import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import { app } from "./lib/firebase";
 import {
   doc, getDoc, getDocFromServer, setDoc, updateDoc,
   collection, getDocs, addDoc, deleteDoc, onSnapshot, db,
@@ -200,13 +200,6 @@ function LatexText({ text, style }) {
   return <span style={style}>{parts}</span>;
 }
 
-// Firebase App нужен только для аутентификации (не используется в этом проекте),
-// но initializeApp оставляем для совместимости с другими SDK если понадобится.
-const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
-};
-const app = initializeApp(firebaseConfig);
 // TODO: re-enable App Check after Firestore Rules are validated
 // initializeAppCheck(app, {
 //   provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
