@@ -12,8 +12,9 @@ import { useTheme } from './ThemeContext.jsx';
 import { useNpc } from './NpcContext.jsx';
 // TODO: re-enable App Check after Firestore Rules are validated
 // import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
-import { app } from "./lib/firebase";
+import { app, auth, signOut, reauthenticateWithCredential, updatePassword, EmailAuthProvider } from "./lib/firebase";
 import EmailAuthScreen from "./components/auth/EmailAuthScreen.jsx";
+import { useAuth } from "./contexts/AuthContext.jsx";
 import {
   doc, getDoc, getDocFromServer, setDoc, updateDoc,
   collection, getDocs, addDoc, deleteDoc, onSnapshot, db,
@@ -12661,6 +12662,7 @@ function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpda
                 <div className="profile-detail">{user?.details}</div>
                 <div className="profile-date">Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
                 <button onClick={()=>setIsEditing(true)} style={{marginTop:10,background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"6px 16px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Редактировать профиль</button>
+                <ChangePasswordInline />
               </>
             )}
           </div>
@@ -15329,6 +15331,91 @@ function ThemeToggle() {
   );
 }
 
+// ── Смена пароля (только для пользователей Firebase Auth) ────────────────────
+function ChangePasswordInline() {
+  const { firebaseUser } = useAuth();
+  const [open, setOpen]           = useState(false);
+  const [current, setCurrent]     = useState('');
+  const [next, setNext]           = useState('');
+  const [confirm, setConfirm]     = useState('');
+  const [saving, setSaving]       = useState(false);
+  const [error, setError]         = useState('');
+  const [success, setSuccess]     = useState(false);
+
+  // Показываем только если пользователь вошёл через Firebase Auth
+  if (!firebaseUser) return null;
+
+  const reset = () => { setCurrent(''); setNext(''); setConfirm(''); setError(''); setSuccess(false); setOpen(false); };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (next.length < 8)                { setError('Новый пароль — минимум 8 символов.'); return; }
+    if (!/(?=.*[a-zA-Zа-яА-Я])(?=.*\d)/.test(next)) { setError('Пароль должен содержать букву и цифру.'); return; }
+    if (next !== confirm)               { setError('Пароли не совпадают.'); return; }
+    setSaving(true);
+    try {
+      const credential = EmailAuthProvider.credential(firebaseUser.email, current);
+      await reauthenticateWithCredential(firebaseUser, credential);
+      await updatePassword(firebaseUser, next);
+      setSuccess(true);
+      setCurrent(''); setNext(''); setConfirm('');
+    } catch (err) {
+      switch (err.code) {
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential': setError('Текущий пароль введён неверно.'); break;
+        case 'auth/weak-password':      setError('Новый пароль слишком слабый.'); break;
+        case 'auth/requires-recent-login': setError('Войдите заново и попробуйте снова.'); break;
+        default: setError(`Ошибка: ${err.code}`);
+      }
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div style={{marginTop:8}}>
+      {!open ? (
+        <button onClick={()=>setOpen(true)}
+          style={{background:'transparent',border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:'6px 16px',fontWeight:600,fontSize:12,cursor:'pointer',marginTop:4}}>
+          🔑 Сменить пароль
+        </button>
+      ) : (
+        <div style={{marginTop:12,background:THEME.bg,borderRadius:10,padding:'16px',border:`1px solid ${THEME.border}`}}>
+          <div style={{fontWeight:700,fontSize:13,color:THEME.primary,marginBottom:10}}>Смена пароля</div>
+          {error   && <div style={{background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:6,padding:'8px 12px',marginBottom:10,fontSize:12,color:'#dc2626'}}>{error}</div>}
+          {success && <div style={{background:'rgba(16,185,129,0.08)',border:'1px solid rgba(16,185,129,0.25)',borderRadius:6,padding:'8px 12px',marginBottom:10,fontSize:12,color:'#065f46'}}>Пароль успешно изменён.</div>}
+          {!success && (
+            <form onSubmit={handleSubmit}>
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                <input type="password" className="input-field" style={{padding:'8px 12px',marginBottom:0}}
+                  placeholder="Текущий пароль" autoComplete="current-password"
+                  value={current} onChange={e=>setCurrent(e.target.value)} required/>
+                <input type="password" className="input-field" style={{padding:'8px 12px',marginBottom:0}}
+                  placeholder="Новый пароль (мин. 8 симв.)" autoComplete="new-password"
+                  value={next} onChange={e=>setNext(e.target.value)} required/>
+                <input type="password" className="input-field" style={{padding:'8px 12px',marginBottom:0}}
+                  placeholder="Повторите новый пароль" autoComplete="new-password"
+                  value={confirm} onChange={e=>setConfirm(e.target.value)} required/>
+              </div>
+              <div style={{display:'flex',gap:8,marginTop:10}}>
+                <button type="submit" disabled={saving}
+                  style={{background:THEME.primary,color:THEME.accent,border:'none',borderRadius:8,padding:'8px 18px',fontWeight:700,fontSize:12,cursor:saving?'not-allowed':'pointer',opacity:saving?0.7:1}}>
+                  {saving ? 'Сохраняю...' : 'Сохранить'}
+                </button>
+                <button type="button" onClick={reset}
+                  style={{background:'transparent',border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:'8px 14px',fontWeight:600,fontSize:12,cursor:'pointer'}}>
+                  Отмена
+                </button>
+              </div>
+            </form>
+          )}
+          {success && <button onClick={reset} style={{background:'transparent',border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:'6px 14px',fontWeight:600,fontSize:12,cursor:'pointer',marginTop:4}}>Закрыть</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DashboardScreen({ user, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onUpdateUser }) {
   const { startTourIfNew } = useNpc();
   const [activeSection,setActiveSection]=useState("home");
@@ -17634,6 +17721,7 @@ const QUIZ_PROGRESS_KEY="aapa_quiz_progress";
 
 export default function App() {
   const { showNpcMessage, startTourIfNew } = useNpc();
+  const { firebaseUser, loading: authLoading } = useAuth();
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem("aapa_user");return u?JSON.parse(u):null;}catch{return null;}});
   const [screen,setScreen]=useState(()=>{
     const hash=window.location.hash.slice(1);
@@ -17803,7 +17891,14 @@ export default function App() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const handleRegister=u=>{setUser(u);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate(u.onboardingDone?"dashboard":"onboarding");};
-  const handleLogout=()=>{setUser(null);clearQuizProgress();try{localStorage.removeItem("aapa_user");}catch{}customHistory.current=[];_setScreen("landing");};
+  const handleLogout=()=>{
+    signOut(auth).catch(()=>{});  // Firebase Auth sign out (no-op if not signed in via Firebase)
+    setUser(null);
+    clearQuizProgress();
+    try{localStorage.removeItem("aapa_user");}catch{}
+    customHistory.current=[];
+    _setScreen("landing");
+  };
   const goHome=()=>navigate("dashboard");
   const viewPlan=()=>{
     if(!user?.smartDiagDone){
@@ -18096,6 +18191,17 @@ export default function App() {
     setScreen("dashboard");
   };
 
+  // ── Защита маршрутов (только для нового ?auth=email пути) ────────────────
+  const useNewAuth = new URLSearchParams(window.location.search).get('auth') === 'email';
+  if (useNewAuth) {
+    if (authLoading) return (
+      <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:THEME.bg}}>
+        <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,color:THEME.primary,fontSize:16}}>Загрузка...</div>
+      </div>
+    );
+    if (!firebaseUser) return <EmailAuthScreen onSuccess={()=>{ /* AuthContext обновит состояние */ }}/>;
+  }
+
   return(
     <>
       <style>{`
@@ -18293,12 +18399,7 @@ export default function App() {
       `}</style>
 
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("auth")} onDashboard={()=>navigate("dashboard")}/>}
-      {screen==="auth"&&(
-        // TODO(phase4): remove ?auth=email flag, keep only EmailAuthScreen
-        new URLSearchParams(window.location.search).get('auth') === 'email'
-          ? <EmailAuthScreen onSuccess={()=>navigate('dashboard')}/>
-          : <AuthScreen onRegister={handleRegister}/>
-      )}
+      {screen==="auth"&&<AuthScreen onRegister={handleRegister}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
       {screen==="dashboard"&&<DashboardScreen user={user} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={()=>navigate("daily")} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onUpdateUser={handleUpdateUser}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
