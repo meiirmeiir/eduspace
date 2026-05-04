@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Приложение использует кастомную авторизацию (телефон+пароль),
+    // Firebase Auth не используется — request.auth всегда null.
+
+    // ── Пользователи ─────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    // ── Прогресс и данные учеников ───────────────────────────────────────────
+    match /diagnosticResults/{docId} { allow read, write: if true; }
+    match /skillProgress/{docId}     { allow read, write: if true; }
+    match /topicProgress/{docId}     { allow read, write: if true; }
+    match /studyPlans/{docId}        { allow read, write: if true; }
+    match /quizProgress/{docId}      { allow read, write: if true; }
+    match /skillMastery/{docId}      { allow read, write: if true; }
+    match /userProgress/{docId}      { allow read, write: if true; }
+    match /expertReports/{docId}     { allow read, write: if true; }
+
+    // ── Контент (читают ученики, пишет admin через панель) ───────────────────
+    match /taskBank/{docId}          { allow read, write: if true; }
+    match /skills/{docId}            { allow read, write: if true; }
+    match /sections/{docId}          { allow read, write: if true; }
+    match /questions/{docId}         { allow read, write: if true; }
+    match /theories/{docId}          { allow read, write: if true; }
+    match /topics/{docId}            { allow read, write: if true; }
+    match /skillsDb/{docId}          { allow read, write: if true; }
+    match /prereqMap/{docId}         { allow read, write: if true; }
+    match /skillHierarchies/{docId}  { allow read, write: if true; }
+    match /moduleMap/{docId}         { allow read, write: if true; }
+    match /crossGradeLinks/{docId}   { allow read, write: if true; }
+    match /config/{docId}            { allow read, write: if true; }
+    match /skillTheory/{docId}       { allow read, write: if true; }
+    match /skillTasks/{docId}        { allow read, write: if true; }
+    match /dailyTasks/{docId}        { allow read, write: if true; }
+    match /globalSkillMap/{docId}    { allow read, write: if true; }
+
+    // ── Расписание, домашние задания, уроки ──────────────────────────────────
+    match /schedule/{docId}          { allow read, write: if true; }
+    match /homework/{docId}          { allow read, write: if true; }
+    match /hwSubmissions/{docId}     { allow read, write: if true; }
+    match /lessons/{docId}           { allow read, write: if true; }
+    match /lessonLogs/{docId}        { allow read, write: if true; }
+
+    // ── Доска/медиа ──────────────────────────────────────────────────────────
+    match /wbImages/{docId}          { allow read, write: if true; }
+    match /wbStrokes/{docId}         { allow read, write: if true; }
+    match /whiteboards/{docId}       { allow read, write: if true; }
+
+    // ── Индивидуальные планы, настройки, медали ──────────────────────────────
+    match /individualPlans/{docId} { allow read, write: if true; }
+    match /settings/{docId}        { allow read, write: if true; }
+    match /medals/{docId}          { allow read, write: if true; }
+
+    // ── Всё остальное — запрещено ─────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
