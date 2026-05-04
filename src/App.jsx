@@ -11,7 +11,8 @@ import './MapStyles.css';
 import { useTheme } from './ThemeContext.jsx';
 import { useNpc } from './NpcContext.jsx';
 import { initializeApp } from "firebase/app";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+// TODO: re-enable App Check after Firestore Rules are validated
+// import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import {
   doc, getDoc, getDocFromServer, setDoc, updateDoc,
   collection, getDocs, addDoc, deleteDoc, onSnapshot, db,
@@ -206,10 +207,11 @@ const firebaseConfig = {
   projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
 };
 const app = initializeApp(firebaseConfig);
-initializeAppCheck(app, {
-  provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
-  isTokenAutoRefreshEnabled: true,
-});
+// TODO: re-enable App Check after Firestore Rules are validated
+// initializeAppCheck(app, {
+//   provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
+//   isTokenAutoRefreshEnabled: true,
+// });
 
 const TELEGRAM_TOKEN  = import.meta.env.VITE_TELEGRAM_TOKEN  || "";
 const TELEGRAM_CHAT   = import.meta.env.VITE_TELEGRAM_CHAT   || "";
