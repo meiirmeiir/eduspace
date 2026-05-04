@@ -114,20 +114,88 @@ const handleLogout = () => {
 
 После миграции в каждый новый документ нужно добавить поле `uid` (Firebase UID) вместо/вместе с `userPhone`. Правила будут сравнивать `request.auth.uid == resource.data.uid`.
 
-| Коллекция | Поле-владелец сейчас | Примечания |
-|-----------|---------------------|------------|
-| `users` | ключ документа = `phone` | Переедет в `users/{uid}`, phone станет полем |
-| `diagnosticResults` | `userPhone` | addDoc, auto-ID |
-| `medals` | `userPhone` | addDoc, auto-ID |
-| `hwSubmissions` | `userPhone` | addDoc, auto-ID |
-| `skillProgress` | ключ документа = `phone` | setDoc/getDoc по phone |
-| `skillMastery` | ключ документа = `phone` | setDoc/getDoc по phone |
-| `userProgress` | ключ документа = `phone` | setDoc/getDoc по phone |
-| `individualPlans` | ключ документа = `phone` | setDoc/getDoc по phone |
-| `quizProgress` | ключ документа = `progressDocId(phone)` | progressDocId — функция от phone |
-| `expertReports` | поле `studentId` или `userPhone` — уточнить | addDoc, auto-ID |
+| Коллекция | Поле-владелец сейчас | Тип ключа | Примечания |
+|-----------|---------------------|-----------|------------|
+| `users` | ключ = `phone` | document key | Переедет в `users/{uid}`, phone станет полем |
+| `diagnosticResults` | поле `userPhone` | auto-ID | addDoc |
+| `medals` | поле `userPhone` | auto-ID | addDoc |
+| `hwSubmissions` | поле `userPhone` | auto-ID | addDoc |
+| `expertReports` | поле `userId` (= phone) | auto-ID | addDoc; также есть `studentId` в данных |
 
-> ⚠️ Коллекции с ключом = phone потребуют изменения паттерна в коде после миграции: `users/{uid}`, `skillProgress/{uid}` и т.д.
+---
+
+## ⚠️ Все коллекции, использующие `phone` как ключ документа
+
+Эти коллекции требуют замены паттерна доступа в коде на фазе 4:
+`doc(db, 'коллекция', user.phone)` → `doc(db, 'коллекция', user.uid)`
+
+### `skillProgress/{phone}` → `skillProgress/{uid}`
+
+| Строка | Операция | Переменная-ключ |
+|--------|----------|----------------|
+| 3828 | `getDoc` | `user?.phone` |
+| 6801 | `getDoc` | `phone` (phone студента, выбранного учителем) |
+| 6875 | `getDoc` | `rStudentId` (= phone, см. :6633) |
+| 6902 | `setDoc` | `rStudentId` (= phone) |
+| 12790 | `getDoc` | `user?.phone` |
+| 15400 | `getDoc` | `user.phone` |
+| 17228 | `setDoc` | `userId` (= phone, аргумент `autoGeneratePlan`) |
+
+### `skillMastery/{phone}` → `skillMastery/{uid}`
+
+| Строка | Операция | Переменная-ключ |
+|--------|----------|----------------|
+| 3365 | `getDoc` | `user?.phone` |
+| 3413 | `setDoc` (merge) | `user.phone` |
+| 3831 | `getDoc` | `user?.phone` |
+| 15022 | `getDoc` | `user.phone` |
+| 15128 | `updateDoc` | `user.phone` |
+
+### `userProgress/{phone}` → `userProgress/{uid}`
+
+| Строка | Операция | Переменная-ключ |
+|--------|----------|----------------|
+| 6874 | `getDoc` | `rStudentId` (= phone) |
+| 6901 | `setDoc` | `rStudentId` (= phone) |
+| 12787 | `getDoc` | `user?.phone` |
+| 15399 | `getDoc` | `user.phone` |
+
+### `individualPlans/{phone}` → `individualPlans/{uid}`
+
+| Строка | Операция | Переменная-ключ |
+|--------|----------|----------------|
+| 3827 | `getDoc` | `user?.phone` |
+| 17227 | `setDoc` | `userId` (= phone, аргумент `autoGeneratePlan`) |
+
+### `quizProgress/{progressDocId(phone)}` → `quizProgress/{uid}`
+
+Сейчас ключ строится через `progressDocId(phone)` — функция заменяет спецсимволы в телефоне на `_`, т.е. `+77001234567` → `_77001234567`.
+
+После миграции: ключ = `user.uid` напрямую (uid уже безопасен для Firestore-ключа, спецсимволов нет).
+Функцию `progressDocId` можно удалить.
+
+| Строка | Операция | Переменная-ключ |
+|--------|----------|----------------|
+| 17692 | `setDoc` | `progressDocId(user.phone)` |
+| 17697 | `deleteDoc` | `progressDocId(user.phone)` |
+| 17718 | `getDoc` | `progressDocId(user.phone)` |
+
+### `autoGeneratePlan(userId, ...)` — фиксировать вызовы
+
+Функция `autoGeneratePlan` (App.jsx:17160) принимает `userId` как первый аргумент и использует его как ключ для `skillProgress` и `individualPlans`. После миграции все вызовы должны передавать `user.uid`, а не `user.phone`.
+
+Текущие вызовы:
+- App.jsx:17895 — `autoGeneratePlan(user.phone, ...)`
+- App.jsx:17959 — `autoGeneratePlan(user.phone, ...)`
+
+### `rStudentId` в AdminScreen — отдельный случай
+
+`rStudentId` (App.jsx:6633) — это phone выбранного студента, используемый учителем/админом для записи в `skillProgress/{rStudentId}` и `userProgress/{rStudentId}`.
+
+После миграции `rStudentId` должен хранить `uid` студента, а не phone.
+Студенты загружаются через `getDocs(collection(db,"users"))` → `students` массив.
+Нужно убедиться, что `students[i].id` после миграции будет uid (ключ документа), а не phone.
+Это произойдёт автоматически, если коллекция `users` переедет на `users/{uid}`.
 
 ---
 
