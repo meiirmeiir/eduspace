@@ -303,11 +303,6 @@ function compressImage(file, maxW=800, quality=0.7){
 
 // ── TELEGRAM ──────────────────────────────────────────────────────────────────
 const escHtml = s => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-async function hashPassword(pwd) {
-  const data = new TextEncoder().encode(pwd + "aapa_2026");
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,"0")).join("");
-}
 async function tgSend(text) {
   if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT || TELEGRAM_TOKEN==="your_bot_token_here") return;
   try {
@@ -918,175 +913,6 @@ function OnboardingScreen({ user, onFinish }) {
 
       {/* Step counter */}
       <div style={{marginTop:24,color:"rgba(255,255,255,0.4)",fontSize:13}}>{step+1} из {total}</div>
-    </div>
-  );
-}
-
-// ── АВТОРИЗАЦИЯ ───────────────────────────────────────────────────────────────
-function AuthScreen({ onRegister }) {
-  const [step,setStep]=useState(1);
-  const [loading,setLoading]=useState(false);
-  const [phone,setPhone]=useState("+7 ");
-  const [firstName,setFirstName]=useState("");
-  const [lastName,setLastName]=useState("");
-  const [mainGoal,setMainGoal]=useState("");
-  const [specificGoal,setSpecificGoal]=useState("");
-  const [foundUser,setFoundUser]=useState(null);
-  const [password,setPassword]=useState("");
-
-  const handlePhone = e => {
-    let v = e.target.value;
-    if (!v.startsWith("+7 ")) { setPhone("+7 "); return; }
-    // Allow only digits after "+7 ", max 10 digits
-    const digits = v.slice(3).replace(/\D/g,"").slice(0,10);
-    setPhone("+7 " + digits);
-  };
-  const phoneOk = phone.replace(/\D/g,"").length===11;
-
-  const checkUser = async e => {
-    e.preventDefault(); setAuthError(""); const cp=phone.replace(/\s+/g,"");
-    if(cp.length<11){setAuthError("Введите корректный номер телефона.");return;}
-    setLoading(true);
-    try {
-      const snap = await getDoc(doc(db, "users", cp));
-      if(!snap.exists()){ setStep(2); setLoading(false); return; }
-      const data = snap.data();
-      if(data.password){ setFoundUser(data); setStep(3); }
-      else if(data.status==="trial"){ onRegister(data); }
-      else { setFoundUser(data); setStep(4); }
-    } catch(err){
-      console.error("[AUTH ERROR]", err);
-      setAuthError("Ошибка соединения. Проверьте интернет. (" + (err?.message||"") + ")");
-    }
-    setLoading(false);
-  };
-
-  const fsUpdateUser = (phone, fields) => updateDoc(doc(db, "users", phone), fields);
-  const fsCreateUser = (phone, data) => setDoc(doc(db, "users", phone), data);
-
-  const checkPassword = async e => {
-    e.preventDefault(); setAuthError("");
-    const stored = foundUser.password || "";
-    const isHashed = /^[0-9a-f]{64}$/.test(stored);
-    let match = false;
-    if (isHashed) {
-      match = await hashPassword(password) === stored;
-    } else {
-      match = password === stored;
-      if (match) {
-        try {
-          const hashed = await hashPassword(password);
-          await fsUpdateUser(foundUser.phone, {password: hashed});
-          foundUser.password = hashed;
-        } catch(e) { console.error("migrate pwd:", e); }
-      }
-    }
-    if (match) onRegister(foundUser);
-    else { setAuthError("Неверный пароль. Попробуйте ещё раз."); setPassword(""); }
-  };
-
-  const [confirmPwd,setConfirmPwd]=useState("");
-  const [authError,setAuthError]=useState("");
-  const createPassword = async e => {
-    e.preventDefault(); setAuthError("");
-    if(password.length<4){setAuthError("Пароль должен быть не менее 4 символов.");return;}
-    if(password!==confirmPwd){setAuthError("Пароли не совпадают.");return;}
-    setLoading(true);
-    try{
-      const hashed = await hashPassword(password);
-      await fsUpdateUser(foundUser.phone, {password: hashed});
-      onRegister({...foundUser,password:hashed});
-    }catch{ setAuthError("Ошибка при сохранении пароля. Попробуйте снова."); }
-    setLoading(false);
-  };
-
-  const register = async e => {
-    e.preventDefault();
-    if(!firstName||!lastName||!mainGoal||!specificGoal)return;
-    setLoading(true);
-    try {
-      const cp=phone.replace(/\s+/g,"");
-      const data={firstName,lastName,phone:cp,goalKey:mainGoal,goal:REG_GOALS[mainGoal],details:specificGoal,registeredAt:new Date().toISOString(),status:"trial"};
-      await fsCreateUser(cp, data); onRegister(data);
-    } catch{ setAuthError("Ошибка при сохранении. Попробуйте снова."); }
-    setLoading(false);
-  };
-
-  return (
-    <div className="split-layout">
-      <div className="split-left">
-        <div style={{marginBottom:60}}><Logo size={60}/></div>
-        <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center"}}>
-          <h1 className="hero-title">Построй свой путь к <span style={{color:THEME.accent}}>звездам</span>.</h1>
-          <p className="hero-subtitle">Пройди независимую диагностику компетенций. Система <b>AAPA</b> выявит скрытые пробелы и построит точный маршрут подготовки.</p>
-          <div className="benefits-list">
-            <div className="benefit-item"><span className="icon">🎯</span><div><strong>Когнитивная диагностика</strong><p>Анализируем не только верные ответы, но и вашу уверенность в них.</p></div></div>
-            <div className="benefit-item"><span className="icon">🗺️</span><div><strong>Индивидуальный трек</strong><p>Пошаговая Карта Навыков для достижения вашей цели.</p></div></div>
-          </div>
-        </div>
-        <div className="trust-badge"><span style={{color:THEME.accent,letterSpacing:"2px",fontSize:18}}>★★★★★</span><span style={{fontSize:13,color:THEME.textLight,fontWeight:600}}>Нам доверяют подготовку к будущему</span></div>
-      </div>
-      <div className="split-right">
-        <div className="form-card">
-          <div className="form-header">
-            <h2>{step===1?"Войти в систему":step===2?"Создать профиль":step===3?"Введите пароль":"Создайте пароль"}</h2>
-            <p>{step===1?"Введите номер WhatsApp для входа.":step===2?"Мы вас не нашли. Давайте познакомимся!":step===3?"Ваш аккаунт защищён паролем.":"Придумайте пароль для входа в аккаунт."}</p>
-          </div>
-          {authError&&<div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#dc2626",fontWeight:500}}>{authError}</div>}
-          {step===3?(
-            <form onSubmit={checkPassword}>
-              <div className="input-group">
-                <label className="input-label">Пароль</label>
-                <input type="password" className="input-field" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Введите пароль..." autoFocus required/>
-              </div>
-              <button type="submit" className={`cta-button ${password?"active":""}`} disabled={!password}>Войти →</button>
-              <button type="button" style={{width:"100%",marginTop:10,padding:"12px",borderRadius:8,border:`1px solid ${THEME.border}`,background:"transparent",color:THEME.textLight,fontFamily:"'Montserrat',sans-serif",fontWeight:600,fontSize:13,cursor:"pointer"}} onClick={()=>{setStep(1);setFoundUser(null);setPassword("");}}>← Назад</button>
-            </form>
-          ):step===4?(
-            <form onSubmit={createPassword}>
-              <div className="input-group">
-                <label className="input-label">Новый пароль</label>
-                <input type="password" className="input-field" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Минимум 4 символа..." autoFocus required/>
-              </div>
-              <div className="input-group">
-                <label className="input-label">Повторите пароль</label>
-                <input type="password" className="input-field" value={confirmPwd} onChange={e=>setConfirmPwd(e.target.value)} placeholder="Повторите пароль..." required/>
-              </div>
-              <button type="submit" className={`cta-button ${password&&confirmPwd?"active":""}`} disabled={!password||!confirmPwd||loading}>
-                {loading?"Сохраняю...":"Сохранить и войти →"}
-              </button>
-              <button type="button" style={{width:"100%",marginTop:10,padding:"12px",borderRadius:8,border:`1px solid ${THEME.border}`,background:"transparent",color:THEME.textLight,fontFamily:"'Montserrat',sans-serif",fontWeight:600,fontSize:13,cursor:"pointer"}} onClick={()=>{setStep(1);setFoundUser(null);setPassword("");setConfirmPwd("");}}>← Назад</button>
-            </form>
-          ):(
-            <form onSubmit={step===1?checkUser:register}>
-              <div className="input-group"><label className="input-label">Номер WhatsApp</label><input type="tel" className="input-field" value={phone} onChange={handlePhone} disabled={step===2||loading} placeholder="+7 700 000 00 00" required/></div>
-              {step===2&&(<div className="scale-in">
-                <div className="form-row">
-                  <div className="input-group" style={{marginBottom:0}}><label className="input-label">Имя</label><input type="text" className="input-field" value={firstName} onChange={e=>setFirstName(e.target.value)} required/></div>
-                  <div className="input-group" style={{marginBottom:0}}><label className="input-label">Фамилия</label><input type="text" className="input-field" value={lastName} onChange={e=>setLastName(e.target.value)} required/></div>
-                </div>
-                <div className="input-group" style={{marginTop:20}}>
-                  <label className="input-label">Цель обучения</label>
-                  <select className="input-field" value={mainGoal} onChange={e=>{setMainGoal(e.target.value);setSpecificGoal("");}} required>
-                    <option value="" disabled>Выберите...</option>
-                    {Object.entries(REG_GOALS).map(([k,v])=><option key={k} value={k}>{v}</option>)}
-                  </select>
-                </div>
-                {mainGoal&&<div className="input-group scale-in">
-                  <label className="input-label">{mainGoal==="exam"?"Какой экзамен?":"Класс"}</label>
-                  <select className="input-field" value={specificGoal} onChange={e=>setSpecificGoal(e.target.value)} required>
-                    <option value="" disabled>Выберите...</option>
-                    {getSpecificList(mainGoal).map(x=><option key={x} value={x}>{x}</option>)}
-                  </select>
-                </div>}
-              </div>)}
-              <button type="submit" className={`cta-button ${phoneOk?"active":""}`} disabled={loading||!phoneOk}>
-                {loading?"Загрузка...":(step===1?"Войти →":"Создать аккаунт →")}
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -17890,7 +17716,7 @@ export default function App() {
   },[]);
   // ─────────────────────────────────────────────────────────────────────────
 
-  const handleRegister=u=>{setUser(u);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate(u.onboardingDone?"dashboard":"onboarding");};
+  const handleRegister=u=>{setUser(u);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate(u.onboardingDone?"dashboard":"onboarding");}; // TODO(cleanup): remove after full localStorage→Firebase migration
   const handleLogout=()=>{
     signOut(auth).catch(()=>{});  // Firebase Auth sign out (no-op if not signed in via Firebase)
     setUser(null);
@@ -18191,16 +18017,13 @@ export default function App() {
     setScreen("dashboard");
   };
 
-  // ── Защита маршрутов (только для нового ?auth=email пути) ────────────────
-  const useNewAuth = new URLSearchParams(window.location.search).get('auth') === 'email';
-  if (useNewAuth) {
-    if (authLoading) return (
-      <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:THEME.bg}}>
-        <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,color:THEME.primary,fontSize:16}}>Загрузка...</div>
-      </div>
-    );
-    if (!firebaseUser) return <EmailAuthScreen onSuccess={()=>_setScreen('dashboard')}/>;
-  }
+  // ── Защита маршрутов через Firebase Auth ────────────────────────────────
+  if (authLoading) return (
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:THEME.bg}}>
+      <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,color:THEME.primary,fontSize:16}}>Загрузка...</div>
+    </div>
+  );
+  if (!firebaseUser) return <EmailAuthScreen onSuccess={()=>_setScreen('dashboard')}/>;
 
   return(
     <>
@@ -18398,8 +18221,7 @@ export default function App() {
         }
       `}</style>
 
-      {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("auth")} onDashboard={()=>navigate("dashboard")}/>}
-      {screen==="auth"&&<AuthScreen onRegister={handleRegister}/>}
+      {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
       {screen==="dashboard"&&<DashboardScreen user={user} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={()=>navigate("daily")} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onUpdateUser={handleUpdateUser}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}

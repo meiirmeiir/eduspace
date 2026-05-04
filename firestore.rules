@@ -2,8 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Приложение использует кастомную авторизацию (телефон+пароль),
-    // Firebase Auth не используется — request.auth всегда null.
+    // Приложение использует Firebase Auth (Email/Password).
+    // request.auth доступен для всех аутентифицированных запросов.
+    // TODO: заменить `if true` на проверки request.auth.uid после Security Rules audit.
 
     // ── Пользователи ─────────────────────────────────────────────────────────
     match /users/{userId} {
@@ -14,8 +15,6 @@ service cloud.firestore {
     // ── Прогресс и данные учеников ───────────────────────────────────────────
     match /diagnosticResults/{docId} { allow read, write: if true; }
     match /skillProgress/{docId}     { allow read, write: if true; }
-    match /topicProgress/{docId}     { allow read, write: if true; }
-    match /studyPlans/{docId}        { allow read, write: if true; }
     match /quizProgress/{docId}      { allow read, write: if true; }
     match /skillMastery/{docId}      { allow read, write: if true; }
     match /userProgress/{docId}      { allow read, write: if true; }
@@ -31,9 +30,7 @@ service cloud.firestore {
     match /skillsDb/{docId}          { allow read, write: if true; }
     match /prereqMap/{docId}         { allow read, write: if true; }
     match /skillHierarchies/{docId}  { allow read, write: if true; }
-    match /moduleMap/{docId}         { allow read, write: if true; }
     match /crossGradeLinks/{docId}   { allow read, write: if true; }
-    match /config/{docId}            { allow read, write: if true; }
     match /skillTheory/{docId}       { allow read, write: if true; }
     match /skillTasks/{docId}        { allow read, write: if true; }
     match /dailyTasks/{docId}        { allow read, write: if true; }
