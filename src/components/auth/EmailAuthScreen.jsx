@@ -42,6 +42,41 @@ function mapFirebaseError(code) {
   }
 }
 
+// ── Шрифты (EmailAuthScreen рендерится до основного App, поэтому нужны здесь) ─
+const FONTS_STYLE = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#f8fafc;-webkit-font-smoothing:antialiased;color:#334155;font-family:'Inter',sans-serif;}
+  .split-layout{display:flex;min-height:100vh;}
+  .split-left{flex:1.1;background:#0f172a;padding:60px 80px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid #e2e8f0;}
+  .split-right{flex:1;display:flex;align-items:center;justify-content:center;padding:60px;background:#f8fafc;}
+  .hero-title{font-family:'Montserrat',sans-serif;font-size:44px;font-weight:800;line-height:1.15;margin-bottom:24px;color:#fff;letter-spacing:-1.5px;}
+  .hero-subtitle{font-size:17px;line-height:1.7;color:rgba(255,255,255,0.6);margin-bottom:50px;max-width:520px;}
+  .benefits-list{display:flex;flex-direction:column;gap:20px;}
+  .benefit-item{display:flex;gap:16px;align-items:flex-start;color:#fff;}
+  .benefit-item .icon{font-size:22px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.07);border-radius:12px;flex-shrink:0;}
+  .benefit-item strong{font-weight:700;font-size:15px;display:block;margin-bottom:3px;color:#fff;}
+  .benefit-item p{font-size:13px;color:rgba(255,255,255,0.55);line-height:1.5;margin:0;}
+  .trust-badge{display:flex;align-items:center;gap:10px;padding:14px 0;border-top:1px solid rgba(255,255,255,0.1);}
+  .form-card{background:#fff;border-radius:20px;border:1px solid #e2e8f0;box-shadow:0 20px 50px -10px rgba(10,25,47,0.08);padding:40px;width:100%;max-width:460px;}
+  .form-row{display:flex;gap:12px;}
+  .input-group{margin-bottom:16px;}
+  .input-label{display:block;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
+  .input-field{width:100%;padding:12px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;font-family:'Inter',sans-serif;color:#0f172a;background:#fff;outline:none;transition:border-color 0.15s;margin-bottom:0;}
+  .input-field:focus{border-color:#0f172a;}
+  select.input-field{cursor:pointer;}
+  .cta-button{width:100%;padding:14px;border-radius:10px;border:none;font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;cursor:pointer;transition:all 0.2s;background:#e2e8f0;color:#94a3b8;margin-top:8px;}
+  .cta-button.active{background:#0f172a;color:#d4af37;box-shadow:0 8px 20px -5px rgba(10,25,47,0.3);}
+  .cta-button:disabled{cursor:not-allowed;opacity:0.7;}
+  @media(max-width:768px){
+    .split-layout{flex-direction:column;}
+    .split-left{padding:40px 24px;}
+    .split-right{padding:32px 20px;}
+    .hero-title{font-size:28px;}
+    .form-card{padding:28px 20px;}
+  }
+`;
+
 // ── Компонент ─────────────────────────────────────────────────────────────────
 export default function EmailAuthScreen({ onSuccess }) {
   const [mode, setMode]         = useState('login');   // 'login' | 'register'
@@ -232,13 +267,14 @@ export default function EmailAuthScreen({ onSuccess }) {
   // ── Рендер ───────────────────────────────────────────────────────────────
   return (
     <div className="split-layout">
+      <style>{FONTS_STYLE}</style>
       {resetModal}
 
       {/* ── Левая колонка (идентична старому AuthScreen) ── */}
       <div className="split-left">
         <div style={{marginBottom:60}}>
           <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:36,color:'#fff',lineHeight:1,letterSpacing:'1px'}}>AAPA</div>
-          <div style={{fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:11,color:THEME.accent,letterSpacing:'1px',marginTop:4,textTransform:'uppercase'}}>Ad Astra Per Aspera</div>
+        <div style={{fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:11,color:THEME.accent,letterSpacing:'1px',marginTop:4,textTransform:'uppercase'}}>Ad Astra Per Aspera</div>
         </div>
         <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center'}}>
           <h1 className="hero-title">Построй свой путь к <span style={{color:THEME.accent}}>звездам</span>.</h1>

@@ -18199,7 +18199,7 @@ export default function App() {
         <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,color:THEME.primary,fontSize:16}}>Загрузка...</div>
       </div>
     );
-    if (!firebaseUser) return <EmailAuthScreen onSuccess={()=>{ /* AuthContext обновит состояние */ }}/>;
+    if (!firebaseUser) return <EmailAuthScreen onSuccess={()=>_setScreen('dashboard')}/>;
   }
 
   return(
