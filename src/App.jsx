@@ -13,6 +13,7 @@ import { useNpc } from './NpcContext.jsx';
 // TODO: re-enable App Check after Firestore Rules are validated
 // import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import { app } from "./lib/firebase";
+import EmailAuthScreen from "./components/auth/EmailAuthScreen.jsx";
 import {
   doc, getDoc, getDocFromServer, setDoc, updateDoc,
   collection, getDocs, addDoc, deleteDoc, onSnapshot, db,
@@ -18292,7 +18293,12 @@ export default function App() {
       `}</style>
 
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("auth")} onDashboard={()=>navigate("dashboard")}/>}
-      {screen==="auth"&&<AuthScreen onRegister={handleRegister}/>}
+      {screen==="auth"&&(
+        // TODO(phase4): remove ?auth=email flag, keep only EmailAuthScreen
+        new URLSearchParams(window.location.search).get('auth') === 'email'
+          ? <EmailAuthScreen onSuccess={()=>navigate('dashboard')}/>
+          : <AuthScreen onRegister={handleRegister}/>
+      )}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
       {screen==="dashboard"&&<DashboardScreen user={user} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={()=>navigate("daily")} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onUpdateUser={handleUpdateUser}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
