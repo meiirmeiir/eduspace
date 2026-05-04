@@ -150,6 +150,26 @@ export default function EmailAuthScreen({ onSuccess }) {
     setLoading(false);
   };
 
+  // ── Общие стили (должны быть до resetModal) ─────────────────────────────
+  const inlineError = {
+    background:'rgba(239,68,68,0.08)',
+    border:'1px solid rgba(239,68,68,0.25)',
+    borderRadius:8,
+    padding:'10px 14px',
+    marginBottom:16,
+    fontSize:13,
+    color:'#dc2626',
+    fontWeight:500,
+  };
+  const backBtn = {
+    width:'100%',marginTop:10,padding:'12px',
+    borderRadius:8,border:`1px solid ${THEME.border}`,
+    background:'transparent',color:THEME.textLight,
+    fontFamily:"'Montserrat',sans-serif",fontWeight:600,fontSize:13,cursor:'pointer',
+  };
+  const tabActive   = { borderBottom:`2px solid ${THEME.primary}`, color:THEME.primary, fontWeight:700 };
+  const tabInactive = { borderBottom:'2px solid transparent', color:THEME.textLight, fontWeight:600 };
+
   // ── Восстановление пароля ─────────────────────────────────────────────────
   const handleReset = async (e) => {
     e.preventDefault();
@@ -208,26 +228,6 @@ export default function EmailAuthScreen({ onSuccess }) {
       </div>
     </div>
   );
-
-  // ── Общие стили ──────────────────────────────────────────────────────────
-  const inlineError = {
-    background:'rgba(239,68,68,0.08)',
-    border:'1px solid rgba(239,68,68,0.25)',
-    borderRadius:8,
-    padding:'10px 14px',
-    marginBottom:16,
-    fontSize:13,
-    color:'#dc2626',
-    fontWeight:500,
-  };
-  const backBtn = {
-    width:'100%',marginTop:10,padding:'12px',
-    borderRadius:8,border:`1px solid ${THEME.border}`,
-    background:'transparent',color:THEME.textLight,
-    fontFamily:"'Montserrat',sans-serif",fontWeight:600,fontSize:13,cursor:'pointer',
-  };
-  const tabActive   = { borderBottom:`2px solid ${THEME.primary}`, color:THEME.primary, fontWeight:700 };
-  const tabInactive = { borderBottom:'2px solid transparent', color:THEME.textLight, fontWeight:600 };
 
   // ── Рендер ───────────────────────────────────────────────────────────────
   return (
