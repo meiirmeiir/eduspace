@@ -1058,14 +1058,14 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
   const isTester = user?.status==="tester";
 
   const load = async ()=>{
-    if (!user?.uid) return;
+    const _uid=user?.uid||user?.id; if (!_uid) return;
     setLoading(true); setFetchError(false);
     try {
         const [secSnap,qSnap,repSnap,resSnap]=await Promise.all([
           getDocs(collection(db,"sections")),
           getDocs(collection(db,"questions")),
-          getDocs(query(collection(db,"expertReports"),where("userId","==",user?.uid))),
-          getDocs(query(collection(db,"diagnosticResults"),where("userId","==",user?.uid))),
+          getDocs(query(collection(db,"expertReports"),where("userId","==",_uid))),
+          getDocs(query(collection(db,"diagnosticResults"),where("userId","==",_uid))),
         ]);
         const allSecs=secSnap.docs.map(d=>({id:d.id,...d.data()}));
         const allQs=qSnap.docs.map(d=>({id:d.id,...d.data()}));
@@ -1136,7 +1136,7 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
       setLoading(false);
     };
 
-  useEffect(()=>{ load(); },[user?.uid]);
+  useEffect(()=>{ load(); },[user?.uid||user?.id]);
 
   const typeIcons = { mcq:"🔘", multiple:"☑️", matching:"🔗" };
 
@@ -12394,13 +12394,13 @@ function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpda
   };
 
   const load=async()=>{
-    if (!user?.uid) return;
+    const _uid=user?.uid||user?.id; if (!_uid) return;
     setLoading(true); setFetchError(false);
     try{
       const [resSnap,repSnap,medalSnap]=await Promise.all([
-        getDocs(query(collection(db,"diagnosticResults"),where("userId","==",user?.uid))),
-        getDocs(query(collection(db,"expertReports"),where("userId","==",user?.uid))),
-        getDocs(query(collection(db,"medals"),where("userId","==",user?.uid))),
+        getDocs(query(collection(db,"diagnosticResults"),where("userId","==",_uid))),
+        getDocs(query(collection(db,"expertReports"),where("userId","==",_uid))),
+        getDocs(query(collection(db,"medals"),where("userId","==",_uid))),
       ]);
       const mine=resSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.completedAt?.localeCompare(a.completedAt));
       setResults(mine);
@@ -12411,7 +12411,7 @@ function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpda
     }catch(e){console.error(e);setFetchError(true);}
     setLoading(false);
   };
-  useEffect(()=>{ load(); },[user?.uid]);
+  useEffect(()=>{ load(); },[user?.uid||user?.id]);
 
   if(viewingExpert) return <ExpertReportView report={viewingExpert} studentPhotos={viewingPhotos} onBack={()=>{setViewingExpert(null);setViewingPhotos([]);}}/>;
 
@@ -14144,7 +14144,7 @@ function RecordingModal({ lesson, user, isAdmin, onClose }) {
 }
 
 // ── LessonsSection (Расписание занятий с Zoom) ────────────────────────────────
-function LessonsSection({ user, isAdmin, isTeacher, students }) {
+function LessonsSection({ user, firebaseUser, isAdmin, isTeacher, students }) {
   const [lessons,setLessons]=useState([]);
   const [loading,setLoading]=useState(true);
   const [showCreate,setShowCreate]=useState(false);
@@ -14166,11 +14166,11 @@ function LessonsSection({ user, isAdmin, isTeacher, students }) {
   const loadLessons = async ()=>{
     setLoading(true);
     try{
-      const r = await fetch(`${API}/api/lessons`);
+      const token = await firebaseUser.getIdToken();
+      const r = await fetch(`${API}/api/lessons`, { headers: { Authorization: `Bearer ${token}` } });
       const d = await r.json();
-      let all = d.lessons||[];
-      if(!isAdmin&&!isTeacher) all = all.filter(l=>l.studentId===user?.id||l.studentId===user?.phone);
-      setLessons(all);
+      // Server already filters by studentId for non-admin/teacher
+      setLessons(d.lessons||[]);
     }catch(e){ console.error(e); }
     setLoading(false);
   };
@@ -14199,10 +14199,11 @@ function LessonsSection({ user, isAdmin, isTeacher, students }) {
     const student = students.find(s=>s.id===createStudentId);
     const studentName = student?`${student.firstName} ${student.lastName}`:'Ученик';
     try{
+      const token = await firebaseUser.getIdToken();
       if(createMode==='once'){
         if(!createDate){ setCreateError('Выберите дату'); setCreating(false); return; }
         const isoDate = new Date(`${createDate}T${createTime}:00`).toISOString();
-        const r = await fetch(`${API}/api/lessons`,{method:'POST',headers:{'Content-Type':'application/json'},
+        const r = await fetch(`${API}/api/lessons`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
           body:JSON.stringify({studentId:createStudentId,date:isoDate,durationMinutes:createDuration,studentName})});
         const d = await r.json();
         if(!r.ok) throw new Error(d.error||'Ошибка сервера');
@@ -14211,7 +14212,7 @@ function LessonsSection({ user, isAdmin, isTeacher, students }) {
         if(!createWeekDays.length){ setCreateError('Выберите хотя бы один день'); setCreating(false); return; }
         const dates = buildDates();
         if(!dates.length){ setCreateError('Нет дат в выбранном диапазоне'); setCreating(false); return; }
-        const r = await fetch(`${API}/api/lessons-batch`,{method:'POST',headers:{'Content-Type':'application/json'},
+        const r = await fetch(`${API}/api/lessons-batch`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
           body:JSON.stringify({studentId:createStudentId,studentName,dates,durationMinutes:createDuration})});
         const d = await r.json();
         if(!r.ok) throw new Error(d.error||'Ошибка сервера');
@@ -15284,6 +15285,8 @@ function DashboardScreen({ user, firebaseUser, onOpenDiagnostics, onStartSmartDi
 
   const loadDashData = async ()=>{
     if (!firebaseUser) return;
+    // Use firebaseUser.uid — always reliable (user.uid may be absent if Firestore doc lacks uid field)
+    const uid = firebaseUser.uid;
     // Compute role inline to avoid stale closure issues
     const _isAdmin = user?.role==="admin";
     const _isTeacher = user?.role==="teacher" || _isAdmin;
@@ -15291,24 +15294,24 @@ function DashboardScreen({ user, firebaseUser, onOpenDiagnostics, onStartSmartDi
     try{
       const [scS,hwS,uS,subS,lesS]=await Promise.all([
         getDocs(collection(db,"schedule")),
-        getDocs(collection(db,"homework")),
+        _isTeacher?getDocs(collection(db,"homework")):getDocs(query(collection(db,"homework"),where("userId","in",[uid,""]))),
         _isTeacher?getDocs(collection(db,"users")):Promise.resolve({docs:[]}),
-        _isTeacher?getDocs(collection(db,"hwSubmissions")):getDocs(query(collection(db,"hwSubmissions"),where("userId","==",user?.uid))),
+        _isTeacher?getDocs(collection(db,"hwSubmissions")):getDocs(query(collection(db,"hwSubmissions"),where("userId","==",uid))),
         getDocs(collection(db,"lessons")),
       ]);
       const allSc=scS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.time?.localeCompare(b.time));
       const allHw=hwS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.dueDate?.localeCompare(b.dueDate));
-      setSchedule(_isAdmin?allSc:allSc.filter(s=>(!s.userId&&!s.userIds?.length)||s.userId===user?.uid||s.userIds?.includes(user?.uid)));
-      setHomework(_isTeacher?allHw:allHw.filter(h=>h.userId===user?.uid||(h.userIds&&h.userIds.includes(user?.uid))));
-      if(_isTeacher) setStudents(uS.docs.map(d=>({id:d.id,...d.data()})).filter(s=>s.role!=="admin"&&s.id!==user?.uid));
+      setSchedule(_isAdmin?allSc:allSc.filter(s=>(!s.userId&&!s.userIds?.length)||s.userId===uid||s.userIds?.includes(uid)));
+      setHomework(_isTeacher?allHw:allHw);
+      if(_isTeacher) setStudents(uS.docs.map(d=>({id:d.id,...d.data()})).filter(s=>s.role!=="admin"&&s.id!==uid));
       setHwSubmissions(subS.docs.map(d=>({id:d.id,...d.data()})));
       const allZL=lesS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.date?.localeCompare(b.date));
-      setZoomLessons(_isAdmin?allZL:allZL.filter(l=>l.studentId===user?.uid||l.studentId===user?.id));
-      if(!_isTeacher && user?.uid){
+      setZoomLessons(_isAdmin?allZL:allZL.filter(l=>l.studentId===uid));
+      if(!_isTeacher){
         try{
           const [upSnap,spSnap]=await Promise.all([
-            getDoc(doc(db,"userProgress",user.uid)),
-            getDoc(doc(db,"skillProgress",user.uid)),
+            getDoc(doc(db,"userProgress",uid)),
+            getDoc(doc(db,"skillProgress",uid)),
           ]);
           const topics=upSnap.exists()?(upSnap.data().topics||{}):{};
           const skills=spSnap.exists()?(spSnap.data().skills||{}):{};
@@ -15330,7 +15333,7 @@ function DashboardScreen({ user, firebaseUser, onOpenDiagnostics, onStartSmartDi
       const today=getAlmatyDateStr(0);
       if(today>end){
         try{
-          await updateDoc(doc(db,"users",user.uid),{status:"inactive"});
+          await updateDoc(doc(db,"users",user.uid||user.id),{status:"inactive"});
           onUpdateUser?.({...user,status:"inactive"});
         }catch(e){console.error(e);}
       }
@@ -15406,10 +15409,11 @@ function DashboardScreen({ user, firebaseUser, onOpenDiagnostics, onStartSmartDi
     if(durationMinutes<=0){setNewLessonError('Время окончания должно быть позже времени начала');setNewLessonCreating(false);return;}
     try{
       const API=window.location.origin;
+      const token=await firebaseUser.getIdToken();
       if(schedForm.mode==='once'){
         if(!schedForm.date){setNewLessonError('Выберите дату');setNewLessonCreating(false);return;}
         const isoDate=new Date(`${schedForm.date}T${schedForm.startTime}:00`).toISOString();
-        const r=await fetch(`${API}/api/lessons`,{method:'POST',headers:{'Content-Type':'application/json'},
+        const r=await fetch(`${API}/api/lessons`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
           body:JSON.stringify({studentId,date:isoDate,durationMinutes,studentName,subject:schedForm.subject})});
         const d=await r.json();
         if(!r.ok) throw new Error(d.error||'Ошибка сервера');
@@ -15421,7 +15425,7 @@ function DashboardScreen({ user, firebaseUser, onOpenDiagnostics, onStartSmartDi
         const cur=new Date(from);
         while(cur<=until){if(schedForm.weekDays.includes(cur.getDay()))dates.push(new Date(cur).toISOString());cur.setDate(cur.getDate()+1);}
         if(!dates.length){setNewLessonError('Нет дат в выбранном диапазоне');setNewLessonCreating(false);return;}
-        const r=await fetch(`${API}/api/lessons-batch`,{method:'POST',headers:{'Content-Type':'application/json'},
+        const r=await fetch(`${API}/api/lessons-batch`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
           body:JSON.stringify({studentId,studentName,dates,durationMinutes,subject:schedForm.subject})});
         const d=await r.json();
         if(!r.ok) throw new Error(d.error||'Ошибка сервера');
@@ -15642,7 +15646,7 @@ function DashboardScreen({ user, firebaseUser, onOpenDiagnostics, onStartSmartDi
                 <div className="homework-list">
                   {homework.map((hw,i)=>{
                     const due=new Date(hw.dueDate+"T23:59:59"),isOv=due<today,dl=Math.ceil((due-today)/(864e5));
-                    const mySub=hwSubmissions.find(s=>s.hwId===hw.id&&s.userId===user?.uid);
+                    const mySub=hwSubmissions.find(s=>s.hwId===hw.id&&s.userId===(firebaseUser?.uid||user?.uid||user?.id));
                     const hwSubs=hwSubmissions.filter(s=>s.hwId===hw.id);
                     return(
                       <div key={i}>
@@ -15722,7 +15726,7 @@ function DashboardScreen({ user, firebaseUser, onOpenDiagnostics, onStartSmartDi
 
         {activeSection==="tools"&&<MathToolsSection/>}
 
-        {activeSection==="schedule"&&<LessonsSection user={user} isAdmin={isAdmin} isTeacher={isTeacher} students={students}/>}
+        {activeSection==="schedule"&&<LessonsSection user={user} firebaseUser={firebaseUser} isAdmin={isAdmin} isTeacher={isTeacher} students={students}/>}
 
         {activeSection==="profile"&&(
           <ProfileSection user={user} statusObj={statusObj} onOpenDiagnostics={onOpenDiagnostics} onViewPlan={onViewPlan} onUpdateUser={onUpdateUser}/>
@@ -15919,13 +15923,13 @@ function IntermediateTestsScreen({ user, onStartBoss, onBack }) {
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
-    if (!user?.uid) return;
+    const _uid=user?.uid||user?.id; if (!_uid) return;
     (async()=>{
       try{
         const [secSnap,qSnap,medalSnap]=await Promise.all([
           getDocs(collection(db,"sections")),
           getDocs(collection(db,"questions")),
-          getDocs(query(collection(db,"medals"),where("userId","==",user?.uid))),
+          getDocs(query(collection(db,"medals"),where("userId","==",_uid))),
         ]);
         const allSecs=secSnap.docs.map(d=>({id:d.id,...d.data()}));
         const intermediate=allSecs.filter(s=>s.sectionType==="topic"||s.sectionType==="chapter");
@@ -15938,7 +15942,7 @@ function IntermediateTestsScreen({ user, onStartBoss, onBack }) {
       }catch(e){console.error(e);}
       setLoading(false);
     })();
-  },[user?.uid]);
+  },[user?.uid||user?.id]);
 
   const medalSet=new Set(medals.map(m=>m.sectionId));
 
@@ -17557,7 +17561,7 @@ export default function App() {
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem("aapa_user");return u?JSON.parse(u):null;}catch{return null;}});
   // Sync Firestore profile → user when localStorage is empty (e.g. after logout+login)
   useEffect(()=>{
-    if(profile && (!user || user.uid !== profile.uid)){
+    if(profile && (!user || (user.id||user.uid) !== (profile.id||profile.uid))){
       setUser(profile);
       try{localStorage.setItem("aapa_user",JSON.stringify(profile));}catch{}
     }
@@ -17619,7 +17623,8 @@ export default function App() {
 
   // Auto-resume saved quiz on mount (localStorage → fast; Firestore → cross-device)
   useEffect(()=>{
-    if(!user?.uid)return;
+    if(!(user?.uid||user?.id))return;
+    const _uid=user?.uid||user?.id;
     const tryResume=async()=>{
       // 1. Try localStorage first (same browser, instant)
       try{
@@ -17635,7 +17640,7 @@ export default function App() {
       }catch{}
       // 2. Try Firestore (other device / incognito)
       try{
-        const snap=await getDoc(doc(db,"quizProgress",user.uid));
+        const snap=await getDoc(doc(db,"quizProgress",_uid));
         if(!snap.exists())return;
         const p=snap.data();
         if(!p?.userPhone||p.userPhone!==user.phone||!p?.questionIds?.length)return;
@@ -17659,8 +17664,8 @@ export default function App() {
   // Нужно, чтобы сброс флага администратором отражался у залогиненного студента
   // без повторного входа (данные в localStorage могут быть устаревшими).
   useEffect(()=>{
-    if(!user?.uid)return;
-    getDoc(doc(db,"users",user.uid)).then(snap=>{
+    const _uid=user?.uid||user?.id; if(!_uid)return;
+    getDoc(doc(db,"users",_uid)).then(snap=>{
       if(!snap.exists())return;
       const data=snap.data();
       const fresh=data.smartDiagDone??false;
