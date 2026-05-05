@@ -13,3 +13,6 @@ service-account*
 *-credentials.json
 *.pem
 *.key
+
+# Migration backups (may contain user data)
+migration/backups/
