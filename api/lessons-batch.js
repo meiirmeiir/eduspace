@@ -38,7 +38,7 @@ async function getZoomToken() {
 }
 
 module.exports = async (req, res) => {
-  const allowedOrigin = process.env.ALLOWED_ORIGIN;
+  const allowedOrigin = (process.env.ALLOWED_ORIGIN || '').trim();
   if (!allowedOrigin) {
     return res.status(500).json({ error: 'Server misconfigured: ALLOWED_ORIGIN required' });
   }
