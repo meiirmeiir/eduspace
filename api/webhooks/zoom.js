@@ -52,9 +52,22 @@ module.exports = async (req, res) => {
   const secret = process.env.ZOOM_WEBHOOK_SECRET || '';
   const timestamp = req.headers['x-zm-request-timestamp'] || '';
   const signature = req.headers['x-zm-signature'] || '';
+
+  // Replay attack protection: reject requests older than 5 minutes
+  const ts = parseInt(timestamp, 10);
+  if (!ts || Math.abs(Date.now() / 1000 - ts) > 300) {
+    return res.status(401).json({ error: 'Request timestamp expired' });
+  }
+
   const rawBody = JSON.stringify(body);
   const expected = 'v0=' + crypto.createHmac('sha256', secret).update(`v0:${timestamp}:${rawBody}`).digest('hex');
-  if (signature !== expected) return res.status(401).json({ error: 'Invalid signature' });
+
+  // Timing-safe comparison to prevent timing attacks
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
 
   // ── recording.completed → save video URL ───────────────────────────────────
   if (body.event === 'recording.completed') {
