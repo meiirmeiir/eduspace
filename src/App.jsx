@@ -866,7 +866,7 @@ function OnboardingScreen({ user, onFinish }) {
   const finish = async () => {
     setSaving(true);
     try {
-      await updateDoc(doc(db, "users", user.phone), { onboardingDone: true });
+      await updateDoc(doc(db, "users", user.uid), { onboardingDone: true });
     } catch(e) { console.error(e); }
     setSaving(false);
     onFinish();
@@ -12385,7 +12385,7 @@ function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpda
         details:editForm.details,
         ...(editForm.avatarUrl?{avatarUrl:editForm.avatarUrl}:{}),
       };
-      await updateDoc(doc(db,"users",user.phone),updates);
+      await updateDoc(doc(db,"users",user.uid),updates);
       onUpdateUser?.({...user,...updates});
       setIsEditing(false);
     }catch(e){alert("Ошибка: "+e.message);}
@@ -15328,7 +15328,7 @@ function DashboardScreen({ user, onOpenDiagnostics, onStartSmartDiag, onViewRoad
       const today=getAlmatyDateStr(0);
       if(today>end){
         try{
-          await updateDoc(doc(db,"users",user.phone),{status:"inactive"});
+          await updateDoc(doc(db,"users",user.uid),{status:"inactive"});
           onUpdateUser?.({...user,status:"inactive"});
         }catch(e){console.error(e);}
       }
@@ -17656,8 +17656,8 @@ export default function App() {
   // Нужно, чтобы сброс флага администратором отражался у залогиненного студента
   // без повторного входа (данные в localStorage могут быть устаревшими).
   useEffect(()=>{
-    if(!user?.phone)return;
-    getDoc(doc(db,"users",user.phone)).then(snap=>{
+    if(!user?.uid)return;
+    getDoc(doc(db,"users",user.uid)).then(snap=>{
       if(!snap.exists())return;
       const data=snap.data();
       const fresh=data.smartDiagDone??false;
@@ -17755,10 +17755,10 @@ export default function App() {
       setPendingSection(section);
       setCurrentSectionName("Умная Диагностика");
       // Если продолжаем с сохранённого места — загружаем состояние движка из Firestore
-      if(section._continueSection && user?.phone && !smartDiagEngineState){
+      if(section._continueSection && user?.uid && !smartDiagEngineState){
         setQuizLoading(true);
         try{
-          const snap=await getDoc(doc(db,"users",user.phone));
+          const snap=await getDoc(doc(db,"users",user.uid));
           if(snap.exists()) setSmartDiagEngineState(snap.data().smartDiagEngineState||null);
         }catch(e){console.error("load engine state:",e);}
         setQuizLoading(false);
@@ -17815,9 +17815,9 @@ export default function App() {
     // 2. Сохраняем состояние движка и прогресс разделов в Firestore
     const nextSection=sectionNum+1;
     const newSections=[...(user?.smartDiagSections||[]),sectionNum];
-    if(user?.phone){
+    if(user?.uid){
       try{
-        await updateDoc(doc(db,"users",user.phone),{
+        await updateDoc(doc(db,"users",user.uid),{
           smartDiagEngineState:engineState,
           smartDiagNextSection:nextSection,
           smartDiagSections:newSections,
