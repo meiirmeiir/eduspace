@@ -11981,11 +11981,23 @@ export default function App() {
   const { showNpcMessage, startTourIfNew } = useNpc();
   const { firebaseUser, profile, loading: authLoading } = useAuth();
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem("aapa_user");return u?JSON.parse(u):null;}catch{return null;}});
-  // Sync Firestore profile → user when localStorage is empty (e.g. after logout+login)
+  // Sync Firestore profile → user; fix landing flicker (bug2) and missing onboarding (bug1)
   useEffect(()=>{
-    if(profile && (!user || (user.id||user.uid) !== (profile.id||profile.uid))){
+    if(!profile) return;
+    const profileUid=profile.id||profile.uid;
+    const userUid=user?.id||user?.uid;
+    if(!user||userUid!==profileUid){
       setUser(profile);
       try{localStorage.setItem("aapa_user",JSON.stringify(profile));}catch{}
+    }
+    // Bug 2: authenticated user somehow landed on landing (e.g. empty localStorage on load)
+    if(screenRef.current==="landing"){
+      _setScreen(profile.onboardingDone?"dashboard":"onboarding");
+      return;
+    }
+    // Bug 1: new user after registration goes to dashboard but hasn't done onboarding
+    if(!profile.onboardingDone&&screenRef.current==="dashboard"){
+      _setScreen("onboarding");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[profile]);

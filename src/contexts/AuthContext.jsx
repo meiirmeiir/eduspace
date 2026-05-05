@@ -4,6 +4,17 @@ import { setAuthToken } from '../firestore-rest';
 import { doc, getDoc } from '../firestore-rest';
 import { db } from '../firestore-rest';
 
+// Retry getDoc up to 6 times with 300ms delay — guards against race condition
+// where onIdTokenChanged reads the profile before EmailAuthScreen's setDoc completes.
+async function loadProfile(uid) {
+  for (let i = 0; i < 6; i++) {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (snap.exists()) return { id: snap.id, ...snap.data() };
+    if (i < 5) await new Promise(r => setTimeout(r, 300));
+  }
+  return null;
+}
+
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -19,10 +30,10 @@ export function AuthProvider({ children }) {
       if (fbUser) {
         const token = await fbUser.getIdToken();
         setAuthToken(token);
-        // Load Firestore profile
+        // Load Firestore profile (with retry to handle registration race condition)
         try {
-          const snap = await getDoc(doc(db, 'users', fbUser.uid));
-          setProfile(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+          const profile = await loadProfile(fbUser.uid);
+          setProfile(profile);
         } catch (e) {
           console.error('[AuthContext] failed to load profile:', e);
           setProfile(null);
