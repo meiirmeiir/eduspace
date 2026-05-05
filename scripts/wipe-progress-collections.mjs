@@ -6,7 +6,7 @@
  *      skillProgress, skillMastery, userProgress, individualPlans, quizProgress
  *   2. Документы users/{phone} — ключ начинается с "+" (старая структура).
  *      Документы users/{uid} — НЕ трогает.
- *   3. Всех пользователей из Firebase Authentication.
+ *   3. Всех пользователей из Firebase Authentication, кроме ADMIN_UID.
  *
  * Запуск:
  *   node scripts/wipe-progress-collections.mjs
@@ -24,6 +24,9 @@ import { createInterface } from 'readline';
 // ── Конфигурация ──────────────────────────────────────────────────────────────
 
 const SERVICE_ACCOUNT_PATH = './scripts/service-account.json';
+
+// Этот аккаунт НЕ удаляется из Firebase Authentication
+const ADMIN_UID = 'TQR8qCK1qdPRWX5AvrugemGxw6G3';
 
 const PROGRESS_COLLECTIONS = [
   'skillProgress',
@@ -72,21 +75,23 @@ async function deleteCollection(colName) {
   return deleted;
 }
 
-// ── Утилита: удалить всех Auth-пользователей постранично ──────────────────────
+// ── Утилита: удалить Auth-пользователей кроме ADMIN_UID ──────────────────────
 
-async function deleteAllAuthUsers() {
+async function deleteAuthUsersExceptAdmin() {
   let deleted = 0;
+  let skipped = 0;
   let pageToken;
   do {
     const result = await auth.listUsers(1000, pageToken);
-    if (result.users.length > 0) {
-      const uids = result.users.map(u => u.uid);
-      await auth.deleteUsers(uids);
-      deleted += uids.length;
+    const toDelete = result.users.map(u => u.uid).filter(uid => uid !== ADMIN_UID);
+    skipped += result.users.length - toDelete.length;
+    if (toDelete.length > 0) {
+      await auth.deleteUsers(toDelete);
+      deleted += toDelete.length;
     }
     pageToken = result.pageToken;
   } while (pageToken);
-  return deleted;
+  return { deleted, skipped };
 }
 
 // ── Подтверждение в терминале ─────────────────────────────────────────────────
@@ -110,7 +115,7 @@ console.log('\n  Будет удалено:');
 console.log('  • Все документы из коллекций:');
 PROGRESS_COLLECTIONS.forEach(c => console.log(`    - ${c}`));
 console.log('  • Документы users/{phone} (ключ начинается с "+")');
-console.log('  • Все пользователи из Firebase Authentication');
+console.log(`  • Пользователи Firebase Auth (кроме ${ADMIN_UID})`);
 console.log('\n  Бэкап: migration/backups/');
 console.log('\n' + '─'.repeat(60));
 
@@ -143,15 +148,15 @@ for (const col of PROGRESS_COLLECTIONS) {
   }
 }
 
-// 3. Firebase Authentication
+// 3. Firebase Authentication (кроме ADMIN_UID)
 {
-  const count = await deleteAllAuthUsers();
-  console.log(`  ✓ Firebase Auth         удалено ${count} пользователей`);
+  const { deleted, skipped } = await deleteAuthUsersExceptAdmin();
+  console.log(`  ✓ Firebase Auth         удалено ${deleted} пользователей, сохранён ${skipped} (admin)`);
 }
 
 console.log('\n' + '─'.repeat(60));
 console.log('  ✅ Удаление завершено.');
 console.log('\n  Следующий шаг:');
-console.log('  1. Зарегистрируйся заново через UI (email/пароль).');
-console.log('  2. В Firebase Console → Firestore → users → поставь role=admin своему новому uid.');
+console.log(`  1. Твой аккаунт (${ADMIN_UID}) сохранён — войди как обычно.`);
+console.log('  2. Убедись что role=admin в Firestore → users → твой uid.');
 console.log('  3. Сообщи мне — перейдём к Фазе 2 (замена phone→uid в коде).\n');
