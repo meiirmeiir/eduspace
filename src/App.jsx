@@ -20,6 +20,7 @@ import {
   collection, getDocs, addDoc, deleteDoc, onSnapshot, db,
   query, where,
 } from "./firestore-rest.js";
+import { getContent } from "./lib/contentCache.js";
 
 // ── JS-MATH → LATEX CONVERTER ────────────────────────────────────────────────
 // LLM-генерируемый контент использует JS-синтаксис (Math.pow, *) вместо LaTeX.
@@ -1061,14 +1062,12 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
     const _uid=user?.uid||user?.id; if (!_uid) return;
     setLoading(true); setFetchError(false);
     try {
-        const [secSnap,qSnap,repSnap,resSnap]=await Promise.all([
-          getDocs(collection(db,"sections")),
-          getDocs(collection(db,"questions")),
+        const [allSecs,allQs,repSnap,resSnap]=await Promise.all([
+          getContent("sections"),
+          getContent("questions"),
           getDocs(query(collection(db,"expertReports"),where("userId","==",_uid))),
           getDocs(query(collection(db,"diagnosticResults"),where("userId","==",_uid))),
         ]);
-        const allSecs=secSnap.docs.map(d=>({id:d.id,...d.data()}));
-        const allQs=qSnap.docs.map(d=>({id:d.id,...d.data()}));
         // Build map: sectionId → expertReport for this user
         const myResults=resSnap.docs.map(d=>({id:d.id,...d.data()}));
         const myResultIds=new Set(myResults.map(r=>r.id));
@@ -3645,20 +3644,20 @@ function IndividualPlanScreen({ user, onBack, onStartTraining }) {
   const load = async () => {
     setLoading(true); setFetchError(false);
     try {
-      const [planSnap, progressSnap, cgSnap, shSnap, masterySnap] = await Promise.all([
+      const [planSnap, progressSnap, cgLinks, shItems, masterySnap] = await Promise.all([
         getDoc(doc(db, 'individualPlans', user?.uid)),
         getDoc(doc(db, 'skillProgress',   user?.uid)),
-        getDocs(collection(db, 'crossGradeLinks')),
-        getDocs(collection(db, 'skillHierarchies')),
+        getContent('crossGradeLinks'),
+        getContent('skillHierarchies'),
         getDoc(doc(db, 'skillMastery',    user?.uid)),
       ]);
       if (planSnap.exists())     setAutoPlan(planSnap.data());
       if (progressSnap.exists()) setSkillProgressData(progressSnap.data()?.skills || {});
       if (masterySnap.exists())  setSkillMasteryData(masterySnap.data()?.skills || {});
-      setCgLinks(cgSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setCgLinks(cgLinks);
       const namesMap = {};
-      shSnap.docs.forEach(d => {
-        const hier = d.data();
+      shItems.forEach(d => {
+        const hier = d;
         (hier.clusters || []).forEach(cl => {
           (cl.pivot_skills || []).forEach(ps => {
             if (ps.skill_id && ps.skill_name) namesMap[ps.skill_id] = ps.skill_name;
@@ -12608,10 +12607,10 @@ function PracticeScreen({ user, onBack }) {
   useEffect(()=>{
     const load = async () => {
       try {
-        const [progSnap, secSnap, topicSnap, skillProgSnap] = await Promise.all([
+        const [progSnap, allSections, allTopics, skillProgSnap] = await Promise.all([
           getDoc(doc(db,"userProgress",user?.uid)),
-          getDocs(collection(db,"sections")),
-          getDocs(collection(db,"topics")),
+          getContent("sections"),
+          getContent("topics"),
           getDoc(doc(db,"skillProgress",user?.uid)),
         ]);
         if (progSnap.exists()) {
@@ -12626,8 +12625,8 @@ function PracticeScreen({ user, onBack }) {
           Object.entries(skills).forEach(([skill,d]) => sg[d.zone||"red"].push({skill, ...d}));
           setSkillZones(sg);
         }
-        setAllSections(secSnap.docs.map(d=>({id:d.id,...d.data()})));
-        setAllTopics(topicSnap.docs.map(d=>({id:d.id,...d.data()})));
+        setAllSections(allSections);
+        setAllTopics(allTopics);
       } catch(e){ console.error(e); }
       setLoadingTopics(false);
     };
@@ -12637,8 +12636,7 @@ function PracticeScreen({ user, onBack }) {
   const startPractice = async (topicName, sectionName) => {
     setLoadingQ(true);
     try {
-      const snap = await getDocs(collection(db,"questions"));
-      let qs = snap.docs.map(d=>({id:d.id,...d.data()}));
+      let qs = await getContent("questions");
       // Filter by topic name match, fall back to section
       let filtered = qs.filter(q => q.topic === topicName);
       if (!filtered.length) filtered = qs.filter(q => q.sectionName === sectionName || q.section === sectionName);
@@ -12665,8 +12663,7 @@ function PracticeScreen({ user, onBack }) {
   const openTheory = async (topicName, sectionName, topicId) => {
     setLoadingTheory(true);
     try {
-      const snap = await getDocs(collection(db, "theories"));
-      const all = snap.docs.map(d=>({id:d.id,...d.data()}));
+      const all = await getContent("theories");
       const normStr=s=>(s||"").trim().toLowerCase();
       // 1. Exact topicId match (most reliable)
       let found = topicId ? all.find(t => t.topicId === topicId) : null;
@@ -14543,15 +14540,14 @@ function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
 
   useEffect(() => {
     Promise.all([
-      getDocs(collection(db, 'skillTheory')),
-      getDocs(collection(db, 'skillHierarchies'))
-    ]).then(([sts, shs]) => {
-      const theories = sts.docs.map(d => ({ id: d.id, ...d.data() }));
+      getContent('skillTheory'),
+      getContent('skillHierarchies')
+    ]).then(([theories, shItems]) => {
       setSkillTheories(theories);
       // Build skill_id → Russian name from skillHierarchies
       const nm = {};
-      shs.docs.forEach(d => {
-        (d.data().clusters || []).forEach(cl => {
+      shItems.forEach(d => {
+        (d.clusters || []).forEach(cl => {
           (cl.pivot_skills || []).forEach(ps => {
             if (ps.skill_id && ps.skill_name) nm[ps.skill_id] = ps.skill_name;
           });
@@ -14846,7 +14842,7 @@ function DailyTasksScreen({ user, onBack }) {
         const [masterySnap, shSnap] = await Promise.race([
           Promise.all([
             getDoc(doc(db, 'skillMastery', user.uid)),
-            getDocs(collection(db, 'skillHierarchies')),
+            getContent('skillHierarchies'),
           ]),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
         ]);
@@ -14863,8 +14859,8 @@ function DailyTasksScreen({ user, onBack }) {
 
         // Build skill name map
         const namesMap = {};
-        shSnap.docs.forEach(d => {
-          (d.data().clusters || []).forEach(cl =>
+        shSnap.forEach(d => {
+          (d.clusters || []).forEach(cl =>
             (cl.pivot_skills || []).forEach(ps => { if(ps.skill_id) namesMap[ps.skill_id] = ps.skill_name||ps.skill_id; })
           );
         });
@@ -15926,15 +15922,14 @@ function IntermediateTestsScreen({ user, onStartBoss, onBack }) {
     const _uid=user?.uid||user?.id; if (!_uid) return;
     (async()=>{
       try{
-        const [secSnap,qSnap,medalSnap]=await Promise.all([
-          getDocs(collection(db,"sections")),
-          getDocs(collection(db,"questions")),
+        const [allSecs,allQs,medalSnap]=await Promise.all([
+          getContent("sections"),
+          getContent("questions"),
           getDocs(query(collection(db,"medals"),where("userId","==",_uid))),
         ]);
-        const allSecs=secSnap.docs.map(d=>({id:d.id,...d.data()}));
         const intermediate=allSecs.filter(s=>s.sectionType==="topic"||s.sectionType==="chapter");
         const c={};
-        qSnap.docs.forEach(d=>{ const q=d.data(); if(q.sectionId) c[q.sectionId]=(c[q.sectionId]||0)+1; });
+        allQs.forEach(q=>{ if(q.sectionId) c[q.sectionId]=(c[q.sectionId]||0)+1; });
         const myMedals=medalSnap.docs.map(d=>({id:d.id,...d.data()}));
         setSections(intermediate);
         setCounts(c);
@@ -16023,8 +16018,7 @@ function BossFightScreen({ section, user, onBack }) {
   useEffect(()=>{
     (async()=>{
       try{
-        const snap=await getDocs(collection(db,"questions"));
-        const qs=shuffle(snap.docs.map(d=>({id:d.id,...d.data()})).filter(q=>q.sectionId===section.id));
+        const qs=shuffle((await getContent("questions")).filter(q=>q.sectionId===section.id));
         if(!qs.length){alert("В разделе нет вопросов.");onBack();return;}
         setQuestions(qs.slice(0,Math.min(qs.length,10)).map(q=>(q.type==="generated"||q.type==="model")?generateQuestion(q):q));
         setPhase("fight");
@@ -17779,8 +17773,7 @@ export default function App() {
     let qs=[];
     let loadFailed=false;
     try{
-      const snap=await getDocs(collection(db,"questions"));
-      qs=snap.docs.map(d=>({id:d.id,...d.data()}));
+      qs=await getContent("questions");
       if(section) qs=qs.filter(q=>q.sectionId===section.id);
       else if(user?.goalKey) qs=qs.filter(q=>(q.goals||[]).includes(user.goalKey));
     }catch{ loadFailed=true; }
