@@ -2,56 +2,161 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Приложение использует Firebase Auth (Email/Password).
-    // request.auth доступен для всех аутентифицированных запросов.
-    // TODO: заменить `if true` на проверки request.auth.uid после Security Rules audit.
+    // ── Вспомогательные функции ───────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
 
     // ── Пользователи ─────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read, create, update: if true;
+      allow get:    if isOwner(userId) || isAdmin();
+      allow list:   if isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isAdmin()
+                    || (isOwner(userId)
+                        && !request.resource.data.diff(resource.data)
+                              .affectedKeys().hasAny(['role', 'status']));
       allow delete: if false;
     }
 
-    // ── Прогресс и данные учеников ───────────────────────────────────────────
-    match /diagnosticResults/{docId} { allow read, write: if true; }
-    match /skillProgress/{docId}     { allow read, write: if true; }
-    match /quizProgress/{docId}      { allow read, write: if true; }
-    match /skillMastery/{docId}      { allow read, write: if true; }
-    match /userProgress/{docId}      { allow read, write: if true; }
-    match /expertReports/{docId}     { allow read, write: if true; }
+    // ── Настройки — только admin ──────────────────────────────────────────────
+    match /settings/{docId} {
+      allow read, write: if isAdmin();
+    }
 
-    // ── Контент (читают ученики, пишет admin через панель) ───────────────────
-    match /taskBank/{docId}          { allow read, write: if true; }
-    match /skills/{docId}            { allow read, write: if true; }
-    match /sections/{docId}          { allow read, write: if true; }
-    match /questions/{docId}         { allow read, write: if true; }
-    match /theories/{docId}          { allow read, write: if true; }
-    match /topics/{docId}            { allow read, write: if true; }
-    match /skillsDb/{docId}          { allow read, write: if true; }
-    match /prereqMap/{docId}         { allow read, write: if true; }
-    match /skillHierarchies/{docId}  { allow read, write: if true; }
-    match /crossGradeLinks/{docId}   { allow read, write: if true; }
-    match /skillTheory/{docId}       { allow read, write: if true; }
-    match /skillTasks/{docId}        { allow read, write: if true; }
-    match /dailyTasks/{docId}        { allow read, write: if true; }
-    match /globalSkillMap/{docId}    { allow read, write: if true; }
+    // ── Контент: залогиненные читают, только admin пишет ─────────────────────
+    match /taskBank/{docId}          { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /skills/{docId}            { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /sections/{docId}          { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /questions/{docId}         { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /theories/{docId}          { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /topics/{docId}            { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /skillsDb/{docId}          { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /prereqMap/{docId}         { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /skillHierarchies/{docId}  { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /crossGradeLinks/{docId}   { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /skillTheory/{docId}       { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /skillTasks/{docId}        { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /dailyTasks/{docId}        { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /globalSkillMap/{docId}    { allow read: if isSignedIn(); allow write: if isAdmin(); }
 
-    // ── Расписание, домашние задания, уроки ──────────────────────────────────
-    match /schedule/{docId}          { allow read, write: if true; }
-    match /homework/{docId}          { allow read, write: if true; }
-    match /hwSubmissions/{docId}     { allow read, write: if true; }
-    match /lessons/{docId}           { allow read, write: if true; }
-    match /lessonLogs/{docId}        { allow read, write: if true; }
+    // ── Прогресс учеников: ключ = uid ────────────────────────────────────────
+    match /skillProgress/{userId} {
+      allow read:   if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if false;
+      allow list:   if false;
+    }
 
-    // ── Доска/медиа ──────────────────────────────────────────────────────────
-    match /wbImages/{docId}          { allow read, write: if true; }
-    match /wbStrokes/{docId}         { allow read, write: if true; }
-    match /whiteboards/{docId}       { allow read, write: if true; }
+    match /skillMastery/{userId} {
+      allow read:   if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if false;
+      allow list:   if false;
+    }
 
-    // ── Индивидуальные планы, настройки, медали ──────────────────────────────
-    match /individualPlans/{docId} { allow read, write: if true; }
-    match /settings/{docId}        { allow read, write: if true; }
-    match /medals/{docId}          { allow read, write: if true; }
+    match /userProgress/{userId} {
+      allow read:   if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if false;
+      allow list:   if false;
+    }
+
+    match /individualPlans/{userId} {
+      allow read:   if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if false;
+      allow list:   if false;
+    }
+
+    match /quizProgress/{userId} {
+      allow read:   if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+      allow list:   if false;
+    }
+
+    // ── Результаты диагностики: auto-ID, поле userId = uid ───────────────────
+    match /diagnosticResults/{docId} {
+      // Студент создаёт свой результат; читает свои; admin читает/пишет всё
+      allow read:   if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Экспертные отчёты: только admin пишет, студент читает свои ───────────
+    match /expertReports/{docId} {
+      allow read:   if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Медали: студент создаёт свои, читает свои ─────────────────────────────
+    match /medals/{docId} {
+      allow read:   if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── Сдача ДЗ: студент создаёт свою, admin проверяет ──────────────────────
+    match /hwSubmissions/{docId} {
+      allow read:   if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ── Домашние задания: admin создаёт, студент читает своё ─────────────────
+    // homework.userId — uid студента, которому назначено (или "" — для всех)
+    match /homework/{docId} {
+      allow read: if isSignedIn()
+                  && (isAdmin()
+                      || resource.data.userId == request.auth.uid
+                      || resource.data.userId == "");
+      allow write: if isAdmin();
+    }
+
+    // ── Расписание: admin управляет, залогиненные читают ─────────────────────
+    // schedule.userIds — массив uid (после миграции будет uid, сейчас legacy)
+    match /schedule/{docId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Уроки: Admin SDK пишет (обходит rules), залогиненные читают ──────────
+    match /lessons/{docId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Логи уроков: только admin ─────────────────────────────────────────────
+    match /lessonLogs/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Доска (whiteboard): участники урока — оба залогинены ─────────────────
+    match /wbImages/{docId}    { allow read, write: if isSignedIn(); }
+    match /wbStrokes/{docId}   { allow read, write: if isSignedIn(); }
+    match /whiteboards/{docId} { allow read, write: if isSignedIn(); }
+
+    // ── Индивидуальные планы (уже закрыты выше) ──────────────────────────────
+    // (individualPlans — см. выше в разделе прогресса)
 
     // ── Всё остальное — запрещено ─────────────────────────────────────────────
     match /{document=**} {

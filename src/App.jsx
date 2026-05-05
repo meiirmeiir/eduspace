@@ -15357,7 +15357,7 @@ function DashboardScreen({ user, onOpenDiagnostics, onStartSmartDiag, onViewRoad
       const hw=homework.find(h=>h.id===submittingHwId);
       const photos=await Promise.all(submitFiles.map(f=>compressImage(f,800,0.7)));
       const totalSize=photos.reduce((s,p)=>s+p.length,0);
-      const data={hwId:submittingHwId,hwTitle:hw?.title||"",userPhone:user?.phone,userName:`${user?.firstName} ${user?.lastName}`,photos:totalSize<900000?photos:[],submittedAt:new Date().toISOString(),status:"pending",feedback:"",grade:null};
+      const data={hwId:submittingHwId,hwTitle:hw?.title||"",userId:user?.uid,userPhone:user?.phone,userName:`${user?.firstName} ${user?.lastName}`,photos:totalSize<900000?photos:[],submittedAt:new Date().toISOString(),status:"pending",feedback:"",grade:null};
       const ref=await addDoc(collection(db,"hwSubmissions"),data);
       // Send to Telegram
       for(let i=0;i<submitFiles.length;i++){
@@ -16080,6 +16080,7 @@ function BossFightScreen({ section, user, onBack }) {
           });
           if(isChapter&&bossDefeated){
             await addDoc(collection(db,"medals"),{
+              userId:user?.uid,
               userPhone:user?.phone,
               userName:`${user?.firstName} ${user?.lastName}`,
               sectionId:section.id,
