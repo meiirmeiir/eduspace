@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { THEME } from "../lib/appConstants.js";
-import { generateQuestion } from "../lib/mathUtils.js";
+import { THEME, CONFIDENCE_LEVELS, GRADES_LIST, EXAMS_LIST } from "../lib/appConstants.js";
+import { generateQuestion, shuffle } from "../lib/mathUtils.js";
+import ErrorCard from "../components/ui/ErrorCard.jsx";
+import ChartRenderer from "../components/charts/ChartRenderer.jsx";
 import { getContent } from "../lib/contentCache.js";
 import { db, getDoc, getDocs, collection, query, where } from "../firestore-rest.js";
 import Logo from "../components/ui/Logo.jsx";
@@ -593,4 +595,4 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, onComplete, onSto
   );
 }
 
-export default DiagnosticRulesScreen;
+export { DiagnosticRulesScreen, DiagnosticsScreen, QuestionScreen };

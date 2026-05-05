@@ -58,7 +58,7 @@ import InteractiveSkillTree from "./components/skillTree/InteractiveSkillTree.js
 import DiagnosticModuleTree, { buildDiagModuleTree } from "./components/diagTree/DiagnosticModuleTree.jsx";
 import ModuleTreeModal from "./components/moduleTree/ModuleTreeModal.jsx";
 import OnboardingScreen from "./screens/OnboardingScreen.jsx";
-import DiagnosticRulesScreen from "./screens/DiagnosticRulesScreen.jsx";
+import { DiagnosticRulesScreen, DiagnosticsScreen, QuestionScreen } from "./screens/DiagnosticsScreens.jsx";
 import ReportScreen from "./screens/ReportScreen.jsx";
 import UploadAnalysisScreen from "./screens/UploadAnalysisScreen.jsx";
 import ExpertReportView, { PathMap } from "./screens/ExpertReportView.jsx";
