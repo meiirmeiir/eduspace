@@ -10,6 +10,7 @@ import {
   signOut,
   onIdTokenChanged,
 } from 'firebase/auth';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
   apiKey:     import.meta.env.VITE_FIREBASE_API_KEY,
@@ -20,6 +21,16 @@ const firebaseConfig = {
 export const app  = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 auth.languageCode = 'ru';
+
+const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+if (siteKey) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(siteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+} else {
+  console.warn('[AppCheck] VITE_RECAPTCHA_SITE_KEY not set — App Check disabled');
+}
 
 // Re-export auth methods so consumers import from one place
 export {

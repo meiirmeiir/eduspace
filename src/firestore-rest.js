@@ -3,6 +3,9 @@
  * Все операции идут через REST API (не WebChannel/gRPC).
  */
 
+import { getToken } from 'firebase/app-check';
+import { app } from './lib/firebase.js';
+
 const getKey = () => import.meta.env.VITE_FIREBASE_API_KEY;
 const getProject = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
 const BASE = () =>
@@ -99,6 +102,15 @@ function _authHeader() {
   return _authToken ? { Authorization: `Bearer ${_authToken}` } : {};
 }
 
+async function _appCheckHeader() {
+  try {
+    const result = await getToken(app, false);
+    return { 'X-Firebase-AppCheck': result.token };
+  } catch {
+    return {};
+  }
+}
+
 // ── Ссылки ────────────────────────────────────────────────────────────────────
 
 export const db = {};
@@ -141,7 +153,7 @@ export function query(collRef, ...constraints) {
 
 async function _fetchDoc(docPath) {
   const url = `${BASE()}/${encodeFsPath(docPath)}?key=${getKey()}`;
-  const resp = await fetch(url, { headers: _authHeader() });
+  const resp = await fetch(url, { headers: { ..._authHeader(), ...(await _appCheckHeader()) } });
   if (resp.status === 404) return null;
   if (!resp.ok) throw new Error(`Firestore GET error: HTTP ${resp.status}`);
   return resp.json();
@@ -166,7 +178,7 @@ export async function getDocs(ref) {
   do {
     const tokenParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
     const url = `${BASE()}/${encodeFsPath(ref.path)}?key=${getKey()}&pageSize=300${tokenParam}`;
-    const resp = await fetch(url, { headers: _authHeader() });
+    const resp = await fetch(url, { headers: { ..._authHeader(), ...(await _appCheckHeader()) } });
     if (!resp.ok) throw new Error(`Firestore LIST error: HTTP ${resp.status}`);
     const json = await resp.json();
     if (json.documents) allDocs = allDocs.concat(json.documents);
@@ -200,7 +212,7 @@ async function _runQuery(queryRef) {
   const url = `${BASE()}:runQuery?key=${getKey()}`;
   const resp = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ..._authHeader() },
+    headers: { 'Content-Type': 'application/json', ..._authHeader(), ...(await _appCheckHeader()) },
     body: JSON.stringify({ structuredQuery }),
   });
   if (!resp.ok) throw new Error(`Firestore QUERY error: HTTP ${resp.status}`);
@@ -218,7 +230,7 @@ export async function setDoc(ref, data, options = {}) {
   const body = { fields: toFsFields(data) };
   const resp = await fetch(url, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ..._authHeader() },
+    headers: { 'Content-Type': 'application/json', ..._authHeader(), ...(await _appCheckHeader()) },
     body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`Firestore SET error: HTTP ${resp.status}`);
@@ -234,7 +246,7 @@ export async function updateDoc(ref, data) {
   const body = { fields: toFsFields(data) };
   const resp = await fetch(url, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ..._authHeader() },
+    headers: { 'Content-Type': 'application/json', ..._authHeader(), ...(await _appCheckHeader()) },
     body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`Firestore UPDATE error: HTTP ${resp.status}`);
@@ -247,7 +259,7 @@ export async function addDoc(collRef, data) {
   const body = { fields: toFsFields(data) };
   const resp = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ..._authHeader() },
+    headers: { 'Content-Type': 'application/json', ..._authHeader(), ...(await _appCheckHeader()) },
     body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`Firestore ADD error: HTTP ${resp.status}`);
@@ -260,7 +272,7 @@ export async function addDoc(collRef, data) {
 
 export async function deleteDoc(ref) {
   const url = `${BASE()}/${encodeFsPath(ref.path)}?key=${getKey()}`;
-  const resp = await fetch(url, { method: 'DELETE', headers: _authHeader() });
+  const resp = await fetch(url, { method: 'DELETE', headers: { ..._authHeader(), ...(await _appCheckHeader()) } });
   if (!resp.ok && resp.status !== 404)
     throw new Error(`Firestore DELETE error: HTTP ${resp.status}`);
 }

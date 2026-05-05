@@ -10,8 +10,6 @@ import NpcGuide from './components/NpcGuide.jsx';
 import './MapStyles.css';
 import { useTheme } from './ThemeContext.jsx';
 import { useNpc } from './NpcContext.jsx';
-// TODO: re-enable App Check after Firestore Rules are validated
-// import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import { app, auth, signOut, reauthenticateWithCredential, updatePassword, EmailAuthProvider } from "./lib/firebase";
 import EmailAuthScreen from "./components/auth/EmailAuthScreen.jsx";
 import { useAuth } from "./contexts/AuthContext.jsx";
@@ -203,12 +201,6 @@ function LatexText({ text, style }) {
   }
   return <span style={style}>{parts}</span>;
 }
-
-// TODO: re-enable App Check after Firestore Rules are validated
-// initializeAppCheck(app, {
-//   provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
-//   isTokenAutoRefreshEnabled: true,
-// });
 
 const TELEGRAM_TOKEN  = import.meta.env.VITE_TELEGRAM_TOKEN  || "";
 const TELEGRAM_CHAT   = import.meta.env.VITE_TELEGRAM_CHAT   || "";
