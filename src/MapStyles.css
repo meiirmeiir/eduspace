@@ -1,0 +1,141 @@
+/* ════════════════════════════════════════════════════════════
+   DARK THEME  —  filter: invert(1) hue-rotate(180deg)
+   Работает со всеми inline-стилями без исключений.
+   ════════════════════════════════════════════════════════════ */
+
+/* ── 1. Тёмная тема: white (#fff) → #191919 ──────────────────
+   Математика: brightness(0.902) на white даёт 255×0.902=230,
+   затем invert(1): 255-230=25 = #191919 ✓
+   hue-rotate(180deg) восстанавливает цвета после инверта.
+   ──────────────────────────────────────────────────────────── */
+[data-theme="dark"] #root {
+  filter: brightness(0.902) invert(1) hue-rotate(180deg);
+}
+
+/* ── 2. Картинки — реинверт чтобы выглядели нормально ── */
+[data-theme="dark"] #root img {
+  filter: brightness(1.109) invert(1) hue-rotate(180deg);
+}
+
+/* ── 3. Видео, canvas ── */
+[data-theme="dark"] #root video,
+[data-theme="dark"] #root canvas {
+  filter: brightness(1.109) invert(1) hue-rotate(180deg);
+}
+
+/* ── 4. RPG-карта — она уже тёмная, реинвертируем ── */
+[data-theme="dark"] #root .react-flow__renderer {
+  filter: brightness(1.109) invert(1) hue-rotate(180deg);
+}
+
+/* ── 5. Сайдбар — тёмный в light mode, реинвертируем ── */
+[data-theme="dark"] #root .dashboard-sidebar {
+  filter: brightness(1.109) invert(1) hue-rotate(180deg);
+}
+
+/* ── 6. Тёмные блоки (дорожная карта, другие dark-gradient блоки) ── */
+[data-theme="dark"] #root .dark-invert-back {
+  filter: brightness(1.109) invert(1) hue-rotate(180deg);
+}
+/* Картинки внутри реинвертированных блоков — двойной реинверт = исходный */
+[data-theme="dark"] #root .dark-invert-back img,
+[data-theme="dark"] #root .dashboard-sidebar img {
+  filter: none;
+}
+
+/* ── 5. Фон body — до инверта нужен #e6e6e6 чтобы стал #191919 ── */
+[data-theme="dark"] body {
+  background: #e6e6e6;
+}
+
+/* ── Theme Toggle Switch ── */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px 14px;
+}
+
+.theme-toggle-track {
+  position: relative;
+  width: 56px;
+  height: 28px;
+  border-radius: 14px;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  transition: background 0.35s;
+  background: rgba(255,255,255,0.12);
+  flex-shrink: 0;
+}
+
+.theme-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f0c040;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: left 0.3s cubic-bezier(.4,0,.2,1), background 0.35s;
+  left: 3px;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+}
+
+.theme-toggle-thumb.is-dark {
+  left: 31px;
+  background: #4f46e5;
+}
+
+/* ── Фон карты ────────────────────────────────────────────── */
+.react-flow__pane {
+  background: radial-gradient(circle at center, #1a1a2e 0%, #05050f 100%) !important;
+}
+
+/* ── Магические рёбра ──────────────────────────────────────── */
+@keyframes magic-pulse {
+  from { stroke-dashoffset: 100; }
+  to   { stroke-dashoffset: 0; }
+}
+.magic-pulse {
+  animation: magic-pulse 1.4s linear infinite;
+}
+
+/* ── Подпись этажа (класса) ────────────────────────────────── */
+.grade-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 5px 20px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(99,102,241,0.10) 15%,
+    rgba(99,102,241,0.22) 50%,
+    rgba(99,102,241,0.10) 85%,
+    transparent 100%
+  );
+  border-top:    1px solid rgba(99,102,241,0.45);
+  border-bottom: 1px solid rgba(99,102,241,0.45);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.grade-banner-icon { font-size: 18px; line-height: 1; }
+
+.grade-banner-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  color: #a5b4fc;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 14px rgba(99,102,241,0.75),
+    0 0 30px rgba(99,102,241,0.40);
+}

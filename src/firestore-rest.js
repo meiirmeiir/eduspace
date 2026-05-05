@@ -118,6 +118,8 @@ const OP_MAP = {
   '==': 'EQUAL', '!=': 'NOT_EQUAL',
   '<': 'LESS_THAN', '<=': 'LESS_THAN_OR_EQUAL',
   '>': 'GREATER_THAN', '>=': 'GREATER_THAN_OR_EQUAL',
+  'in': 'IN', 'not-in': 'NOT_IN',
+  'array-contains': 'ARRAY_CONTAINS', 'array-contains-any': 'ARRAY_CONTAINS_ANY',
 };
 
 export function where(field, op, value) {

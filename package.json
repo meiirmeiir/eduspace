@@ -6,15 +6,27 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/firestore-rules --fileParallelism=false\""
   },
   "dependencies": {
-    "firebase": "^12.11.0",
+    "@dagrejs/dagre": "^3.0.0",
+    "@xyflow/react": "^12.10.2",
+    "firebase-admin": "^13.8.0",
+    "katex": "^0.16.45",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-katex": "^3.1.0"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "@types/node": "^25.6.0",
     "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.0.8"
+    "firebase": "^12.12.1",
+    "firebase-tools": "^15.16.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2",
+    "vite": "^5.0.8",
+    "vitest": "^4.1.5"
   }
 }
