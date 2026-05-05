@@ -3183,7 +3183,7 @@ function SkillMasteryScreen({ user, skillId, skillName, onBack }) {
     Promise.all([
       getDoc(doc(db, 'skillTasks',   skillId)),
       getDoc(doc(db, 'skillTheory',  skillId)),
-      getDoc(doc(db, 'skillMastery', user?.phone)),
+      getDoc(doc(db, 'skillMastery', user?.uid)),
     ]).then(([tSnap, thSnap, mSnap]) => {
       setTaskData(tSnap.exists() ? tSnap.data() : null);
       setTheory(thSnap.exists() ? { id:thSnap.id, ...thSnap.data() } : null);
@@ -3231,7 +3231,7 @@ function SkillMasteryScreen({ user, skillId, skillName, onBack }) {
         skillUpdate.next_review_date = getAlmatyDateStr(SRS_INTERVALS[0]);
         skillUpdate.review_stage = 1;
       }
-      await setDoc(doc(db,'skillMastery',user.phone), { skills: { [skillId]: skillUpdate } }, { merge: true });
+      await setDoc(doc(db,'skillMastery',user.uid), { skills: { [skillId]: skillUpdate } }, { merge: true });
       setMastery({ stagesCompleted: newCompleted, currentStage: Math.min(newCompleted+1,3), lastStageCompletedAt: now_ });
     } catch(e) { console.error(e); }
     setSaving(false);
@@ -3645,11 +3645,11 @@ function IndividualPlanScreen({ user, onBack, onStartTraining }) {
     setLoading(true); setFetchError(false);
     try {
       const [planSnap, progressSnap, cgSnap, shSnap, masterySnap] = await Promise.all([
-        getDoc(doc(db, 'individualPlans', user?.phone)),
-        getDoc(doc(db, 'skillProgress',   user?.phone)),
+        getDoc(doc(db, 'individualPlans', user?.uid)),
+        getDoc(doc(db, 'skillProgress',   user?.uid)),
         getDocs(collection(db, 'crossGradeLinks')),
         getDocs(collection(db, 'skillHierarchies')),
-        getDoc(doc(db, 'skillMastery',    user?.phone)),
+        getDoc(doc(db, 'skillMastery',    user?.uid)),
       ]);
       if (planSnap.exists())     setAutoPlan(planSnap.data());
       if (progressSnap.exists()) setSkillProgressData(progressSnap.data()?.skills || {});
@@ -5234,7 +5234,7 @@ function ModuleTreeModal({ crossGradeLinks, onClose }){
   );
 }
 
-function AdminScreen({ onBack }) {
+function AdminScreen({ onBack, firebaseUser }) {
   const [tab,setTab]=useState("sections");
   const [sections,setSections]=useState([]);
   const [questions,setQuestions]=useState([]);
@@ -5392,6 +5392,7 @@ function AdminScreen({ onBack }) {
   const [dtFilterGrade,setDtFilterGrade]=useState('');
 
   useEffect(()=>{
+    if(!firebaseUser) return;
     const load=async()=>{
       try{
         const [sS,qS,uS,thS,tpS,skS,skDbS,pmS,shS]=await Promise.all([getDocs(collection(db,"sections")),getDocs(collection(db,"questions")),getDocs(collection(db,"users")),getDocs(collection(db,"theories")),getDocs(collection(db,"topics")),getDocs(collection(db,"skills")),getDocs(collection(db,"skillsDb")),getDocs(collection(db,"prereqMap")),getDocs(collection(db,"skillHierarchies"))]);
@@ -5416,7 +5417,8 @@ function AdminScreen({ onBack }) {
       setLoading(false);
     };
     load();
-  },[]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[firebaseUser?.uid]);
 
   // ─ Sections ─
   const openAddSection=()=>{setSecForm(emptySecForm);setEditingSection(null);setShowSecForm(true);};
@@ -12606,10 +12608,10 @@ function PracticeScreen({ user, onBack }) {
     const load = async () => {
       try {
         const [progSnap, secSnap, topicSnap, skillProgSnap] = await Promise.all([
-          getDoc(doc(db,"userProgress",user?.phone)),
+          getDoc(doc(db,"userProgress",user?.uid)),
           getDocs(collection(db,"sections")),
           getDocs(collection(db,"topics")),
-          getDoc(doc(db,"skillProgress",user?.phone)),
+          getDoc(doc(db,"skillProgress",user?.uid)),
         ]);
         if (progSnap.exists()) {
           const topics = progSnap.data().topics || {};
@@ -14841,7 +14843,7 @@ function DailyTasksScreen({ user, onBack }) {
         const today = getAlmatyDateStr(0);
         const [masterySnap, shSnap] = await Promise.race([
           Promise.all([
-            getDoc(doc(db, 'skillMastery', user.phone)),
+            getDoc(doc(db, 'skillMastery', user.uid)),
             getDocs(collection(db, 'skillHierarchies')),
           ]),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
@@ -14947,7 +14949,7 @@ function DailyTasksScreen({ user, onBack }) {
       }
     }
     if (Object.keys(updates).length) {
-      try { await updateDoc(doc(db, 'skillMastery', user.phone), updates); }
+      try { await updateDoc(doc(db, 'skillMastery', user.uid), updates); }
       catch(e) { console.error(e); }
     }
   };
@@ -15300,11 +15302,11 @@ function DashboardScreen({ user, onOpenDiagnostics, onStartSmartDiag, onViewRoad
       setHwSubmissions(subS.docs.map(d=>({id:d.id,...d.data()})));
       const allZL=lesS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.date?.localeCompare(b.date));
       setZoomLessons(_isAdmin?allZL:allZL.filter(l=>l.studentId===user?.phone||l.studentId===user?.id));
-      if(!_isTeacher && user?.phone){
+      if(!_isTeacher && user?.uid){
         try{
           const [upSnap,spSnap]=await Promise.all([
-            getDoc(doc(db,"userProgress",user.phone)),
-            getDoc(doc(db,"skillProgress",user.phone)),
+            getDoc(doc(db,"userProgress",user.uid)),
+            getDoc(doc(db,"skillProgress",user.uid)),
           ]);
           const topics=upSnap.exists()?(upSnap.data().topics||{}):{};
           const skills=spSnap.exists()?(spSnap.data().skills||{}):{};
@@ -16064,6 +16066,7 @@ function BossFightScreen({ section, user, onBack }) {
         let medalEarned=false;
         try{
           await addDoc(collection(db,"diagnosticResults"),{
+            userId:user?.uid,
             userPhone:user?.phone,
             userName:`${user?.firstName} ${user?.lastName}`,
             sectionName:section.name,
@@ -17073,7 +17076,7 @@ async function autoGeneratePlan(userId, currentAnswers, targetGrade) {
     const snap = await getDocs(collection(db, 'diagnosticResults'));
     snap.docs.forEach(d => {
       const r = d.data();
-      if (r.userPhone !== userId) return;
+      if (r.userId !== userId) return;
       const isSmartDiag =
         (r.sectionName || '').includes('Умная Диагностика') ||
         (r.sectionId   || '').includes('smartDiag');
@@ -17547,8 +17550,16 @@ const QUIZ_PROGRESS_KEY="aapa_quiz_progress";
 
 export default function App() {
   const { showNpcMessage, startTourIfNew } = useNpc();
-  const { firebaseUser, loading: authLoading } = useAuth();
+  const { firebaseUser, profile, loading: authLoading } = useAuth();
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem("aapa_user");return u?JSON.parse(u):null;}catch{return null;}});
+  // Sync Firestore profile → user when localStorage is empty (e.g. after logout+login)
+  useEffect(()=>{
+    if(profile && (!user || user.uid !== profile.uid)){
+      setUser(profile);
+      try{localStorage.setItem("aapa_user",JSON.stringify(profile));}catch{}
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[profile]);
   const [screen,setScreen]=useState(()=>{
     const hash=window.location.hash.slice(1);
     if(hash){
@@ -17588,26 +17599,24 @@ export default function App() {
     if(screen==="intermediate_tests") startTourIfNew("intermediate");
   },[screen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const progressDocId=(phone)=>phone.replace(/[^a-zA-Z0-9]/g,"_");
-
   const saveQuizProgress=(qs,idx,ans,secName,sec)=>{
-    if(!user?.phone)return;
+    if(!user?.uid)return;
     const safeQs=qs.map(({image,optionImages,...rest})=>rest);
     const local={userPhone:user.phone,questions:safeQs,qIndex:idx,answers:ans,currentSectionName:secName,pendingSection:sec,savedAt:new Date().toISOString()};
     try{localStorage.setItem(QUIZ_PROGRESS_KEY,JSON.stringify(local));}catch{}
     // Firestore: save only IDs (no images) for cross-device resume
     const remote={userPhone:user.phone,questionIds:qs.map(q=>q.id),sectionId:sec?.id||null,qIndex:idx,answers:ans,currentSectionName:secName,pendingSection:sec||null,savedAt:new Date().toISOString()};
-    setDoc(doc(db,"quizProgress",progressDocId(user.phone)),remote).catch(()=>{});
+    setDoc(doc(db,"quizProgress",user.uid),remote).catch(()=>{});
   };
 
   const clearQuizProgress=()=>{
     try{localStorage.removeItem(QUIZ_PROGRESS_KEY);}catch{}
-    if(user?.phone) deleteDoc(doc(db,"quizProgress",progressDocId(user.phone))).catch(()=>{});
+    if(user?.uid) deleteDoc(doc(db,"quizProgress",user.uid)).catch(()=>{});
   };
 
   // Auto-resume saved quiz on mount (localStorage → fast; Firestore → cross-device)
   useEffect(()=>{
-    if(!user?.phone)return;
+    if(!user?.uid)return;
     const tryResume=async()=>{
       // 1. Try localStorage first (same browser, instant)
       try{
@@ -17623,7 +17632,7 @@ export default function App() {
       }catch{}
       // 2. Try Firestore (other device / incognito)
       try{
-        const snap=await getDoc(doc(db,"quizProgress",progressDocId(user.phone)));
+        const snap=await getDoc(doc(db,"quizProgress",user.uid));
         if(!snap.exists())return;
         const p=snap.data();
         if(!p?.userPhone||p.userPhone!==user.phone||!p?.questionIds?.length)return;
@@ -17790,6 +17799,7 @@ export default function App() {
       const correct=sectionAnswers.filter(a=>a.correct).length;
       const totalTime=sectionAnswers.reduce((s,a)=>s+(a.timeSpent||0),0);
       await addDoc(collection(db,"diagnosticResults"),{
+        userId:user?.uid,
         userPhone:user?.phone,
         userName:`${user?.firstName} ${user?.lastName}`,
         sectionId:`smartDiag_section${sectionNum}`,
@@ -17818,13 +17828,13 @@ export default function App() {
     // 3. Пересчитываем индивидуальный план со ВСЕМИ накопленными разделами.
     // autoGeneratePlan сам загружает все сохранённые разделы из diagnosticResults,
     // поэтому передаём пустой массив currentAnswers (текущий раздел уже записан выше).
-    if(user?.phone){
+    if(user?.uid){
       try{
-        const { roadmapData } = await autoGeneratePlan(user.phone, [], user.details);
+        const { roadmapData } = await autoGeneratePlan(user.uid, [], user.details);
         setRoadmap(roadmapData);
         // stackSize===0 означает что навыков для проверки больше нет — диагностика полностью завершена
         if(stackSize===0){
-          await updateDoc(doc(db,"users",user.phone),{smartDiagDone:true,smartDiagRoadmap:roadmapData});
+          await updateDoc(doc(db,"users",user.uid),{smartDiagDone:true,smartDiagRoadmap:roadmapData});
         }
       }catch(e){console.error("autoGeneratePlan after section:",e);}
     }
@@ -17851,6 +17861,7 @@ export default function App() {
         const earnedWeight=scoringEntries.filter(e=>e.correct).reduce((s,e)=>s+(DIFFICULTY_WEIGHTS[e.difficulty]||1),0);
         const score=totalWeight>0?Math.round(earnedWeight/totalWeight*100):0;
         const ref=await addDoc(collection(db,"diagnosticResults"),{
+          userId:user?.uid,
           userPhone:user?.phone,
           userName:`${user?.firstName} ${user?.lastName}`,
           sectionId:pendingSection?._smartDiag?`smartDiag_final`:(pendingSection?.id||null),
@@ -17865,15 +17876,15 @@ export default function App() {
         });
         setLastResultId(ref.id);
         // Если умная диагностика — генерируем дорожную карту и помечаем как пройденную
-        if((next.some(a=>a.verticalId)||pendingSection?._smartDiag) && user?.phone){
+        if((next.some(a=>a.verticalId)||pendingSection?._smartDiag) && user?.uid){
           try{
             // autoGeneratePlan: загружает ВСЕ разделы из Firestore, генерирует
             // roadmap + записывает individualPlans + skillProgress за один вызов
             // Передаём пустой массив — все ответы уже записаны в diagnosticResults,
             // autoGeneratePlan сам их загрузит (включая текущую сессию, записанную выше).
-            const { roadmapData } = await autoGeneratePlan(user.phone, [], user.details);
+            const { roadmapData } = await autoGeneratePlan(user.uid, [], user.details);
             setRoadmap(roadmapData);
-            await updateDoc(doc(db,"users",user.phone),{smartDiagDone:true,smartDiagRoadmap:roadmapData});
+            await updateDoc(doc(db,"users",user.uid),{smartDiagDone:true,smartDiagRoadmap:roadmapData});
             const updated={...user,smartDiagDone:true};
             setUser(updated);
             try{localStorage.setItem("aapa_user",JSON.stringify(updated));}catch{}
@@ -18225,7 +18236,7 @@ export default function App() {
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
       {screen==="dashboard"&&<DashboardScreen user={user} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={()=>navigate("daily")} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onUpdateUser={handleUpdateUser}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
-      {screen==="admin"&&<AdminScreen onBack={()=>goBack()}/>}
+      {screen==="admin"&&<AdminScreen onBack={()=>goBack()} firebaseUser={firebaseUser}/>}
       {screen==="diagnostics"&&(
         <div style={{position:"relative"}}>
           <DiagnosticsScreen user={user} onSelectSection={sec=>startQuiz(sec)} onViewReport={openReport} onBack={()=>goBack()}/>
