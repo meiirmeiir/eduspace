@@ -112,6 +112,29 @@ export function collection(_db, path) {
   return { _type: 'collection', path };
 }
 
+// ── Structured queries (query + where) ───────────────────────────────────────
+
+const OP_MAP = {
+  '==': 'EQUAL', '!=': 'NOT_EQUAL',
+  '<': 'LESS_THAN', '<=': 'LESS_THAN_OR_EQUAL',
+  '>': 'GREATER_THAN', '>=': 'GREATER_THAN_OR_EQUAL',
+};
+
+export function where(field, op, value) {
+  return {
+    _type: 'where',
+    fieldFilter: {
+      field: { fieldPath: field },
+      op: OP_MAP[op] || op,
+      value: toFsValue(value),
+    },
+  };
+}
+
+export function query(collRef, ...constraints) {
+  return { _type: 'query', collRef, constraints };
+}
+
 // ── Чтение одного документа ───────────────────────────────────────────────────
 
 async function _fetchDoc(docPath) {
@@ -133,6 +156,8 @@ export const getDocFromServer = getDoc;
 // ── Чтение коллекции ──────────────────────────────────────────────────────────
 
 export async function getDocs(ref) {
+  if (ref._type === 'query') return _runQuery(ref);
+
   let allDocs = [];
   let pageToken = null;
 
@@ -147,6 +172,38 @@ export async function getDocs(ref) {
   } while (pageToken);
 
   return makeQuerySnap(allDocs);
+}
+
+async function _runQuery(queryRef) {
+  const { collRef, constraints } = queryRef;
+  const filters = constraints.filter(c => c._type === 'where');
+
+  let whereClause;
+  if (filters.length === 1) {
+    whereClause = { fieldFilter: filters[0].fieldFilter };
+  } else if (filters.length > 1) {
+    whereClause = {
+      compositeFilter: {
+        op: 'AND',
+        filters: filters.map(c => ({ fieldFilter: c.fieldFilter })),
+      },
+    };
+  }
+
+  const structuredQuery = {
+    from: [{ collectionId: collRef.path }],
+    ...(whereClause ? { where: whereClause } : {}),
+  };
+
+  const url = `${BASE()}:runQuery?key=${getKey()}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ..._authHeader() },
+    body: JSON.stringify({ structuredQuery }),
+  });
+  if (!resp.ok) throw new Error(`Firestore QUERY error: HTTP ${resp.status}`);
+  const results = await resp.json();
+  return makeQuerySnap(results);
 }
 
 // ── Запись (setDoc) ───────────────────────────────────────────────────────────

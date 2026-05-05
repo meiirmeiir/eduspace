@@ -18,6 +18,7 @@ import { useAuth } from "./contexts/AuthContext.jsx";
 import {
   doc, getDoc, getDocFromServer, setDoc, updateDoc,
   collection, getDocs, addDoc, deleteDoc, onSnapshot, db,
+  query, where,
 } from "./firestore-rest.js";
 
 // ── JS-MATH → LATEX CONVERTER ────────────────────────────────────────────────
@@ -1057,19 +1058,19 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
   const isTester = user?.status==="tester";
 
   const load = async ()=>{
+    if (!user?.uid) return;
     setLoading(true); setFetchError(false);
     try {
         const [secSnap,qSnap,repSnap,resSnap]=await Promise.all([
           getDocs(collection(db,"sections")),
           getDocs(collection(db,"questions")),
-          getDocs(collection(db,"expertReports")),
-          getDocs(collection(db,"diagnosticResults")),
+          getDocs(query(collection(db,"expertReports"),where("userId","==",user?.uid))),
+          getDocs(query(collection(db,"diagnosticResults"),where("userId","==",user?.uid))),
         ]);
         const allSecs=secSnap.docs.map(d=>({id:d.id,...d.data()}));
         const allQs=qSnap.docs.map(d=>({id:d.id,...d.data()}));
         // Build map: sectionId → expertReport for this user
-        const allResults=resSnap.docs.map(d=>({id:d.id,...d.data()}));
-        const myResults=allResults.filter(r=>r.userPhone===user?.phone);
+        const myResults=resSnap.docs.map(d=>({id:d.id,...d.data()}));
         const myResultIds=new Set(myResults.map(r=>r.id));
         const rMap={};
         repSnap.docs.forEach(d=>{
@@ -1135,7 +1136,7 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
       setLoading(false);
     };
 
-  useEffect(()=>{ load(); },[]);
+  useEffect(()=>{ load(); },[user?.uid]);
 
   const typeIcons = { mcq:"🔘", multiple:"☑️", matching:"🔗" };
 
@@ -3669,7 +3670,7 @@ function IndividualPlanScreen({ user, onBack, onStartTraining }) {
     setLoading(false);
   };
 
-  useEffect(() => { if (user?.phone) load(); }, [user?.phone]);
+  useEffect(() => { if (user?.uid) load(); }, [user?.uid]);
 
   const diagData = useMemo(() => {
     if (!autoPlan) return { modules:[], edges:[] };
@@ -6512,7 +6513,7 @@ function AdminScreen({ onBack, firebaseUser }) {
       });
       setPlanZonedPlan(merged);
       setPlanLessonLogs(logSnap.docs.map(d=>({id:d.id,...d.data()})).filter(l=>l.studentId===phone));
-      setPlanDiagResults(diagSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.userPhone===phone));
+      setPlanDiagResults(diagSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.userId===phone));
     }catch(e){alert("Ошибка: "+e.message);}
     setPlanLoading(false);
   };
@@ -6615,7 +6616,7 @@ function AdminScreen({ onBack, firebaseUser }) {
     setRAdminPrompt("");setRAdminPromptCopied(false);setRExamDate("");setRHoursPerWeek("");
     try{
       const snap=await getDocs(collection(db,"diagnosticResults"));
-      const res=snap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.userPhone===phone).sort((a,b)=>b.completedAt?.localeCompare(a.completedAt));
+      const res=snap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.userId===phone).sort((a,b)=>b.completedAt?.localeCompare(a.completedAt));
       setRResults(res);
       const repSnap=await getDocs(collection(db,"expertReports"));
       const repMap={};
@@ -12393,24 +12394,24 @@ function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpda
   };
 
   const load=async()=>{
+    if (!user?.uid) return;
     setLoading(true); setFetchError(false);
     try{
       const [resSnap,repSnap,medalSnap]=await Promise.all([
-        getDocs(collection(db,"diagnosticResults")),
-        getDocs(collection(db,"expertReports")),
-        getDocs(collection(db,"medals")),
+        getDocs(query(collection(db,"diagnosticResults"),where("userId","==",user?.uid))),
+        getDocs(query(collection(db,"expertReports"),where("userId","==",user?.uid))),
+        getDocs(query(collection(db,"medals"),where("userId","==",user?.uid))),
       ]);
-      const all=resSnap.docs.map(d=>({id:d.id,...d.data()}));
-      const mine=all.filter(r=>r.userPhone===user?.phone).sort((a,b)=>b.completedAt?.localeCompare(a.completedAt));
+      const mine=resSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.completedAt?.localeCompare(a.completedAt));
       setResults(mine);
       const map={};
       repSnap.docs.forEach(d=>{const r={id:d.id,...d.data()};if(r.resultId)map[r.resultId]=r;});
       setExpertMap(map);
-      setMedals(medalSnap.docs.map(d=>({id:d.id,...d.data()})).filter(m=>m.userPhone===user?.phone).sort((a,b)=>b.earnedAt?.localeCompare(a.earnedAt)));
+      setMedals(medalSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.earnedAt?.localeCompare(a.earnedAt)));
     }catch(e){console.error(e);setFetchError(true);}
     setLoading(false);
   };
-  useEffect(()=>{ load(); },[user?.phone]);
+  useEffect(()=>{ load(); },[user?.uid]);
 
   if(viewingExpert) return <ExpertReportView report={viewingExpert} studentPhotos={viewingPhotos} onBack={()=>{setViewingExpert(null);setViewingPhotos([]);}}/>;
 
@@ -15244,7 +15245,7 @@ function ChangePasswordInline() {
   );
 }
 
-function DashboardScreen({ user, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onUpdateUser }) {
+function DashboardScreen({ user, firebaseUser, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onUpdateUser }) {
   const { startTourIfNew } = useNpc();
   const [activeSection,setActiveSection]=useState("home");
   const [schedule,setSchedule]=useState([]);
@@ -15282,6 +15283,7 @@ function DashboardScreen({ user, onOpenDiagnostics, onStartSmartDiag, onViewRoad
   const [newLessonError,setNewLessonError]=useState('');
 
   const loadDashData = async ()=>{
+    if (!firebaseUser) return;
     // Compute role inline to avoid stale closure issues
     const _isAdmin = user?.role==="admin";
     const _isTeacher = user?.role==="teacher" || _isAdmin;
@@ -15291,17 +15293,17 @@ function DashboardScreen({ user, onOpenDiagnostics, onStartSmartDiag, onViewRoad
         getDocs(collection(db,"schedule")),
         getDocs(collection(db,"homework")),
         _isTeacher?getDocs(collection(db,"users")):Promise.resolve({docs:[]}),
-        getDocs(collection(db,"hwSubmissions")),
+        _isTeacher?getDocs(collection(db,"hwSubmissions")):getDocs(query(collection(db,"hwSubmissions"),where("userId","==",user?.uid))),
         getDocs(collection(db,"lessons")),
       ]);
       const allSc=scS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.time?.localeCompare(b.time));
       const allHw=hwS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.dueDate?.localeCompare(b.dueDate));
-      setSchedule(_isAdmin?allSc:allSc.filter(s=>(!s.userId&&!s.userIds?.length)||s.userId===user?.phone||s.userIds?.includes(user?.phone)));
-      setHomework(_isTeacher?allHw:allHw.filter(h=>h.userId===user?.phone||(h.userIds&&h.userIds.includes(user?.phone))));
-      if(_isTeacher) setStudents(uS.docs.map(d=>({id:d.id,...d.data()})).filter(s=>s.role!=="admin"&&s.id!==user?.phone));
+      setSchedule(_isAdmin?allSc:allSc.filter(s=>(!s.userId&&!s.userIds?.length)||s.userId===user?.uid||s.userIds?.includes(user?.uid)));
+      setHomework(_isTeacher?allHw:allHw.filter(h=>h.userId===user?.uid||(h.userIds&&h.userIds.includes(user?.uid))));
+      if(_isTeacher) setStudents(uS.docs.map(d=>({id:d.id,...d.data()})).filter(s=>s.role!=="admin"&&s.id!==user?.uid));
       setHwSubmissions(subS.docs.map(d=>({id:d.id,...d.data()})));
       const allZL=lesS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.date?.localeCompare(b.date));
-      setZoomLessons(_isAdmin?allZL:allZL.filter(l=>l.studentId===user?.phone||l.studentId===user?.id));
+      setZoomLessons(_isAdmin?allZL:allZL.filter(l=>l.studentId===user?.uid||l.studentId===user?.id));
       if(!_isTeacher && user?.uid){
         try{
           const [upSnap,spSnap]=await Promise.all([
@@ -15316,7 +15318,7 @@ function DashboardScreen({ user, onOpenDiagnostics, onStartSmartDiag, onViewRoad
     }catch(e){console.error(e);setDataError(true);}
     setLoadingData(false);
   };
-  useEffect(()=>{ loadDashData(); startTourIfNew("dashboard"); },[]);
+  useEffect(()=>{ loadDashData(); startTourIfNew("dashboard"); },[firebaseUser?.uid]);
 
   // Auto-deactivate when learning period expires
   useEffect(()=>{
@@ -15640,7 +15642,7 @@ function DashboardScreen({ user, onOpenDiagnostics, onStartSmartDiag, onViewRoad
                 <div className="homework-list">
                   {homework.map((hw,i)=>{
                     const due=new Date(hw.dueDate+"T23:59:59"),isOv=due<today,dl=Math.ceil((due-today)/(864e5));
-                    const mySub=hwSubmissions.find(s=>s.hwId===hw.id&&s.userPhone===user?.phone);
+                    const mySub=hwSubmissions.find(s=>s.hwId===hw.id&&s.userId===user?.uid);
                     const hwSubs=hwSubmissions.filter(s=>s.hwId===hw.id);
                     return(
                       <div key={i}>
@@ -15917,25 +15919,26 @@ function IntermediateTestsScreen({ user, onStartBoss, onBack }) {
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
+    if (!user?.uid) return;
     (async()=>{
       try{
         const [secSnap,qSnap,medalSnap]=await Promise.all([
           getDocs(collection(db,"sections")),
           getDocs(collection(db,"questions")),
-          getDocs(collection(db,"medals")),
+          getDocs(query(collection(db,"medals"),where("userId","==",user?.uid))),
         ]);
         const allSecs=secSnap.docs.map(d=>({id:d.id,...d.data()}));
         const intermediate=allSecs.filter(s=>s.sectionType==="topic"||s.sectionType==="chapter");
         const c={};
         qSnap.docs.forEach(d=>{ const q=d.data(); if(q.sectionId) c[q.sectionId]=(c[q.sectionId]||0)+1; });
-        const myMedals=medalSnap.docs.map(d=>({id:d.id,...d.data()})).filter(m=>m.userPhone===user?.phone);
+        const myMedals=medalSnap.docs.map(d=>({id:d.id,...d.data()}));
         setSections(intermediate);
         setCounts(c);
         setMedals(myMedals);
       }catch(e){console.error(e);}
       setLoading(false);
     })();
-  },[user?.phone]);
+  },[user?.uid]);
 
   const medalSet=new Set(medals.map(m=>m.sectionId));
 
@@ -17074,10 +17077,9 @@ async function autoGeneratePlan(userId, currentAnswers, targetGrade) {
   // но НЕ попадают в allAnswersRef SmartDiagRunner при повторном входе.
   const historicalAnswers = [];
   try {
-    const snap = await getDocs(collection(db, 'diagnosticResults'));
+    const snap = await getDocs(query(collection(db, 'diagnosticResults'), where('userId', '==', userId)));
     snap.docs.forEach(d => {
       const r = d.data();
-      if (r.userId !== userId) return;
       const isSmartDiag =
         (r.sectionName || '').includes('Умная Диагностика') ||
         (r.sectionId   || '').includes('smartDiag');
@@ -18235,7 +18237,7 @@ export default function App() {
 
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
-      {screen==="dashboard"&&<DashboardScreen user={user} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={()=>navigate("daily")} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onUpdateUser={handleUpdateUser}/>}
+      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={()=>navigate("daily")} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onUpdateUser={handleUpdateUser}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
       {screen==="admin"&&<AdminScreen onBack={()=>goBack()} firebaseUser={firebaseUser}/>}
       {screen==="diagnostics"&&(
