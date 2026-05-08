@@ -4,13 +4,17 @@ import { setAuthToken } from '../firestore-rest';
 import { doc, getDoc } from '../firestore-rest';
 import { db } from '../firestore-rest';
 
-// Retry getDoc up to 6 times with 300ms delay — guards against race condition
-// where onIdTokenChanged reads the profile before EmailAuthScreen's setDoc completes.
+// Retry getDoc up to 20 times with 500ms delay (up to 10s total) — guards against
+// race condition where onIdTokenChanged reads the profile before EmailAuthScreen's
+// setDoc completes. Earlier 6×300ms (1.8s) wasn't enough on prod network latency.
+// In typical case profile is found on iteration 1-3, so this is fast in practice.
+// See audit/auth-race-todo.md for the proper architectural fix (push profile from
+// EmailAuthScreen instead of polling).
 async function loadProfile(uid) {
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 20; i++) {
     const snap = await getDoc(doc(db, 'users', uid));
     if (snap.exists()) return { id: snap.id, ...snap.data() };
-    if (i < 5) await new Promise(r => setTimeout(r, 300));
+    if (i < 19) await new Promise(r => setTimeout(r, 500));
   }
   return null;
 }
