@@ -120,7 +120,7 @@ export default function SkillMapCanvas({ nodes }) {
                   const dim=disabled.has(prereq)||disabled.has(node.name);
                   const x1=fr.cx,y1=fr.bot,x2=to.cx,y2=to.top;
                   return(
-                    <path key={`${prereq}→${node.name}`}
+                    <path key={`${prereq}→${node.id ?? node.name}`}
                       d={orthoPath(x1,y1,x2,y2-7)}
                       stroke={dim?"#e2e8f0":"#94a3b8"}
                       strokeWidth={1}
@@ -137,7 +137,7 @@ export default function SkillMapCanvas({ nodes }) {
                 const dim=disabled.has(node.name);
                 const isRoot=!(node.prerequisites||[]).filter(p=>nodeMap[p]).length;
                 return(
-                  <div key={node.name} onClick={()=>handleClick(node.name)}
+                  <div key={node.id ?? node.name} onClick={()=>handleClick(node.name)}
                     title={dim?"Нажмите чтобы включить":"Нажмите чтобы деактивировать"}
                     style={{
                       position:"absolute",left:pos.x,top:pos.top,width:NW,height:NH,

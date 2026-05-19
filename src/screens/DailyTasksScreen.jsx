@@ -229,6 +229,7 @@ export default function DailyTasksScreen({ user, onBack }) {
   const task = current.task;
   const isCorrectAnswer = chosen !== null && task.correct === chosen;
   const isDanger = (skillLives[current?.skillId] ?? 2) === 0;
+  const lives = skillLives[current?.skillId] ?? 2;
 
   return (
     <div style={{ minHeight:'100vh', background:BG }}>

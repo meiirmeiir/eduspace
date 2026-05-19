@@ -7,8 +7,6 @@ import { tgPhoto, THEME, STUDENT_STATUSES, DAY_NAMES_SHORT } from "../lib/appCon
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
-import MathToolsSection from "../components/MathToolsSection.jsx";
-import LessonsSection from "../components/LessonsSection.jsx";
 import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
@@ -241,7 +239,6 @@ export default function DashboardScreen({ user, firebaseUser, onOpenDiagnostics,
     if(id==="theory"){onOpenTheory?.();return;}
     if(id==="daily"){onOpenDaily?.();return;}
     if(id==="admin"){onOpenAdmin();return;}
-    if(id==="schedule"){setActiveSection("schedule");return;}
     setActiveSection(id);
   };
 
@@ -490,10 +487,6 @@ export default function DashboardScreen({ user, firebaseUser, onOpenDiagnostics,
             </div>
           </>
         )}
-
-        {activeSection==="tools"&&<MathToolsSection/>}
-
-        {activeSection==="schedule"&&<LessonsSection user={user} firebaseUser={firebaseUser} isAdmin={isAdmin} isTeacher={isTeacher} students={students}/>}
 
         {activeSection==="profile"&&(
           <ProfileSection user={user} statusObj={statusObj} onOpenDiagnostics={onOpenDiagnostics} onViewPlan={onViewPlan} onUpdateUser={onUpdateUser}/>
