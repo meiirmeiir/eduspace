@@ -38,7 +38,7 @@ import {
   SRS_INTERVALS, fmtCountdown,
 } from "./lib/srsUtils.js";
 import {
-  checkTestStatus, DiagnosticEngine, parseGrade,
+  checkTestStatus, parseGrade,
   generateRoadmap, runDiagnosticSimulation, VERTICAL_LABELS,
 } from "./lib/diagnosticUtils.js";
 import LatexText from "./components/ui/LatexText.jsx";
