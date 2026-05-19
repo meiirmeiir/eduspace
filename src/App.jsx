@@ -8,7 +8,6 @@ import CustomNode from './CustomNode.jsx';
 import MagicEdge  from './MagicEdge.jsx';
 import NpcGuide from './components/NpcGuide.jsx';
 import './MapStyles.css';
-import { useTheme } from './ThemeContext.jsx';
 import { useNpc } from './NpcContext.jsx';
 import { app, auth, signOut, reauthenticateWithCredential, updatePassword, EmailAuthProvider } from "./lib/firebase";
 import EmailAuthScreen from "./components/auth/EmailAuthScreen.jsx";
@@ -74,6 +73,7 @@ import SmartDiagRunner from "./components/SmartDiagRunner.jsx";
 import LessonModal from "./components/LessonModal.jsx";
 import SkillMasteryScreen from "./screens/SkillMasteryScreen.jsx";
 import PracticeScreen from "./screens/PracticeScreen.jsx";
+import ThemeToggle from "./components/ThemeToggle.jsx";
 
 function AdminScreen({ onBack, firebaseUser }) {
   const [tab,setTab]=useState("sections");
@@ -7803,19 +7803,6 @@ function MathToolsSection() {
   );
 }
 
-
-function ThemeToggle() {
-  const { dark, toggle } = useTheme();
-  return (
-    <div className="theme-toggle">
-      <button className="theme-toggle-track" onClick={toggle} title={dark ? 'Светлая тема' : 'Тёмная тема'}>
-        <span className={`theme-toggle-thumb${dark ? ' is-dark' : ''}`}>
-          {dark ? '🌙' : '☀️'}
-        </span>
-      </button>
-    </div>
-  );
-}
 
 // ── Смена пароля (только для пользователей Firebase Auth) ────────────────────
 function ChangePasswordInline() {
