@@ -245,6 +245,7 @@ export default function DashboardScreen({ user, firebaseUser, onOpenDiagnostics,
   return(
     <div className="dashboard-layout">
       {sidebarOpen&&<div className="sidebar-overlay" onClick={()=>setSidebarOpen(false)}/>}
+      <div className={`sidebar-backdrop ${sidebarOpen?"visible":""}`} onClick={()=>setSidebarOpen(false)}/>
       <aside className={`dashboard-sidebar ${sidebarOpen?"open":""}`}>
         <div className="sidebar-logo"><Logo size={36} light/></div>
         <nav className="sidebar-nav">

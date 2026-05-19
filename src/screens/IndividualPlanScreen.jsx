@@ -57,7 +57,7 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
 
   return (
     <div style={{ minHeight:'100vh', background:THEME.bg }}>
-      <nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:64, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+      <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:64, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Logo size={32}/>
         <button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.textLight, fontFamily:"'Inter',sans-serif", fontSize:13, padding:'8px 16px', borderRadius:8, cursor:'pointer' }}>
           ← Главная

@@ -1,0 +1,194 @@
+/* ──────────────────────────────────────────────────────────────
+   Theme variables (BUG-4)
+   ────────────────────────────────────────────────────────────── */
+:root {
+  --bg-primary:    #0d1117;
+  --bg-secondary:  #161b22;
+  --bg-card:       #1c2333;
+  --text-primary:  #ffffff;
+  --text-secondary:#8b949e;
+  --accent:        #f5c518;
+  --accent-hover:  #e6b800;
+  --border:        rgba(255,255,255,0.1);
+}
+:root[data-theme="light"] {
+  --bg-primary:    #f5f7fa;
+  --bg-secondary:  #ffffff;
+  --bg-card:       #ffffff;
+  --text-primary:  #1a1a2e;
+  --text-secondary:#555555;
+  --accent:        #c49a00;
+  --accent-hover:  #a37f00;
+  --border:        rgba(0,0,0,0.1);
+}
+
+/* Prevent horizontal scroll on the whole document (BUG-6) */
+html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-box; }
+*, *::before, *::after { box-sizing:border-box; }
+
+/* ──────────────────────────────────────────────────────────────
+   MOBILE OVERRIDES — single (max-width:768px) media query
+   ────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* ── BUG-1 · Landing spacing ─────────────────────────────── */
+  .landing-logo-wrap   { padding-top:24px !important; margin-bottom:32px !important; }
+  .landing-hero-title  { margin-bottom:20px !important; }
+  .landing-hero-desc   { margin-bottom:32px !important; }
+  .landing-feature-cards {
+    display:flex !important;
+    flex-direction:column !important;
+    gap:16px !important;
+  }
+  .landing-divider     { margin-top:32px !important; margin-bottom:32px !important; }
+  .landing-star-rating { padding-bottom:32px !important; }
+
+  /* ── BUG-3 · Assistant widget overflow ───────────────────── */
+  .assistant-widget {
+    position:fixed !important;
+    bottom:80px  !important;
+    left:16px    !important;
+    right:16px   !important;
+    width:auto   !important;
+    max-height:calc(100vh - 160px) !important;
+    overflow-y:auto !important;
+  }
+  .assistant-avatar { max-width:120px !important; max-height:120px !important; }
+  .assistant-avatar > div:first-child { width:120px !important; height:120px !important; }
+  .assistant-widget .npc-panel-inner   { max-width:100% !important; flex-wrap:wrap; }
+  .assistant-text   { overflow:hidden; word-break:break-word; }
+  .assistant-buttons {
+    display:flex !important;
+    justify-content:space-between !important;
+    gap:8px !important;
+    width:100% !important;
+  }
+
+  /* ── BUG-5 · Inner-page navbar ───────────────────────────── */
+  nav[data-inner-nav] {
+    display:flex !important;
+    justify-content:space-between !important;
+    align-items:center !important;
+    padding:0 16px !important;
+    height:52px !important;
+  }
+  nav[data-inner-nav] .logo-subtitle { display:none !important; }
+  nav[data-inner-nav] .logo-title    { font-size:16px !important; }
+  nav[data-inner-nav] .logo-image,
+  nav[data-inner-nav] img            { width:32px !important; height:32px !important; }
+  nav[data-inner-nav] .section-tab   { font-size:14px !important; }
+  nav[data-inner-nav] .back-text     { display:none !important; }
+  nav[data-inner-nav] .back-btn,
+  nav[data-inner-nav] button         { min-width:36px !important; }
+
+  /* ── BUG-6 · Full-width profile ──────────────────────────── */
+  .profile-page,
+  .full-width-page {
+    width:100% !important;
+    max-width:100% !important;
+    box-sizing:border-box !important;
+  }
+
+  /* ── BUG-7 · Sidebar overlay (mirrors existing 900px behaviour
+      using the 768px breakpoint per the spec) ──────────────── */
+  .dashboard-sidebar {
+    position:fixed !important;
+    top:0 !important; left:0 !important;
+    height:100vh !important; width:280px !important;
+    z-index:1000 !important;
+    transform:translateX(-100%);
+    transition:transform .3s ease;
+  }
+  .dashboard-sidebar.open { transform:translateX(0); }
+  .dashboard-main { width:100% !important; margin-left:0 !important; }
+  .sidebar-backdrop         { display:none; }
+  .sidebar-backdrop.visible {
+    display:block;
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.5);
+    z-index:999;
+  }
+
+  /* ── BUG-8 · Diagnostic rules layout ─────────────────────── */
+  .rules-layout {
+    flex-direction:column !important;
+    grid-template-columns:1fr !important;
+    gap:24px !important;
+  }
+  .rules-layout > * {
+    width:100% !important;
+    max-width:100% !important;
+    box-sizing:border-box !important;
+  }
+  .rules-page       { overflow-x:hidden !important; }
+  .how-to-write-card { order:2 !important; }
+  .rules-list        { order:1 !important; }
+  .equation-block    { overflow-x:auto !important; padding:16px !important; border-radius:8px !important; }
+  .rules-hero-card   { width:100% !important; box-sizing:border-box !important; padding:20px 16px !important; }
+
+  /* ── BUG-9 · Rules CTA + back button row ─────────────────── */
+  .buttons-row {
+    flex-direction:column-reverse !important;
+    gap:12px !important;
+  }
+  .btn-back,
+  .btn-start {
+    width:100% !important;
+    box-sizing:border-box !important;
+    padding:16px 20px !important;
+    min-height:56px !important;
+    height:auto !important;
+    font-size:16px !important;
+    font-weight:600 !important;
+    border-radius:12px !important;
+    text-align:center !important;
+  }
+
+  /* ── BUG-10 · Confidence buttons (emoji on mobile) ───────── */
+  .confidence-grid {
+    display:grid !important;
+    grid-template-columns:repeat(4,1fr) !important;
+    gap:8px !important;
+  }
+  .confidence-btn {
+    min-height:48px !important;
+    font-size:22px !important;
+    border-radius:12px !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+  }
+  .confidence-label { display:none !important; }
+  .confidence-emoji { display:inline !important; }
+  .confidence-btn-full {
+    width:100% !important;
+    height:48px !important;
+    font-size:16px !important;
+    margin-top:8px !important;
+  }
+
+  /* ── BUG-11 · Confidence block already follows answers in JSX;
+      no extra CSS needed (handled by source order) ─────────── */
+
+  /* ── BUG-12 · Sticky "next question" button ──────────────── */
+  .next-question-btn {
+    position:fixed !important;
+    bottom:0 !important;
+    left:0 !important; right:0 !important;
+    z-index:100 !important;
+    border-radius:0 !important;
+    padding:16px 24px !important;
+    padding-bottom:calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+  .question-page-content { padding-bottom:80px !important; }
+
+  /* ── BUG-12d · Hide tech breadcrumb on mobile ────────────── */
+  .question-breadcrumb { display:none !important; }
+}
+
+/* Desktop: confidence emoji is hidden, label is shown — explicit */
+@media (min-width: 769px) {
+  .confidence-emoji { display:none; }
+  .confidence-label { display:inline; }
+  .sidebar-backdrop { display:none !important; }
+}

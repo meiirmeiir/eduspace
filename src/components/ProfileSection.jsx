@@ -92,7 +92,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   const fmtTime=sec=>{const m=Math.floor(sec/60),s=sec%60;return m>0?`${m} мин ${s} с`:`${s} с`;};
 
   return(
-    <div>
+    <div className="profile-page">
       <div className="dashboard-header"><h1>Личный кабинет</h1></div>
       {/* Profile card */}
       <div className="dashboard-section">

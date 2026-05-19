@@ -73,7 +73,7 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
           <div style={{color:THEME.textLight,marginTop:8}}>Достань черновик и ручку</div>
         </div>
       ) : (
-        <div className="rules-card">
+        <div className="rules-card rules-hero-card">
           <div className="rules-header">
             <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:12}}>
               <div style={{fontSize:32}}>📋</div>
@@ -89,9 +89,9 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
           </div>
 
           <div className="rules-body">
-            <div style={{display:"flex",gap:32,alignItems:"flex-start",marginBottom:32}}>
+            <div className="rules-layout" style={{display:"flex",gap:32,alignItems:"flex-start",marginBottom:32}}>
               {/* Rules list */}
-              <div style={{flex:1}}>
+              <div className="rules-list" style={{flex:1}}>
                 {rules.map((r,i)=>(
                   <div key={i} className="rule-row" style={{animation:`fadeSlide 0.4s ease ${i*0.07}s both`}}>
                     <div className="rule-icon">{r.icon}</div>
@@ -104,9 +104,9 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
               </div>
 
               {/* Notebook animation */}
-              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
+              <div className="how-to-write-card" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
                 <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Как писать в черновик</div>
-                <div className="notebook">
+                <div className="notebook equation-block">
                   <div style={{fontSize:11,fontWeight:700,color:"#a89030",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
                     <span>{cur.icon}</span><span>{cur.label}</span>
                   </div>
@@ -124,12 +124,12 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
               </div>
             </div>
 
-            <div style={{display:"flex",gap:12}}>
-              <button onClick={onBack} style={{padding:"12px 24px",border:`1px solid ${THEME.border}`,borderRadius:10,background:"#fff",color:THEME.textLight,fontWeight:600,cursor:"pointer",fontSize:14}}>
+            <div className="buttons-row" style={{display:"flex",gap:12}}>
+              <button onClick={onBack} className="btn-back" style={{padding:"12px 24px",border:`1px solid ${THEME.border}`,borderRadius:10,background:"#fff",color:THEME.textLight,fontWeight:600,cursor:"pointer",fontSize:14}}>
                 ← Назад
               </button>
-              <button onClick={startCountdown} style={{flex:1,padding:"14px 24px",border:"none",borderRadius:10,background:THEME.primary,color:THEME.accent,fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,cursor:"pointer",letterSpacing:0.5,boxShadow:"0 8px 20px -5px rgba(10,25,47,0.3)"}}>
-                Я готов — начать диагностику →
+              <button onClick={startCountdown} className="btn-start" style={{flex:1,padding:"14px 24px",border:"none",borderRadius:10,background:THEME.primary,color:THEME.accent,fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,cursor:"pointer",letterSpacing:0.5,boxShadow:"0 8px 20px -5px rgba(10,25,47,0.3)"}}>
+                Начать диагностику →
               </button>
             </div>
           </div>
@@ -234,7 +234,7 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
   // Список секций
   return (
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"16px 40px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"16px 40px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <Logo size={32}/>
         <button onClick={onBack} className="cta-button active" style={{width:"auto",padding:"10px 20px"}}>← Назад</button>
       </nav>
@@ -400,10 +400,27 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, onComplete, onSto
 
   const allMatchFilled = (resolvedQ.pairs||[]).length>0 && (resolvedQ.pairs||[]).every((_,i)=>matchSel[i]!==undefined);
 
+  const CONF_EMOJI = { 1:"😰", 2:"😕", 3:"😐", 4:"😊", 5:"🔥" };
+  const renderConfBtn = (c, currentConf, setConf) => {
+    const isActive = currentConf?.v===c.v;
+    const isFull = c.v===5;
+    return (
+      <button
+        key={c.v}
+        className={`conf-btn confidence-btn ${isFull?"confidence-btn-full":""} ${isActive?"active":""}`}
+        style={isActive?{borderColor:c.color,background:c.color+"10",color:c.color}:{}}
+        onClick={()=>setConf(c)}
+      >
+        <span className="confidence-emoji">{CONF_EMOJI[c.v]}</span>
+        <span className="confidence-label">{c.label}</span>
+      </button>
+    );
+  };
+
   return (
-    <div className="question-container">
+    <div className="question-container question-page-content">
       <ImageModal src={lightboxSrc} onClose={()=>setLightboxSrc(null)}/>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:32}}>
+      <div className="question-breadcrumb" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:32}}>
         <Logo size={36}/>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <Timer seconds={elapsed}/>
@@ -441,7 +458,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, onComplete, onSto
           </div>
           {selected!==null&&(
             <div className="confidence-section scale-in"><h4>Насколько вы уверены?</h4>
-              <div className="confidence-grid">{CONFIDENCE_LEVELS.map(c=><button key={c.v} className={`conf-btn ${confidence?.v===c.v?"active":""}`} style={confidence?.v===c.v?{borderColor:c.color,background:c.color+"10",color:c.color}:{}} onClick={()=>setConfidence(c)}>{c.label}</button>)}</div>
+              <div className="confidence-grid">{CONFIDENCE_LEVELS.map(c=>renderConfBtn(c, confidence, setConfidence))}</div>
             </div>
           )}
         </>
@@ -467,7 +484,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, onComplete, onSto
           )}
           {multiSubmitted&&!multiReady&&(
             <div className="confidence-section scale-in"><h4>Насколько вы уверены?</h4>
-              <div className="confidence-grid">{CONFIDENCE_LEVELS.map(c=><button key={c.v} className={`conf-btn ${multiConf?.v===c.v?"active":""}`} style={multiConf?.v===c.v?{borderColor:c.color,background:c.color+"10",color:c.color}:{}} onClick={()=>setMultiConf(c)}>{c.label}</button>)}</div>
+              <div className="confidence-grid">{CONFIDENCE_LEVELS.map(c=>renderConfBtn(c, multiConf, setMultiConf))}</div>
             </div>
           )}
         </>
@@ -546,7 +563,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, onComplete, onSto
           )}
           {compoundSubmitted&&compoundConf===null&&(
             <div className="confidence-section scale-in"><h4>Насколько вы уверены?</h4>
-              <div className="confidence-grid">{CONFIDENCE_LEVELS.map(c=><button key={c.v} className={`conf-btn ${compoundConf?.v===c.v?"active":""}`} style={compoundConf?.v===c.v?{borderColor:c.color,background:c.color+"10",color:c.color}:{}} onClick={()=>setCompoundConf(c)}>{c.label}</button>)}</div>
+              <div className="confidence-grid">{CONFIDENCE_LEVELS.map(c=>renderConfBtn(c, compoundConf, setCompoundConf))}</div>
             </div>
           )}
         </>
@@ -582,7 +599,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, onComplete, onSto
       )}
 
       <div style={{marginTop:qType==="matching"||qType==="compound"||qType==="open"?0:16,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-        <button className={`cta-button ${canProceed?"active":""}`} disabled={!canProceed} onClick={handleNext} style={{flex:1,minWidth:200}}>
+        <button className={`cta-button next-question-btn ${canProceed?"active":""}`} disabled={!canProceed} onClick={handleNext} style={{flex:1,minWidth:200}}>
           {adaptiveMode&&qNum>=total?"Завершить раздел":!adaptiveMode&&qNum>=total?"Завершить диагностику":"Следующий вопрос →"}
         </button>
         {canSkip&&(

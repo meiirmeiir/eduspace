@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNpc } from '../NpcContext.jsx';
+import { useAuth } from '../contexts/AuthContext.jsx';
 import droneImg from '../assets/drone.png';
 
 const STYLE_ID = 'npc-guide-styles';
@@ -65,7 +66,20 @@ if (!document.getElementById(STYLE_ID)) {
 
 export default function NpcGuide() {
   const { npcState, hideNpc, nextTourStep, skipTour } = useNpc();
+  const { profile } = useAuth();
   const highlightedRef = useRef(null);
+
+  // BUG-2: hide assistant during onboarding and before onboarding is finished.
+  // The app uses hash routing (window.location.hash), so we watch it.
+  const [hash, setHash] = useState(() => window.location.hash || '');
+  useEffect(() => {
+    const onHashChange = () => setHash(window.location.hash || '');
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+  const isOnboarding = hash.includes('onboarding') || window.location.pathname.includes('/onboarding');
+  if (isOnboarding) return null;
+  if (profile && !profile.onboardingDone) return null;
 
   useEffect(() => {
     if (highlightedRef.current) {
@@ -104,8 +118,8 @@ export default function NpcGuide() {
     <>
       {isTour && <div className="npc-overlay" />}
 
-      <div className="npc-panel">
-        <div className="npc-panel-inner npc-fadein">
+      <div className="npc-panel assistant-widget">
+        <div className="npc-panel-inner npc-fadein assistant-text">
 
           {/* Диалоговое окно */}
           <div style={{
@@ -151,7 +165,7 @@ export default function NpcGuide() {
             </p>
 
             {isTour && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+              <div className="assistant-buttons" style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
                 <button onClick={skipTour} style={{
                   background: 'transparent', border: '1px solid rgba(255,255,255,0.12)',
                   color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace', fontSize: 11,
@@ -179,7 +193,7 @@ export default function NpcGuide() {
           </div>
 
           {/* Аватар NPC — 192×192 */}
-          <div className="npc-float" style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <div className="npc-float assistant-avatar" style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
             <div style={{
               width: 192, height: 192, borderRadius: 16,
               border: '3px solid #d4af37',

@@ -91,7 +91,7 @@ function LandingScreen({ user, onStart, onDashboard }) {
       <section style={{background:"linear-gradient(135deg,#0f172a 0%,#1e3a5f 55%,#0f172a 100%)",position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",top:"-40%",right:"-20%",width:700,height:700,borderRadius:"50%",background:"radial-gradient(circle,rgba(212,175,55,0.12) 0%,transparent 70%)",pointerEvents:"none"}}/>
         <div className="land-hero-inner" style={{maxWidth:920,margin:"0 auto",textAlign:"center",padding:"88px 24px 80px",position:"relative",zIndex:1}}>
-          <div className="hero-anim-1" style={{display:"flex",alignItems:"center",gap:10,justifyContent:"center",marginBottom:28,flexWrap:"wrap"}}>
+          <div className="hero-anim-1 landing-logo-wrap" style={{display:"flex",alignItems:"center",gap:10,justifyContent:"center",marginBottom:28,flexWrap:"wrap"}}>
             <div style={{display:"flex",flexShrink:0}}>
               {["А","М","Д","К","С","Б"].map((l,i)=>(
                 <div key={i} className="land-avatar" style={{marginLeft:i>0?-10:0,zIndex:6-i}}>{l}</div>
@@ -100,7 +100,7 @@ function LandingScreen({ user, onStart, onDashboard }) {
             <span style={{fontSize:13,color:"rgba(255,255,255,0.65)"}}>
               <strong style={{color:"#fff"}}>50+ учеников</strong> уже готовятся к ЕНТ и SAT
             </span>
-            <span style={{color:"#d4af37",letterSpacing:"2px",fontSize:13}}>★★★★★</span>
+            <span className="landing-star-rating" style={{color:"#d4af37",letterSpacing:"2px",fontSize:13}}>★★★★★</span>
           </div>
 
           <div className="hero-anim-2" style={{display:"inline-flex",gap:8,flexWrap:"wrap",justifyContent:"center",marginBottom:24}}>
@@ -108,14 +108,14 @@ function LandingScreen({ user, onStart, onDashboard }) {
             <span className="hero-badge-pop" style={{background:"rgba(16,185,129,0.12)",border:"1px solid rgba(16,185,129,0.25)",color:"#10B981",fontSize:12,fontWeight:700,padding:"5px 14px",borderRadius:99,animationDelay:"0.95s"}}>✨ Диагностика · Теория · Навыки</span>
           </div>
 
-          <h1 className="hero-anim-3 land-hero-title" style={{fontFamily:"'Montserrat',sans-serif",fontSize:62,fontWeight:900,color:"#fff",lineHeight:1.02,marginBottom:24,letterSpacing:"-2.5px"}}>
+          <h1 className="hero-anim-3 land-hero-title landing-hero-title" style={{fontFamily:"'Montserrat',sans-serif",fontSize:62,fontWeight:900,color:"#fff",lineHeight:1.02,marginBottom:24,letterSpacing:"-2.5px"}}>
             Найди пробел.<br/>Закрой навык.<br/><span style={{color:"#d4af37"}}>Сдай экзамен.</span>
           </h1>
-          <p className="hero-anim-4" style={{fontSize:18,color:"rgba(255,255,255,0.68)",lineHeight:1.75,maxWidth:580,margin:"0 auto 40px"}}>
+          <p className="hero-anim-4 landing-hero-desc" style={{fontSize:18,color:"rgba(255,255,255,0.68)",lineHeight:1.75,maxWidth:580,margin:"0 auto 40px"}}>
             Система находит твои слабые места и строит точечный маршрут. Мини-группы <strong style={{color:"#d4af37"}}>от 4 000 тг/час</strong>. Первая диагностика — бесплатно.
           </p>
 
-          <div className="hero-anim-5 land-hero-btns" style={{display:"flex",gap:14,justifyContent:"center",flexWrap:"wrap",marginBottom:20}}>
+          <div className="hero-anim-5 land-hero-btns landing-feature-cards" style={{display:"flex",gap:14,justifyContent:"center",flexWrap:"wrap",marginBottom:20}}>
             <button className="land-btn-primary pulse-btn" style={{fontSize:17,padding:"17px 44px"}} onClick={onStart}>
               Пройти диагностику бесплатно →
             </button>

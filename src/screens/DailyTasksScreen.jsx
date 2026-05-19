@@ -143,7 +143,7 @@ export default function DailyTasksScreen({ user, onBack }) {
   // ── EMPTY ──
   if (phase === 'empty') return (
     <div style={{ minHeight:'100vh', background:BG }}>
-      <nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+      <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Logo size={28}/><button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
       </nav>
       <div style={{ maxWidth:480, margin:'80px auto', padding:'0 24px', textAlign:'center' }}>
@@ -171,7 +171,7 @@ export default function DailyTasksScreen({ user, onBack }) {
     const wrongList    = queue.filter(q => wrong.has(q.skillId));
     return (
       <div style={{ minHeight:'100vh', background:BG }}>
-        <nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <Logo size={28}/><button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
         </nav>
         <div style={{ maxWidth:540, margin:'48px auto', padding:'0 24px' }}>
@@ -233,7 +233,7 @@ export default function DailyTasksScreen({ user, onBack }) {
 
   return (
     <div style={{ minHeight:'100vh', background:BG }}>
-      <nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+      <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Logo size={28}/>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
           {/* Lives */}

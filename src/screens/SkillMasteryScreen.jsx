@@ -166,7 +166,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
     const e = theory;
     return (
       <div style={{ minHeight:'100vh', background:BG }}>
-        <nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <Logo size={28}/>
           <div style={{ fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:13, color:THEME.primary }}>
             📖 {skillName || skillId}
@@ -313,7 +313,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
     }
     return (
       <div style={{ minHeight:'100vh', background:BG }}>
-        <nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <Logo size={28}/>
           <div style={{ fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:13, color:THEME.primary }}>{skillName || skillId}</div>
           <button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
@@ -354,7 +354,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
     const nextLocked = completed >= 1 && completed < 3 && msLeft > 0;
     return (
       <div style={{ minHeight:'100vh', background:BG }}>
-        <nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <Logo size={28}/>
           <button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
         </nav>
@@ -409,7 +409,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
 
   return (
     <div style={{ minHeight:'100vh', background:BG }}>
-      <nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+      <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Logo size={28}/>
         <div style={{ fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:13, color:THEME.primary }}>{skillName || skillId}</div>
         <button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>

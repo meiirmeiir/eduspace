@@ -36,7 +36,7 @@ export default function IntermediateTestsScreen({ user, onStartBoss, onBack }) {
 
   return(
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"16px 40px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"16px 40px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <Logo size={32}/>
         <button onClick={onBack} className="cta-button active" style={{width:"auto",padding:"10px 20px"}}>← Назад</button>
       </nav>

@@ -28,7 +28,7 @@ function ExpertReportView({ report, onBack, studentPhotos }) {
   const photos=studentPhotos||report.studentPhotos||[];
   return(
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <nav style={{background:THEME.primary,padding:"0 40px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <nav data-inner-nav style={{background:THEME.primary,padding:"0 40px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <Logo size={32} light/>
         <button onClick={onBack} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.2)",color:"rgba(255,255,255,0.7)",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontFamily:"'Inter',sans-serif"}}>← Назад</button>
       </nav>

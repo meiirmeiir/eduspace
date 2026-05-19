@@ -186,7 +186,7 @@ export default function PracticeScreen({ user, onBack }) {
   if (phase==="theory_list") {
     return (
       <div style={{minHeight:"100vh",background:THEME.bg}}>
-        <nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <Logo size={28}/>
           <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,color:THEME.textLight}}>📖 Теория</div>
           <button onClick={()=>setPhase("select")} style={{background:"transparent",border:`1px solid ${THEME.border}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13,color:THEME.textLight}}>← Назад</button>
@@ -223,7 +223,7 @@ export default function PracticeScreen({ user, onBack }) {
     const cards = hasContent ? (theoryContent.cards||[]).filter(c=>c.front||c.back) : [];
     return (
       <div style={{minHeight:"100vh",background:THEME.bg}}>
-        <nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <Logo size={28}/>
           <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,color:THEME.textLight}}>📖 Теория · {selectedTopic?.topic}</div>
           <button onClick={()=>setPhase("select")} style={{background:"transparent",border:`1px solid ${THEME.border}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13,color:THEME.textLight}}>← Назад</button>
@@ -362,7 +362,7 @@ export default function PracticeScreen({ user, onBack }) {
     return (
       <div style={{minHeight:"100vh",background:THEME.bg}}>
         <ImageModal src={lightboxSrc} onClose={()=>setLightboxSrc(null)}/>
-        <nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <Logo size={28}/>
           <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,color:THEME.textLight}}>🏋️ Тренировка · {selectedTopic?.topic}</div>
           <button onClick={onBack} style={{background:"transparent",border:`1px solid ${THEME.border}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13,color:THEME.textLight}}>Выйти</button>
@@ -440,7 +440,7 @@ export default function PracticeScreen({ user, onBack }) {
   const sections = [...new Set(allSections.map(s=>s.name))];
   return (
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <Logo size={28}/>
         <button onClick={onBack} className="cta-button active" style={{width:"auto",padding:"8px 18px",fontSize:13}}>← Главная</button>
       </nav>

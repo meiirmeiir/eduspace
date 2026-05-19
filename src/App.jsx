@@ -853,7 +853,7 @@ export default function App() {
       {screen==="question"&&questions.length>0&&<QuestionScreen question={questions[qIndex]} qNum={qIndex+1} total={questions.length} onComplete={handleAnswer} onStop={handleStopQuiz} onPause={handlePauseQuiz} canSkip={user?.status==="tester"}/>}
       {screen==="report"&&report&&(
         <>
-          <nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"16px 32px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><Logo size={32}/><button onClick={goHome} className="cta-button active" style={{width:"auto",padding:"10px 20px"}}>← Главная</button></nav>
+          <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"16px 32px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><Logo size={32}/><button onClick={goHome} className="cta-button active" style={{width:"auto",padding:"10px 20px"}}>← Главная</button></nav>
           <ReportScreen report={report} user={user} onUpload={()=>setScreen("upload")} onViewPlan={viewPlan} onBack={()=>goBack()}/>
         </>
       )}
