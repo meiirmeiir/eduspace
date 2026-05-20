@@ -5,6 +5,7 @@ import { THEME } from "../lib/appConstants.js";
 import { getAlmatyDateStr, SRS_INTERVALS } from "../lib/srsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 
 export default function DailyTasksScreen({ user, onBack }) {
   const BG = '#f8fafc';
@@ -143,9 +144,7 @@ export default function DailyTasksScreen({ user, onBack }) {
   // ── EMPTY ──
   if (phase === 'empty') return (
     <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
-      <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <Logo size={28}/><button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
-      </nav>
+      <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
       <div style={{ maxWidth:480, margin:'80px auto', padding:'0 24px', textAlign:'center' }}>
         <div style={{ fontSize:56, marginBottom:16 }}>🌙</div>
         <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary, marginBottom:12 }}>Разминка не нужна</h2>
@@ -171,9 +170,7 @@ export default function DailyTasksScreen({ user, onBack }) {
     const wrongList    = queue.filter(q => wrong.has(q.skillId));
     return (
       <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
-        <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <Logo size={28}/><button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
-        </nav>
+        <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
         <div style={{ maxWidth:540, margin:'48px auto', padding:'0 24px' }}>
           <div style={{ textAlign:'center', marginBottom:32 }}>
             <div style={{ fontSize:52, marginBottom:12 }}>{degradedList.length > 0 ? '⚠️' : '🏆'}</div>

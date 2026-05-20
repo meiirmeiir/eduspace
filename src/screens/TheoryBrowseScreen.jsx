@@ -3,6 +3,7 @@ import { getContent } from "../lib/contentCache.js";
 import { THEME } from "../lib/appConstants.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 
 export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
   const [skillTheories, setSkillTheories] = useState([]);
@@ -60,11 +61,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
 
     return (
       <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
-        <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 40px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <Logo size={28}/>
-          <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:THEME.textLight }}>📖 Теория</div>
-          <button onClick={() => setSelected(null)} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
-        </nav>
+        <AppTopbar title="📖 Теория" onBack={() => setSelected(null)} />
         <div style={{ maxWidth:780, margin:'0 auto', padding:'40px 20px 60px' }}>
 
           {/* Title */}
@@ -195,10 +192,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
 
   return (
     <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
-      <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 40px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <Logo size={28}/>
-        <button onClick={onBack} className="cta-button active" style={{ width:'auto', padding:'8px 18px', fontSize:13 }}>← Главная</button>
-      </nav>
+      <AppTopbar title="📖 Теория" onBack={onBack} />
       <div style={{ maxWidth:1000, margin:'0 auto', padding:'40px 20px' }}>
         <div style={{ marginBottom:24 }}>
           <h1 style={{ fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color:THEME.primary, marginBottom:6 }}>📖 Теория</h1>

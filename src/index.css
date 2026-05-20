@@ -251,6 +251,66 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 /* Hide breadcrumb on desktop — it's a mobile orientation aid only. */
 @media (min-width: 769px) { .mobile-breadcrumb { display:none; } }
 
+/* ── Unified top bar for standalone screens (AppTopbar) ────── */
+.app-topbar {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  box-sizing:border-box;
+  padding:12px 24px;
+  padding-top:calc(12px + env(safe-area-inset-top));
+  background:#ffffff;
+  border-bottom:1px solid rgba(0,0,0,0.08);
+  min-height:60px;
+}
+.app-topbar-back {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 14px;
+  border:1px solid rgba(0,0,0,0.1);
+  border-radius:var(--radius-sm, 8px);
+  background:transparent;
+  font-family:'Inter', sans-serif;
+  font-size:13px;
+  font-weight:600;
+  color:#0f172a;
+  cursor:pointer;
+  min-height:36px;
+  transition:background 0.12s;
+  flex-shrink:0;
+}
+.app-topbar-back:hover { background:rgba(0,0,0,0.04); }
+.app-topbar-title {
+  font-family:'Montserrat', sans-serif;
+  font-weight:700;
+  font-size:14px;
+  color:#0f172a;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  min-width:0;
+}
+.app-topbar .theme-toggle { margin-left:auto; padding:0; flex-shrink:0; }
+[data-theme="dark"] .app-topbar {
+  background:#161b22 !important;
+  border-bottom-color:rgba(255,255,255,0.08) !important;
+}
+[data-theme="dark"] .app-topbar-back {
+  color:#f0f6fc !important;
+  border-color:rgba(255,255,255,0.15) !important;
+}
+[data-theme="dark"] .app-topbar-back:hover { background:rgba(255,255,255,0.06) !important; }
+[data-theme="dark"] .app-topbar-title { color:#f0f6fc !important; }
+@media (max-width: 600px) {
+  .app-topbar { padding:12px 14px; padding-top:calc(12px + env(safe-area-inset-top)); }
+  .app-topbar-back { padding:8px 10px; }
+  .app-topbar-back-text { display:none; }
+  .app-topbar .logo-subtitle { display:none !important; }
+  .app-topbar .logo-title { font-size:16px !important; }
+}
+
 /* ── Mobile bottom navigation ────────────────────────────────
    Shown only on mobile. Fixed at viewport bottom with safe-area
    inset so it sits above the home indicator on iOS. ─────────── */

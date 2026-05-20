@@ -4,6 +4,7 @@ import { getContent } from "../lib/contentCache.js";
 import { THEME } from "../lib/appConstants.js";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 import DiagnosticModuleTree, { buildDiagModuleTree } from "../components/diagTree/DiagnosticModuleTree.jsx";
 
 export default function IndividualPlanScreen({ user, onBack, onStartTraining }) {
@@ -56,13 +57,8 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
   const lockedMod   = diagData.modules.filter(m => m.isLocked && m.mastery < 100).length;
 
   return (
-    <div style={{ minHeight:'100vh', background:THEME.bg }}>
-      <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:64, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <Logo size={32}/>
-        <button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.textLight, fontFamily:"'Inter',sans-serif", fontSize:13, padding:'8px 16px', borderRadius:8, cursor:'pointer' }}>
-          ← Главная
-        </button>
-      </nav>
+    <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
+      <AppTopbar title="🗺️ Индивидуальный план" onBack={onBack} />
 
       <div style={{ maxWidth:1440, margin:'0 auto', padding:'28px 20px 60px' }}>
         <div data-tour="plan-header" style={{ marginBottom:20 }}>

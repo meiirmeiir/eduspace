@@ -41,6 +41,9 @@
   align-items: center;
   justify-content: center;
   font-size: 13px;
+  /* Emoji baseline sits below flex centre — nudge up 1.5px so
+     the sun/moon visually sits in the middle of the thumb. */
+  padding-bottom: 2px;
   transition: left 0.3s cubic-bezier(.4,0,.2,1), background 0.35s;
   left: 3px;
   line-height: 1;
