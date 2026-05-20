@@ -146,33 +146,6 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 /* Profile-specific elements */
 .profile-plan-btn { background:#ffffff !important; color:#0f172a !important; border:1px solid rgba(0,0,0,0.1) !important; }
 .diag-history-item { background:#f8fafc; }
-/* Profile header section becomes a 2-column grid on desktop: profile
-   card + actions on the left, radar of competencies on the right.
-   On mobile (≤768px) the radar wraps to a new row below. */
-@media (min-width: 769px) {
-  .profile-grid {
-    display:grid !important;
-    grid-template-columns:minmax(0, 1.4fr) minmax(280px, 1fr) !important;
-    column-gap:32px !important;
-    row-gap:16px !important;
-    align-items:start !important;
-  }
-  .profile-grid > .profile-card,
-  .profile-grid > .profile-actions { grid-column:1; }
-  .profile-grid > .profile-radar {
-    grid-column:2;
-    grid-row:1 / span 2;
-    padding:20px;
-    background:rgba(15,23,42,0.02);
-    border:1px solid rgba(15,23,42,0.06);
-    border-radius:var(--radius-md, 12px);
-  }
-}
-.profile-radar { margin-top:8px; }
-[data-theme="dark"] .profile-grid > .profile-radar {
-  background:rgba(255,255,255,0.03) !important;
-  border-color:rgba(255,255,255,0.08) !important;
-}
 [data-theme="dark"] .profile-plan-btn { background:#1c2333 !important; color:#f0f6fc !important; border-color:rgba(255,255,255,0.1) !important; }
 [data-theme="dark"] .diag-history-item { background:#0d1117 !important; color:#e6edf3 !important; }
 [data-theme="dark"] .diag-history-title { color:#f0f6fc !important; }

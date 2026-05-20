@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { collection, doc, getDocs, query, updateDoc, where, db } from "../firestore-rest.js";
 import { THEME, REG_GOALS, getSpecificList } from "../lib/appConstants.js";
 import { isNpcEnabled, setNpcEnabled } from "../NpcContext.jsx";
 import ChangePasswordInline from "./ChangePasswordInline.jsx";
 import ExpertReportView from "../screens/ExpertReportView.jsx";
 import ErrorCard from "./ui/ErrorCard.jsx";
-import RadarChart from "./ui/RadarChart.jsx";
 
 export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser }) {
   const [results,setResults]=useState([]);
@@ -87,20 +86,6 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
 
   if(viewingExpert) return <ExpertReportView report={viewingExpert} studentPhotos={viewingPhotos} onBack={()=>{setViewingExpert(null);setViewingPhotos([]);}}/>;
 
-  // Radar data: per-section average score from past diagnostics.
-  const radarData = useMemo(() => {
-    const bySection = {};
-    results.forEach(r => {
-      const name = r.sectionName || "Общая";
-      if (!bySection[name]) bySection[name] = { sum: 0, count: 0 };
-      bySection[name].sum += Math.max(0, Math.min(100, r.score || 0));
-      bySection[name].count += 1;
-    });
-    return Object.entries(bySection)
-      .map(([label, { sum, count }]) => ({ label, value: Math.round(sum / count) }))
-      .slice(0, 8);
-  }, [results]);
-
   const totalDiag=results.length;
   const totalSec=results.reduce((s,r)=>s+(r.totalTime||0),0);
   const totalMin=Math.floor(totalSec/60);
@@ -111,8 +96,8 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   return(
     <div className="profile-page">
       <div className="dashboard-header"><h1>Личный кабинет</h1></div>
-      {/* Profile card + radar (radar shown on desktop only) */}
-      <div className="dashboard-section profile-grid">
+      {/* Profile card */}
+      <div className="dashboard-section">
         <div className="profile-card">
           {/* Avatar */}
           <div style={{position:"relative",flexShrink:0}}>
@@ -188,29 +173,11 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
             )}
           </div>
         </div>
-        <div className="profile-actions">
-          <button className="cta-button active" style={{width:"auto",padding:"14px 28px"}} onClick={onOpenDiagnostics}>🎯 Пройти диагностику</button>
-          <button className="cta-button active profile-plan-btn" style={{width:"auto",padding:"14px 28px",boxShadow:"none"}} onClick={onViewPlan}>🗺️ Мой план обучения</button>
-        </div>
-        <aside className="profile-radar" aria-label="Карта компетенций">
-          <h3 style={{fontFamily:"'Montserrat',sans-serif",fontSize:14,fontWeight:800,color:THEME.primary,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>
-            🎯 Карта компетенций
-          </h3>
-          {radarData.length >= 3 ? (
-            <RadarChart data={radarData} size={280}/>
-          ) : (
-            <div style={{textAlign:"center",padding:"32px 16px",color:THEME.textLight,fontSize:13,lineHeight:1.6}}>
-              <div style={{fontSize:36,marginBottom:8}}>📊</div>
-              Пройди минимум 3 диагностики, чтобы увидеть карту своих сильных и слабых сторон.
-            </div>
-          )}
-        </aside>
       </div>
 
       {/* Stats summary */}
-      <div className="profile-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(3, minmax(0, 1fr))",gap:16,marginBottom:24}}>
+      <div className="profile-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(2, minmax(0, 1fr))",gap:16,marginBottom:24}}>
         <div className="stat-card"><div className="stat-icon">📋</div><div style={{minWidth:0}}><div className="stat-value">{totalDiag}</div><div className="stat-label">диагностик пройдено</div></div></div>
-        <div className="stat-card"><div className="stat-icon">📊</div><div style={{minWidth:0}}><div className="stat-value">{Object.keys(expertMap).length}</div><div className="stat-label">экспертных отчётов</div></div></div>
         <div className="stat-card"><div className="stat-icon">⏱️</div><div style={{minWidth:0}}><div className="stat-value" style={{fontSize:totalHr>0?14:18,wordBreak:"break-word"}}>{totalDiag>0?timeLabel:"—"}</div><div className="stat-label">всего потрачено</div></div></div>
       </div>
 
