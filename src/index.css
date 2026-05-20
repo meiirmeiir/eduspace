@@ -198,12 +198,20 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 @media (min-width: 769px) {
   .mobile-topbar .theme-toggle { display:none; }
 }
-/* Mobile topbar: burger | logo (left-aligned) | flex-grow | theme toggle */
+/* Mobile topbar: burger | logo (left-aligned) | flex-grow | theme toggle.
+   Break out of dashboard-main's horizontal padding so the bar reaches
+   viewport edges (and the borders look clean against the page bg). */
 .mobile-topbar {
-  /* iOS safe-area for notched devices */
   padding-top:calc(16px + env(safe-area-inset-top)) !important;
+  padding-left:calc(16px + env(safe-area-inset-left)) !important;
+  padding-right:calc(16px + env(safe-area-inset-right)) !important;
   justify-content:flex-start !important;
   gap:10px !important;
+  margin-left:-12px !important;
+  margin-right:-12px !important;
+  margin-top:0 !important;
+  width:calc(100% + 24px) !important;
+  box-sizing:border-box !important;
 }
 .mobile-topbar .burger-btn { flex-shrink:0; }
 .mobile-topbar .theme-toggle { margin-left:auto; padding:0; }
@@ -231,8 +239,10 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   gap:12px;
   width:100%;
   box-sizing:border-box;
-  padding:12px 24px;
   padding-top:calc(12px + env(safe-area-inset-top));
+  padding-right:calc(24px + env(safe-area-inset-right));
+  padding-bottom:12px;
+  padding-left:calc(24px + env(safe-area-inset-left));
   background:#ffffff;
   border-bottom:1px solid rgba(0,0,0,0.08);
   min-height:60px;
@@ -345,10 +355,13 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   }
   .mbn-item.active { color:#0f172a; }
   .mbn-item.active .mbn-label { font-weight:700; }
-  /* Push page content above the bottom nav so it isn't covered. */
-  .dashboard-main,
-  .page-themed {
-    padding-bottom:calc(72px + env(safe-area-inset-bottom)) !important;
+  /* Push page content above the bottom nav so it isn't covered.
+     Selectors are chained (specificity 0,2,0) to beat App.jsx's
+     own `.dashboard-main { padding-bottom:32px !important }` rule
+     which is rendered after index.css in source order. */
+  .dashboard-layout .dashboard-main,
+  body .page-themed {
+    padding-bottom:calc(96px + env(safe-area-inset-bottom)) !important;
   }
 }
 [data-theme="dark"] .mobile-bottom-nav {
@@ -603,9 +616,9 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
     width:100% !important;
     min-width:0 !important;
   }
-  /* Profile stats: 3 cards in a row, allow shrinking */
+  /* Profile stats: 2 cards in a row, allow shrinking */
   .profile-stats-grid {
-    grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
+    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
     gap:8px !important;
   }
   .profile-stats-grid .stat-card {
