@@ -167,6 +167,59 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 /* Burger menu — dark-navy by default, invisible on dark topbar */
 [data-theme="dark"] .burger-btn { color:#f0f6fc !important; }
 
+/* ── Mobile bottom navigation ────────────────────────────────
+   Shown only on mobile. Fixed at viewport bottom with safe-area
+   inset so it sits above the home indicator on iOS. ─────────── */
+.mobile-bottom-nav { display:none; }
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    position:fixed;
+    bottom:0;
+    left:0;
+    right:0;
+    background:#ffffff;
+    border-top:1px solid rgba(0,0,0,0.08);
+    z-index:90;
+    padding:6px 4px;
+    padding-bottom:calc(6px + env(safe-area-inset-bottom));
+    box-shadow:0 -4px 16px rgba(0,0,0,0.06);
+  }
+  .mbn-item {
+    background:transparent;
+    border:none;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    padding:6px 4px;
+    min-height:52px;
+    color:#64748b;
+    font-family:'Inter', sans-serif;
+    font-size:11px;
+    line-height:1.1;
+    transition:color 0.15s;
+  }
+  .mbn-icon { font-size:22px; line-height:1; }
+  .mbn-label { font-weight:600; }
+  .mbn-item.active { color:#0f172a; }
+  .mbn-item.active .mbn-label { font-weight:700; }
+  /* Push page content above the bottom nav so it isn't covered. */
+  .dashboard-main,
+  .page-themed {
+    padding-bottom:calc(72px + env(safe-area-inset-bottom)) !important;
+  }
+}
+[data-theme="dark"] .mobile-bottom-nav {
+  background:#161b22 !important;
+  border-top-color:rgba(255,255,255,0.08) !important;
+}
+[data-theme="dark"] .mbn-item { color:#8b949e !important; }
+[data-theme="dark"] .mbn-item.active { color:#f0f6fc !important; }
+
 /* Diagnostic option states in dark mode — base .option-card override
    already turns the white bg dark, but .selected/.correct/.wrong
    modifiers re-set bg to near-white tints that disappear on dark. */

@@ -1,11 +1,16 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
+import { THEME_LIGHT, THEME_DARK } from './lib/appConstants.js';
 
 const ThemeContext = createContext(null);
 
 // BUG-13: dark mode = data-theme="dark" on <html>, which triggers
-// MapStyles.css filter:invert(1) hue-rotate(180deg) on #root.
-// Default (no attribute) = light. Theme is applied in main.jsx
-// before first render, so the initial state below is correct on mount.
+// the explicit overrides in index.css. Default (no attribute) = light.
+// Theme is applied in main.jsx before first render, so the initial
+// state below is correct on mount.
+//
+// Audit follow-up: expose a `theme` object (light/dark palette) so new
+// components can do `const { theme } = useTheme()` and styles update
+// reactively when the theme switches.
 export function ThemeProvider({ children }) {
   const [isDark, setIsDark] = useState(
     () => document.documentElement.getAttribute('data-theme') === 'dark'
@@ -25,8 +30,14 @@ export function ThemeProvider({ children }) {
     }
   };
 
+  const value = useMemo(() => ({
+    dark: isDark,
+    theme: isDark ? THEME_DARK : THEME_LIGHT,
+    toggle,
+  }), [isDark]);
+
   return (
-    <ThemeContext.Provider value={{ dark: isDark, toggle }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

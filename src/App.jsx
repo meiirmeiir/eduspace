@@ -18,8 +18,9 @@ import {
   query, where,
 } from "./firestore-rest.js";
 import { getContent } from "./lib/contentCache.js";
-import { THEME } from "./lib/appConstants.js";
+import { useTheme } from "./ThemeContext.jsx";
 import Logo from "./components/ui/Logo.jsx";
+import MobileBottomNav from "./components/MobileBottomNav.jsx";
 import OnboardingScreen from "./screens/OnboardingScreen.jsx";
 import { DiagnosticRulesScreen, DiagnosticsScreen, QuestionScreen } from "./screens/DiagnosticsScreens.jsx";
 import ReportScreen from "./screens/ReportScreen.jsx";
@@ -137,6 +138,7 @@ const QUIZ_PROGRESS_KEY="aapa_quiz_progress";
 
 export default function App() {
   const { showNpcMessage, startTourIfNew } = useNpc();
+  const { theme: THEME } = useTheme();
   const { firebaseUser, profile, loading: authLoading } = useAuth();
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem("aapa_user");return u?JSON.parse(u):null;}catch{return null;}});
   // Sync Firestore profile → user; fix landing flicker (bug2) and missing onboarding (bug1)
@@ -873,6 +875,19 @@ export default function App() {
       {screen==="daily"&&<DailyTasksScreen user={user} onBack={()=>goBack()}/>}
       {screen==="intermediate_tests"&&<IntermediateTestsScreen user={user} onStartBoss={sec=>{setBossSection(sec);navigate("boss_fight");}} onBack={()=>goBack()}/>}
       {screen==="boss_fight"&&bossSection&&<BossFightScreen section={bossSection} user={user} onBack={()=>goBack("intermediate_tests")}/>}
+      {/* Bottom-nav: only on screens where the user is browsing,
+          not while taking a test or onboarding. */}
+      {["dashboard","diagnostics","theory","daily","plan","practice"].includes(screen) && (
+        <MobileBottomNav
+          active={screen==="dashboard" ? ((()=>{try{return localStorage.getItem("aapa_dashboard_section")==="profile"?"profile":"dashboard";}catch{return "dashboard";}})()) : screen}
+          onNavigate={id=>{
+            if(id==="profile"){ try{localStorage.setItem("aapa_dashboard_section","profile");}catch{}; navigate("dashboard"); return; }
+            if(id==="dashboard"){ try{localStorage.setItem("aapa_dashboard_section","home");}catch{}; navigate("dashboard"); return; }
+            if(id==="diagnostics"){ openDiagnostics(); return; }
+            if(id==="theory"){ navigate("theory"); return; }
+          }}
+        />
+      )}
       <NpcGuide />
     </>
   );

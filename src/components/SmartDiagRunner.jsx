@@ -79,6 +79,8 @@ export default function SmartDiagRunner({ user, grade, onFinish, onStop, onSecti
       setTransitionInfo({ engineState, stackSize });
       setAccumulated([]);
       setPhase('done_section');
+      // Section is done — drop any in-progress autosave for this grade.
+      try { localStorage.removeItem(DIAG_PAUSE_KEY); } catch {}
       // Сохраняем результаты раздела СРАЗУ — не ждём нажатия кнопки
       onSectionComplete && onSectionComplete(next, engineState, sectionNum, stackSize);
       return;
@@ -87,13 +89,24 @@ export default function SmartDiagRunner({ user, grade, onFinish, onStop, onSecti
     if (!nextQ || status === 'ALL_DONE') {
       // Полностью завершено
       finishedRef.current = true;
+      try { localStorage.removeItem(DIAG_PAUSE_KEY); } catch {}
       onFinish([...allAnswersRef.current, ...next]);
       return;
     }
 
     setQNum(n => n + 1);
     setCurQ(nextQ);
-  }, [accumulated, curQ, onFinish]);
+
+    // Autosave after every answer so a closed tab doesn't lose progress.
+    try {
+      const engineState = engineRef.current.exportState();
+      localStorage.setItem(DIAG_PAUSE_KEY, JSON.stringify({
+        grade, curQ: nextQ, qNum: qNum + 1, accumulated: next,
+        allAnswers: allAnswersRef.current,
+        engineState, sectionNum,
+      }));
+    } catch (_) {}
+  }, [accumulated, curQ, qNum, sectionNum, grade, onFinish, onSectionComplete]);
 
   const handlePause = useCallback(() => {
     if (finishedRef.current || !curQ) return;

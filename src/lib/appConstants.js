@@ -44,7 +44,11 @@ export const QUESTION_TYPES = [
 ];
 export const DAY_NAMES_SHORT = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
 export const DAY_NAMES_FULL  = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"];
-export const THEME = { primary:"#0f172a", accent:"#d4af37", bg:"#f8fafc", surface:"#ffffff", text:"#334155", textLight:"#64748b", border:"#e2e8f0", success:"#10B981", warning:"#F59E0B", error:"#EF4444" };
+export const THEME_LIGHT = { primary:"#0f172a", accent:"#d4af37", bg:"#f8fafc", surface:"#ffffff", text:"#334155", textLight:"#64748b", border:"#e2e8f0", success:"#10B981", warning:"#F59E0B", error:"#EF4444" };
+export const THEME_DARK  = { primary:"#f0f6fc", accent:"#f5c518", bg:"#0a0e1a", surface:"#161b22", text:"#c9d1d9", textLight:"#8b949e", border:"rgba(255,255,255,0.12)", success:"#10B981", warning:"#F59E0B", error:"#EF4444" };
+/* Backwards-compat: kept so legacy imports keep working. Prefer
+   useTheme().theme for theme-aware components going forward. */
+export const THEME = THEME_LIGHT;
 
 // ── TELEGRAM ──────────────────────────────────────────────────────────────────
 export const escHtml = s => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");

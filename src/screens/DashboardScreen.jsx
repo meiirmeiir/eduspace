@@ -13,7 +13,9 @@ import RecordingModal from "../components/RecordingModal.jsx";
 
 export default function DashboardScreen({ user, firebaseUser, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onUpdateUser }) {
   const { startTourIfNew } = useNpc();
-  const [activeSection,setActiveSection]=useState("home");
+  const [activeSection,setActiveSection]=useState(()=>{
+    try { const s = localStorage.getItem("aapa_dashboard_section"); return s || "home"; } catch { return "home"; }
+  });
   const [schedule,setSchedule]=useState([]);
   const [homework,setHomework]=useState([]);
   const [loadingData,setLoadingData]=useState(true);
@@ -240,6 +242,7 @@ export default function DashboardScreen({ user, firebaseUser, onOpenDiagnostics,
     if(id==="daily"){onOpenDaily?.();return;}
     if(id==="admin"){onOpenAdmin();return;}
     setActiveSection(id);
+    try { localStorage.setItem("aapa_dashboard_section", id); } catch {}
   };
 
   return(
@@ -276,6 +279,17 @@ export default function DashboardScreen({ user, firebaseUser, onOpenDiagnostics,
                 <span style={{background:statusObj.color+"18",color:statusObj.color,fontWeight:700,fontSize:13,padding:"6px 16px",borderRadius:99,border:`1px solid ${statusObj.color}30`,alignSelf:"center"}}>{statusObj.label}</span>
               </div>
             </div>
+
+            {/* Onboarding CTA — visible until user has run the smart diagnostic at least once. */}
+            {!isTeacher&&!isTester&&!user?.smartDiagDone&&(
+              <div style={{background:`linear-gradient(135deg, ${THEME.primary} 0%, #1e3a8a 100%)`,borderRadius:16,padding:"20px 24px",marginBottom:24,display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,flexWrap:"wrap",border:`1px solid ${THEME.accent}30`}}>
+                <div style={{flex:"1 1 280px"}}>
+                  <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:18,color:"#fff",marginBottom:4}}>🚀 Начни с диагностики</div>
+                  <div style={{fontSize:13,color:"rgba(255,255,255,0.75)",lineHeight:1.4}}>Умная Диагностика выявит пробелы и построит твой индивидуальный план обучения.</div>
+                </div>
+                <button onClick={onOpenDiagnostics} style={{background:THEME.accent,color:THEME.primary,border:"none",borderRadius:10,padding:"12px 24px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,cursor:"pointer",flexShrink:0}}>Пройти диагностику →</button>
+              </div>
+            )}
 
             {/* Умная диагностика — для goals: gaps / future */}
             {!isTeacher&&!isTester&&(user?.goalKey==="gaps"||user?.goalKey==="future")&&!user?.smartDiagDone&&(

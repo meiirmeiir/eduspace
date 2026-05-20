@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { collection, doc, getDocs, query, updateDoc, where, db } from "../firestore-rest.js";
 import { THEME, REG_GOALS, getSpecificList } from "../lib/appConstants.js";
+import { isNpcEnabled, setNpcEnabled } from "../NpcContext.jsx";
 import ChangePasswordInline from "./ChangePasswordInline.jsx";
 import ExpertReportView from "../screens/ExpertReportView.jsx";
 import ErrorCard from "./ui/ErrorCard.jsx";
@@ -23,6 +24,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   });
   const [editSaving,setEditSaving]=useState(false);
   const [avatarUploading,setAvatarUploading]=useState(false);
+  const [npcOn,setNpcOn]=useState(()=>isNpcEnabled());
   const avatarInputRef=useRef(null);
 
   const handleAvatarChange=async(e)=>{
@@ -161,6 +163,10 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                 <div className="profile-date">Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
                 <button onClick={()=>setIsEditing(true)} style={{marginTop:10,background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"6px 16px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Редактировать профиль</button>
                 <ChangePasswordInline />
+                <label style={{display:"flex",alignItems:"center",gap:10,marginTop:12,fontSize:13,color:THEME.textLight,cursor:"pointer"}}>
+                  <input type="checkbox" checked={npcOn} onChange={e=>{setNpcOn(e.target.checked);setNpcEnabled(e.target.checked);}} style={{width:16,height:16,cursor:"pointer"}}/>
+                  Показывать подсказки помощника
+                </label>
               </>
             )}
           </div>

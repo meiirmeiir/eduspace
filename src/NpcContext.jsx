@@ -20,6 +20,8 @@ function resolveMessage(key) {
 
 // Ключ в localStorage для хранения просмотренных туров
 const SEEN_KEY = 'aapa_npc_seen_tours';
+// User-controlled toggle. Default: hints are off (opt-in via profile).
+const ENABLED_KEY = 'aapa_npc_enabled';
 
 function getSeenTours() {
   try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); } catch { return {}; }
@@ -31,6 +33,12 @@ function markTourSeen(screenKey) {
     localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
   } catch {}
 }
+export function isNpcEnabled() {
+  try { return localStorage.getItem(ENABLED_KEY) === '1'; } catch { return false; }
+}
+export function setNpcEnabled(enabled) {
+  try { localStorage.setItem(ENABLED_KEY, enabled ? '1' : '0'); } catch {}
+}
 
 export function NpcProvider({ children }) {
   const [state, setState] = useState({ visible: false, message: '', selector: null, tourActive: false });
@@ -38,6 +46,7 @@ export function NpcProvider({ children }) {
   const tourRef = useRef({ steps: [], idx: 0, screenKey: '' });
 
   const showNpcMessage = useCallback((key, durationMs = 0) => {
+    if (!isNpcEnabled()) return;
     const message = resolveMessage(key);
     if (!message) return;
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -79,8 +88,9 @@ export function NpcProvider({ children }) {
     hideNpc();
   }, [hideNpc]);
 
-  // Запустить тур для экрана — только если ещё не видели
+  // Запустить тур для экрана — только если ещё не видели и помощник включён
   const startTourIfNew = useCallback((screenKey) => {
+    if (!isNpcEnabled()) return;
     const steps = TOURS[screenKey];
     if (!steps || !steps.length) return;
     const seen = getSeenTours();
