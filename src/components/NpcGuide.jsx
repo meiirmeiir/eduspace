@@ -202,9 +202,6 @@ export default function NpcGuide() {
             }}>
               <img src={droneImg} alt="Помощник" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             </div>
-            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#d4af37', letterSpacing: 1 }}>
-              ПОМОЩНИК
-            </span>
           </div>
 
         </div>

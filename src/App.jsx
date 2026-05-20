@@ -665,7 +665,7 @@ export default function App() {
         .theory-rich-text b,.theory-rich-text strong{font-weight:700;color:${THEME.primary};}
         .theory-rich-text p{margin:4px 0;}
         .input-field:focus{border-color:${THEME.primary};background:#fff;}
-        .cta-button{width:100%;padding:16px 24px;border-radius:8px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:15px;text-align:center;border:none;background:${THEME.border};color:${THEME.textLight};transition:all 0.3s;text-transform:uppercase;letter-spacing:1px;cursor:default;}
+        .cta-button{width:100%;padding:16px 24px;border-radius:8px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:15px;text-align:center;border:none;background:${THEME.border};color:${THEME.textLight};transition:all 0.3s;letter-spacing:0.2px;cursor:default;}
         .cta-button.active{background:${THEME.primary};color:${THEME.accent};cursor:pointer;box-shadow:0 10px 20px -5px rgba(10,25,47,0.3);}
         .cta-button.active:hover{transform:translateY(-1px);}
         .benefits-list{display:flex;flex-direction:column;gap:28px;margin-bottom:60px;}

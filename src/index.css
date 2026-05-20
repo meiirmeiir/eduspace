@@ -122,8 +122,18 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   color:#e6edf3 !important;
   border-color:rgba(255,255,255,0.1) !important;
 }
-/* Subtle keep-light areas — let yellow/gold accents stay visible */
-[data-theme="dark"] .week-day.today,
+/* Calendar week-days: empty days were rendering as light cream in
+   dark mode because the inline style uses opacity, leaving the
+   underlying THEME.bg visible. Force every cell to the dark
+   surface, then let .today add only an accent border. */
+[data-theme="dark"] .week-day {
+  background:#0d1117 !important;
+  border-color:rgba(255,255,255,0.08) !important;
+}
+[data-theme="dark"] .week-day.today {
+  background:rgba(245,197,24,0.08) !important;
+  border-color:#f5c518 !important;
+}
 [data-theme="dark"] .hw-card.overdue {
   background:#1c2333 !important;
 }
@@ -166,6 +176,29 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 
 /* Burger menu — dark-navy by default, invisible on dark topbar */
 [data-theme="dark"] .burger-btn { color:#f0f6fc !important; }
+
+/* Theme toggle placement.
+   Desktop: floating top-right of dashboard-main (.desktop-header-actions).
+   Mobile: inline in mobile-topbar. */
+.desktop-header-actions {
+  position:fixed;
+  top:16px;
+  right:24px;
+  z-index:30;
+}
+.desktop-header-actions .theme-toggle { padding:0; }
+@media (max-width: 768px) {
+  .desktop-header-actions { display:none; }
+}
+@media (min-width: 769px) {
+  .mobile-topbar .theme-toggle { display:none; }
+}
+/* Pull the toggle to the right of the topbar (logo stays centred via flex) */
+.mobile-topbar {
+  /* iOS safe-area for notched devices */
+  padding-top:calc(16px + env(safe-area-inset-top)) !important;
+}
+.mobile-topbar .theme-toggle { margin-left:auto; padding:0; }
 
 /* ── Mobile bottom navigation ────────────────────────────────
    Shown only on mobile. Fixed at viewport bottom with safe-area

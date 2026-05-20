@@ -157,8 +157,10 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
               <>
                 <div className="profile-name">{user?.firstName} {user?.lastName}</div>
                 <div className="profile-phone">{user?.phone}</div>
-                <span style={{display:"inline-block",background:statusObj.color+"18",color:statusObj.color,fontWeight:700,fontSize:12,padding:"4px 14px",borderRadius:99,border:`1px solid ${statusObj.color}30`,marginBottom:10}}>{statusObj.label}</span>
-                <div className="profile-goal-tag">{user?.goal}</div>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                  <span style={{display:"inline-block",background:statusObj.color,color:"#fff",fontWeight:700,fontSize:12,padding:"4px 14px",borderRadius:99,border:`1px solid ${statusObj.color}`}}>{statusObj.label}</span>
+                  <span style={{display:"inline-block",background:"transparent",color:THEME.textLight,fontWeight:600,fontSize:12,padding:"4px 12px",borderRadius:6,border:`1px solid ${THEME.border}`}}>{user?.goal}</span>
+                </div>
                 <div className="profile-detail">{user?.details}</div>
                 <div className="profile-date">Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
                 <button onClick={()=>setIsEditing(true)} style={{marginTop:10,background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"6px 16px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Редактировать профиль</button>

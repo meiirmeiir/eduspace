@@ -254,7 +254,6 @@ export default function DashboardScreen({ user, firebaseUser, onOpenDiagnostics,
         <nav className="sidebar-nav">
           {navItems.map(item=><button key={item.id} className={`sidebar-nav-item ${activeSection===item.id?"active":""}`} onClick={()=>handleNav(item.id)}><span className="nav-icon">{item.icon}</span><span>{item.label}</span></button>)}
         </nav>
-        <ThemeToggle />
         <div className="sidebar-user">
           {user?.avatarUrl
             ? <img src={user.avatarUrl} alt="avatar" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(255,255,255,0.2)",flexShrink:0}}/>
@@ -269,7 +268,12 @@ export default function DashboardScreen({ user, firebaseUser, onOpenDiagnostics,
         </div>
       </aside>
       <main className="dashboard-main">
-        <div className="mobile-topbar"><button className="burger-btn" onClick={()=>setSidebarOpen(true)}>☰</button><Logo size={28}/></div>
+        <div className="mobile-topbar">
+          <button className="burger-btn" onClick={()=>setSidebarOpen(true)}>☰</button>
+          <Logo size={28}/>
+          <ThemeToggle />
+        </div>
+        <div className="desktop-header-actions"><ThemeToggle /></div>
 
         {activeSection==="home"&&(
           <>
