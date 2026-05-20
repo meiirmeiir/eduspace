@@ -142,7 +142,7 @@ export default function DailyTasksScreen({ user, onBack }) {
 
   // ── EMPTY ──
   if (phase === 'empty') return (
-    <div style={{ minHeight:'100vh', background:BG }}>
+    <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
       <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Logo size={28}/><button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
       </nav>
@@ -159,7 +159,7 @@ export default function DailyTasksScreen({ user, onBack }) {
 
   // ── LOADING ──
   if (phase === 'loading') return (
-    <div style={{ minHeight:'100vh', background:BG, display:'flex', alignItems:'center', justifyContent:'center' }}>
+    <div className="page-themed" style={{ minHeight:'100vh', background:BG, display:'flex', alignItems:'center', justifyContent:'center' }}>
       <div style={{ fontFamily:"'Inter',sans-serif", color:THEME.textLight }}>Загрузка разминки...</div>
     </div>
   );
@@ -170,7 +170,7 @@ export default function DailyTasksScreen({ user, onBack }) {
     const correctList  = queue.filter(q => correct.has(q.skillId));
     const wrongList    = queue.filter(q => wrong.has(q.skillId));
     return (
-      <div style={{ minHeight:'100vh', background:BG }}>
+      <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
         <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <Logo size={28}/><button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
         </nav>
@@ -232,7 +232,7 @@ export default function DailyTasksScreen({ user, onBack }) {
   const lives = skillLives[current?.skillId] ?? 2;
 
   return (
-    <div style={{ minHeight:'100vh', background:BG }}>
+    <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
       <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Logo size={28}/>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>

@@ -136,6 +136,34 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-theme="dark"] .diag-history-title { color:#f0f6fc !important; }
 [data-theme="dark"] .diag-history-num { background:#1c2333 !important; color:#8b949e !important; border-color:rgba(255,255,255,0.12) !important; }
 
+/* ── Catch hardcoded THEME colours that React serialised as rgb(...) ──
+   Browsers normalise inline hex to `rgb(R, G, B)` with spaces after
+   commas. THEME.bg #f8fafc, THEME.surface #fff, THEME.primary #0f172a,
+   THEME.text #334155, THEME.border #e2e8f0. ───────────────────────── */
+/* Backgrounds */
+[data-theme="dark"] [style*="background: rgb(255, 255, 255)"],
+[data-theme="dark"] [style*="background-color: rgb(255, 255, 255)"] {
+  background:#161b22 !important;
+}
+[data-theme="dark"] [style*="background: rgb(248, 250, 252)"],
+[data-theme="dark"] [style*="background-color: rgb(248, 250, 252)"] {
+  background:#0d1117 !important;
+}
+/* Body text colours that would otherwise vanish on dark bg */
+[data-theme="dark"] [style*="color: rgb(15, 23, 42)"]   { color:#f0f6fc !important; } /* THEME.primary */
+[data-theme="dark"] [style*="color: rgb(51, 65, 85)"]   { color:#c9d1d9 !important; } /* THEME.text */
+/* Light borders (THEME.border #e2e8f0). border-color suffices because
+   the !important wins over the shorthand colour. */
+[data-theme="dark"] [style*="rgb(226, 232, 240)"] {
+  border-color:rgba(255,255,255,0.12) !important;
+}
+/* Theory/Daily page wrappers explicitly themed */
+[data-theme="dark"] .page-themed { background:#0a0e1a !important; color:#e6edf3 !important; }
+[data-theme="dark"] .page-themed [data-inner-nav] {
+  background:#161b22 !important;
+  border-bottom-color:rgba(255,255,255,0.08) !important;
+}
+
 /* ──────────────────────────────────────────────────────────────
    MOBILE OVERRIDES — single (max-width:768px) media query
    ────────────────────────────────────────────────────────────── */

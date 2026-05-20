@@ -59,7 +59,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
     const ruName = namesMap[e.id] || namesMap[e.skill_id] || e.skill_id;
 
     return (
-      <div style={{ minHeight:'100vh', background:THEME.bg }}>
+      <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
         <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 40px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <Logo size={28}/>
           <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:THEME.textLight }}>📖 Теория</div>
@@ -194,7 +194,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
   };
 
   return (
-    <div style={{ minHeight:'100vh', background:THEME.bg }}>
+    <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
       <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 40px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Logo size={28}/>
         <button onClick={onBack} className="cta-button active" style={{ width:'auto', padding:'8px 18px', fontSize:13 }}>← Главная</button>
