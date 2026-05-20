@@ -16,3 +16,8 @@ service-account*
 
 # Migration backups (may contain user data)
 migration/backups/
+
+# Playwright
+playwright/.auth/
+playwright-report/
+test-results/

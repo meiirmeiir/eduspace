@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "smoke": "playwright test",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/firestore-rules --fileParallelism=false\""
   },
   "dependencies": {
@@ -20,8 +21,10 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",
+    "@playwright/test": "^1.60.0",
     "@types/node": "^25.6.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "dotenv": "^17.4.2",
     "firebase": "^12.12.1",
     "firebase-tools": "^15.16.0",
     "ts-node": "^10.9.2",
