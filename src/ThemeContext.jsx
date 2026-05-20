@@ -1,27 +1,31 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 const ThemeContext = createContext(null);
 
-// BUG-4: use data-theme="light" attribute (no filter:invert), persist as 'theme'.
-// Default = dark (no attribute on <html>). Light = attribute present.
+// BUG-13: derive state from the DOM attribute (single source of truth).
+// Theme is applied to <html> in main.jsx before render, so the initial
+// state below is always correct on mount.
 export function ThemeProvider({ children }) {
-  const [dark, setDark] = useState(() => {
-    try { return localStorage.getItem('theme') !== 'light'; }
-    catch { return true; }
-  });
+  const [isLight, setIsLight] = useState(
+    () => document.documentElement.getAttribute('data-theme') === 'light'
+  );
 
-  useEffect(() => {
-    if (dark) {
+  const toggleTheme = () => {
+    const nowLight =
+      document.documentElement.getAttribute('data-theme') === 'light';
+    if (nowLight) {
       document.documentElement.removeAttribute('data-theme');
       try { localStorage.setItem('theme', 'dark'); } catch {}
+      setIsLight(false);
     } else {
       document.documentElement.setAttribute('data-theme', 'light');
       try { localStorage.setItem('theme', 'light'); } catch {}
+      setIsLight(true);
     }
-  }, [dark]);
+  };
 
   return (
-    <ThemeContext.Provider value={{ dark, toggle: () => setDark(d => !d) }}>
+    <ThemeContext.Provider value={{ dark: !isLight, isLight, toggle: toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

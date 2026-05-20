@@ -401,17 +401,18 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, onComplete, onSto
   const allMatchFilled = (resolvedQ.pairs||[]).length>0 && (resolvedQ.pairs||[]).every((_,i)=>matchSel[i]!==undefined);
 
   const CONF_EMOJI = { 1:"😰", 2:"😕", 3:"😐", 4:"😊", 5:"🔥" };
+  const CONF_SHORT = { 1:"Нет", 2:"Слабо", 3:"Норм", 4:"Уверен", 5:"100%" };
   const renderConfBtn = (c, currentConf, setConf) => {
     const isActive = currentConf?.v===c.v;
-    const isFull = c.v===5;
     return (
       <button
         key={c.v}
-        className={`conf-btn confidence-btn ${isFull?"confidence-btn-full":""} ${isActive?"active":""}`}
+        className={`conf-btn confidence-btn ${isActive?"active selected":""}`}
         style={isActive?{borderColor:c.color,background:c.color+"10",color:c.color}:{}}
         onClick={()=>setConf(c)}
       >
         <span className="confidence-emoji">{CONF_EMOJI[c.v]}</span>
+        <span className="confidence-short">{CONF_SHORT[c.v]}</span>
         <span className="confidence-label">{c.label}</span>
       </button>
     );

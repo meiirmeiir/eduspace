@@ -81,12 +81,19 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   nav[data-inner-nav] .back-btn,
   nav[data-inner-nav] button         { min-width:36px !important; }
 
-  /* ── BUG-6 · Full-width profile ──────────────────────────── */
+  /* ── BUG-6 / BUG-14 · Full-width profile + no horizontal scroll ── */
   .profile-page,
+  .profile-page > *,
   .full-width-page {
     width:100% !important;
     max-width:100% !important;
     box-sizing:border-box !important;
+    overflow-x:hidden !important;
+  }
+  .layout-main,
+  .dashboard-main {
+    width:100% !important;
+    min-width:0 !important;
   }
 
   /* ── BUG-7 · Sidebar overlay (mirrors existing 900px behaviour
@@ -144,27 +151,43 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
     text-align:center !important;
   }
 
-  /* ── BUG-10 · Confidence buttons (emoji on mobile) ───────── */
+  /* ── BUG-10 / BUG-15 · Confidence buttons (emoji on mobile) ──── */
   .confidence-grid {
     display:grid !important;
-    grid-template-columns:repeat(4,1fr) !important;
-    gap:8px !important;
+    grid-template-columns:repeat(5,1fr) !important;
+    gap:6px !important;
   }
   .confidence-btn {
-    min-height:48px !important;
-    font-size:22px !important;
-    border-radius:12px !important;
     display:flex !important;
+    flex-direction:column !important;
     align-items:center !important;
     justify-content:center !important;
+    gap:4px !important;
+    min-height:64px !important;
+    min-width:0 !important;
+    padding:6px 4px !important;
+    border-radius:16px !important;
+    font-size:26px !important;
+    background:var(--bg-card, rgba(255,255,255,0.05)) !important;
+    border:1.5px solid var(--border, rgba(255,255,255,0.1)) !important;
+    cursor:pointer !important;
+    transition:transform 0.1s, border-color 0.15s, background 0.15s !important;
+  }
+  .confidence-btn:active {
+    transform:scale(0.93) !important;
+  }
+  .confidence-btn.selected {
+    border-color:var(--accent, #f5c518) !important;
+    background:rgba(245, 197, 24, 0.12) !important;
+    transform:scale(1.06) !important;
   }
   .confidence-label { display:none !important; }
-  .confidence-emoji { display:inline !important; }
-  .confidence-btn-full {
-    width:100% !important;
-    height:48px !important;
-    font-size:16px !important;
-    margin-top:8px !important;
+  .confidence-emoji { display:inline-block !important; line-height:1 !important; }
+  .confidence-short {
+    display:inline-block !important;
+    font-size:10px !important;
+    color:var(--text-secondary, #8b949e) !important;
+    line-height:1 !important;
   }
 
   /* ── BUG-11 · Confidence block already follows answers in JSX;
@@ -186,9 +209,10 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   .question-breadcrumb { display:none !important; }
 }
 
-/* Desktop: confidence emoji is hidden, label is shown — explicit */
+/* Desktop: confidence emoji + short label hidden, full label shown */
 @media (min-width: 769px) {
   .confidence-emoji { display:none; }
+  .confidence-short { display:none; }
   .confidence-label { display:inline; }
   .sidebar-backdrop { display:none !important; }
 }
