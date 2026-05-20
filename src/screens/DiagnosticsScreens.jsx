@@ -430,11 +430,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, onComplete, onSto
         </div>
       </div>
       {!adaptiveMode&&<div className="progress-bar-container"><div className="progress-bar-fill" style={{width:`${(qNum/total)*100}%`}}/></div>}
-      <div className="question-meta">
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <span className="badge">{resolvedQ.sectionName||resolvedQ.section}</span>
-          <span className={`type-badge type-${qType}`}>{qType==="mcq"?"Один ответ":qType==="multiple"?"Несколько ответов":qType==="compound"?"Составной вопрос":qType==="open"?"Открытый ответ":qType==="model"?"Составь модель":"Соответствие"}</span>
-        </div>
+      <div className="question-meta" style={{justifyContent:"flex-end"}}>
         <span style={{color:THEME.textLight,fontSize:14}}>{adaptiveMode?`Вопрос ${qNum}`:`Вопрос ${qNum} из ${total}`}</span>
       </div>
       <h2 className="question-text">{question.latex?<LatexText text={resolvedQ.text}/>:<MathText text={resolvedQ.text}/>}</h2>

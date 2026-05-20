@@ -167,6 +167,29 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 /* Burger menu — dark-navy by default, invisible on dark topbar */
 [data-theme="dark"] .burger-btn { color:#f0f6fc !important; }
 
+/* Diagnostic option states in dark mode — base .option-card override
+   already turns the white bg dark, but .selected/.correct/.wrong
+   modifiers re-set bg to near-white tints that disappear on dark. */
+[data-theme="dark"] .option-card.selected {
+  background:rgba(245, 197, 24, 0.18) !important;
+  border-color:#f5c518 !important;
+  color:#f0f6fc !important;
+}
+[data-theme="dark"] .option-card.correct {
+  background:rgba(16, 185, 129, 0.18) !important;
+  border-color:#10B981 !important;
+  color:#a7f3d0 !important;
+}
+[data-theme="dark"] .option-card.wrong {
+  background:rgba(239, 68, 68, 0.18) !important;
+  border-color:#EF4444 !important;
+  color:#fecaca !important;
+}
+[data-theme="dark"] .option-letter {
+  background:#0d1117 !important;
+  color:#f0f6fc !important;
+}
+
 /* ──────────────────────────────────────────────────────────────
    MOBILE OVERRIDES — single (max-width:768px) media query
    ────────────────────────────────────────────────────────────── */
