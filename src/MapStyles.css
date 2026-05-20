@@ -18,11 +18,16 @@
   height: 28px;
   border-radius: 14px;
   cursor: pointer;
-  border: none;
   padding: 0;
-  transition: background 0.35s;
-  background: rgba(255,255,255,0.12);
+  transition: background 0.35s, border-color 0.35s;
+  /* Visible on both themes: light gray pill on white, lighter pill on dark. */
+  background: rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.15);
   flex-shrink: 0;
+}
+[data-theme="dark"] .theme-toggle-track {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .theme-toggle-thumb {

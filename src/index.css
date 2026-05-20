@@ -193,11 +193,14 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 @media (min-width: 769px) {
   .mobile-topbar .theme-toggle { display:none; }
 }
-/* Pull the toggle to the right of the topbar (logo stays centred via flex) */
+/* Mobile topbar: burger | logo (left-aligned) | flex-grow | theme toggle */
 .mobile-topbar {
   /* iOS safe-area for notched devices */
   padding-top:calc(16px + env(safe-area-inset-top)) !important;
+  justify-content:flex-start !important;
+  gap:12px !important;
 }
+.mobile-topbar .burger-btn { flex-shrink:0; }
 .mobile-topbar .theme-toggle { margin-left:auto; padding:0; }
 
 /* ── Mobile bottom navigation ────────────────────────────────
@@ -208,6 +211,17 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   /* Hide sidebar items that already appear in the bottom-nav so
      the burger menu only shows the secondary destinations. */
   .sidebar-nav-item[data-bottom-dup="1"] { display:none !important; }
+  /* Lesson block: collapse secondary actions on mobile.
+     The whole block is tappable → opens lesson modal, where
+     Доска / Запись are still reachable. Войти stays inline. */
+  .lesson-action-secondary { display:none !important; }
+  .lesson-block-clickable a {
+    min-height:32px !important;
+    display:inline-flex !important;
+    align-items:center !important;
+    padding:6px 12px !important;
+    font-size:11px !important;
+  }
   .mobile-bottom-nav {
     display:grid;
     grid-template-columns:repeat(5, 1fr);
@@ -240,7 +254,14 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
     transition:color 0.15s;
   }
   .mbn-icon { font-size:20px; line-height:1; }
-  .mbn-label { font-weight:600; white-space:nowrap; }
+  .mbn-label {
+    font-weight:600;
+    font-size:10px;
+    line-height:1.1;
+    text-align:center;
+    word-break:break-word;
+    hyphens:auto;
+  }
   .mbn-item.active { color:#0f172a; }
   .mbn-item.active .mbn-label { font-weight:700; }
   /* Push page content above the bottom nav so it isn't covered. */

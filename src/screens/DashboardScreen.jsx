@@ -400,20 +400,20 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                         const joinUrl=(isAdmin||isTeacher)?l.zoomStartUrl:l.zoomJoinUrl;
                         const joinable=isJoinable(l);
                         return(
-                          <div key={li} className="lesson-block" style={{cursor:"default",position:"relative",paddingBottom:8}}>
+                          <div key={li} className="lesson-block lesson-block-clickable" onClick={()=>setOpenedLesson({lesson:l,date,mode:'board'})} style={{cursor:"pointer",position:"relative",paddingBottom:8}}>
                             <span className="lesson-time">{lessonTime}</span>
                             <span className="lesson-subject">{l.subject||'Занятие'}</span>
                             {stName&&<span style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.6)",marginTop:2,lineHeight:1.3}}>{stName}</span>}
                             <div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap"}}>
-                              <button onClick={()=>setOpenedLesson({lesson:l,date,mode:'board'})}
+                              <button className="lesson-action-secondary" onClick={e=>{e.stopPropagation();setOpenedLesson({lesson:l,date,mode:'board'});}}
                                 style={{fontSize:10,fontWeight:700,padding:"3px 7px",borderRadius:6,border:"none",background:"rgba(255,255,255,0.18)",color:"#fff",cursor:"pointer",lineHeight:1.4}}>
                                 🖊️ Доска
                               </button>
-                              <button onClick={()=>setOpenedLesson({lesson:l,date,mode:'notes'})}
+                              <button className="lesson-action-secondary" onClick={e=>{e.stopPropagation();setOpenedLesson({lesson:l,date,mode:'notes'});}}
                                 style={{fontSize:10,fontWeight:700,padding:"3px 7px",borderRadius:6,border:"none",background:"rgba(255,255,255,0.18)",color:"#fff",cursor:"pointer",lineHeight:1.4}}>
                                 📋 Запись
                               </button>
-                              {joinUrl&&<a href={joinUrl} target="_blank" rel="noopener noreferrer"
+                              {joinUrl&&<a href={joinUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}
                                 style={{fontSize:10,fontWeight:700,padding:"3px 7px",borderRadius:6,background:joinable?"#d4af37":"rgba(212,175,55,0.22)",color:joinable?"#0f172a":"#d4af37",cursor:"pointer",textDecoration:"none",lineHeight:1.4,display:"inline-block"}}>
                                 {joinable?'▶ Начать':'🔗 Войти'}
                               </a>}

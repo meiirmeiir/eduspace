@@ -262,9 +262,9 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
                       <div style={{ fontSize:11, color:THEME.textLight, marginBottom:4 }}>{[t.vertical_line_id, t.grade ? `${t.grade} кл` : ''].filter(Boolean).join(' · ')}</div>
                       <div style={{ fontWeight:700, fontSize:15, color:THEME.primary, marginBottom:6 }}>{highlight(ruName)}</div>
                       <div style={{ fontSize:13, color:THEME.textLight, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{highlight(concept)}</div>
-                      <div style={{ display:'flex', gap:8, marginTop:10 }}>
-                        {(t.theory?.micro_hints||[]).length > 0 && <span style={{ fontSize:11, background:'rgba(99,102,241,0.08)', color:'#4338ca', padding:'2px 8px', borderRadius:99, fontWeight:600 }}>💡 {t.theory.micro_hints.length}</span>}
-                        {(t.tasks||[]).length > 0 && <span style={{ fontSize:11, background:'rgba(15,23,42,0.06)', color:THEME.textLight, padding:'2px 8px', borderRadius:99, fontWeight:600 }}>🏋️ {t.tasks.length}</span>}
+                      <div style={{ display:'flex', gap:8, marginTop:10, flexWrap:'wrap' }}>
+                        {(t.theory?.micro_hints||[]).length > 0 && <span title={`${t.theory.micro_hints.length} микро-подсказок в теории`} style={{ fontSize:11, background:'rgba(99,102,241,0.08)', color:'#4338ca', padding:'2px 10px', borderRadius:99, fontWeight:600 }}>💡 {t.theory.micro_hints.length} подсказ.</span>}
+                        {(t.tasks||[]).length > 0 && <span title={`${t.tasks.length} задач для практики`} style={{ fontSize:11, background:'rgba(15,23,42,0.06)', color:THEME.textLight, padding:'2px 10px', borderRadius:99, fontWeight:600 }}>🏋️ {t.tasks.length} задач</span>}
                       </div>
                     </div>
                   );

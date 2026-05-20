@@ -3,7 +3,7 @@ import React from "react";
 const ITEMS = [
   { id: "dashboard", icon: "🏠", label: "Главная" },
   { id: "plan",      icon: "🗺️", label: "План" },
-  { id: "daily",     icon: "📝", label: "Дневник" },
+  { id: "daily",     icon: "📝", label: "Ежедневные задачи" },
   { id: "theory",    icon: "📖", label: "Теория" },
   { id: "profile",   icon: "👤", label: "Профиль" },
 ];
