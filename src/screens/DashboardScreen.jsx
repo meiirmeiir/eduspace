@@ -4,7 +4,6 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "../firestore-rest.js";
 import { compressImage } from "../lib/mathUtils.js";
 import { getAlmatyDateStr } from "../lib/srsUtils.js";
-import DailyLockModal from "../components/DailyLockModal.jsx";
 import { tgPhoto, THEME, STUDENT_STATUSES, DAY_NAMES_SHORT } from "../lib/appConstants.js";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
@@ -13,7 +12,7 @@ import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
 
-export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser }) {
+export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, hasDueToday:false, completedToday:false }, onOpenDailyLockModal }) {
   const { startTourIfNew, showNpcMessage } = useNpc();
   const { profile } = useAuth();
   /* If App passes activeSection/setActiveSection — use them (allows
@@ -52,8 +51,6 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const [viewingSubmissions,setViewingSubmissions]=useState(null); // hwId for teacher view
   const [feedbacks,setFeedbacks]=useState({}); // submissionId → {text,grade}
   const [progressData,setProgressData]=useState(null); // {topics:{}, skills:{}}
-  const [masteryStatus,setMasteryStatus]=useState({ hasMastered:false, hasDueToday:false, completedToday:false });
-  const [lockModalOpen,setLockModalOpen]=useState(false);
   const [zoomLessons,setZoomLessons]=useState([]);
   const [newLessonCreating,setNewLessonCreating]=useState(false);
   const [newLessonError,setNewLessonError]=useState('');
@@ -84,22 +81,13 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
       setZoomLessons(_isAdmin?allZL:allZL.filter(l=>l.studentId===uid));
       if(!_isTeacher){
         try{
-          const [upSnap,spSnap,smSnap]=await Promise.all([
+          const [upSnap,spSnap]=await Promise.all([
             getDoc(doc(db,"userProgress",uid)),
             getDoc(doc(db,"skillProgress",uid)),
-            getDoc(doc(db,"skillMastery",uid)),
           ]);
           const topics=upSnap.exists()?(upSnap.data().topics||{}):{};
           const skills=spSnap.exists()?(spSnap.data().skills||{}):{};
           setProgressData({topics,skills});
-          // Compute daily-tasks status flags
-          const mastery=smSnap.exists()?(smSnap.data().skills||{}):{};
-          const today=getAlmatyDateStr(0);
-          const mastered=Object.values(mastery).filter(ms=>ms?.stagesCompleted===3);
-          const hasMastered=mastered.length>0;
-          const hasDueToday=mastered.some(ms=>ms?.next_review_date&&ms.next_review_date<=today);
-          const completedToday=hasMastered&&!hasDueToday&&mastered.some(ms=>ms?.lastReviewedAt===today);
-          setMasteryStatus({hasMastered,hasDueToday,completedToday});
         }catch(_){}
       }
     }catch(e){console.error(e);setDataError(true);}
@@ -284,8 +272,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     if(id==="theory"){onOpenTheory?.();return;}
     if(id==="daily"){
       // Если у ученика ещё нет ни одного освоенного навыка — показываем
-      // модальное окно с прогресс-шагами вместо перехода.
-      if(!masteryStatus.hasMastered){setLockModalOpen(true);return;}
+      // модальное окно с прогресс-шагами вместо перехода. Модалка живёт
+      // на уровне App.jsx, поэтому работает и из bottom-nav на других экранах.
+      if(!masteryStatus.hasMastered){onOpenDailyLockModal?.();return;}
       onOpenDaily?.();return;
     }
     if(id==="faq"){onOpenFaq?.();return;}
@@ -700,15 +689,6 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
           <div style={{display:"flex",gap:12}}><button type="button" className="cta-button" style={{background:"#fff",border:`1px solid ${THEME.border}`,color:THEME.text}} onClick={()=>{setShowHwForm(false);setHwImageFiles([]);setHwImagePreviews([]);}} disabled={hwSaving}>Отмена</button><button type="submit" className="cta-button active" disabled={hwSaving}>{hwSaving?"Загружаю...":"Добавить"}</button></div>
         </form>
       </div></div>}
-
-      <DailyLockModal
-        open={lockModalOpen}
-        onClose={()=>setLockModalOpen(false)}
-        smartDiagDone={!!user?.smartDiagDone}
-        onStartDiagnostic={()=>{setLockModalOpen(false);onOpenDiagnostics?.();}}
-        onViewPlan={()=>{setLockModalOpen(false);onViewPlan?.();}}
-        onOpenFaq={(key)=>{setLockModalOpen(false);onOpenFaq?.(key);}}
-      />
     </div>
   );
 }

@@ -34,6 +34,8 @@ import BossFightScreen from "./screens/BossFightScreen.jsx";
 import TheoryBrowseScreen from "./screens/TheoryBrowseScreen.jsx";
 import DailyTasksScreen from "./screens/DailyTasksScreen.jsx";
 import FaqScreen from "./screens/FaqScreen.jsx";
+import DailyLockModal from "./components/DailyLockModal.jsx";
+import { getAlmatyDateStr } from "./lib/srsUtils.js";
 import IndividualPlanScreen from "./screens/IndividualPlanScreen.jsx";
 import SmartDiagRunner from "./components/SmartDiagRunner.jsx";
 import SkillMasteryScreen from "./screens/SkillMasteryScreen.jsx";
@@ -314,8 +316,35 @@ export default function App() {
   const [masterySkillId,setMasterySkillId]=useState(null);
   const [masterySkillName,setMasterySkillName]=useState('');
   const [faqInitial,setFaqInitial]=useState(null);
+  // Статус "ежедневных задач" — единый источник правды для бейджей в сайдбаре,
+  // мобильного bottom-nav и lock-модалки (которая теперь рендерится здесь
+  // и потому доступна на любом экране — например, при тапе Daily из Theory).
+  const [masteryStatus,setMasteryStatus]=useState({ hasMastered:false, hasDueToday:false, completedToday:false });
+  const [lockModalOpen,setLockModalOpen]=useState(false);
 
   const openFaq=(key)=>{setFaqInitial(key||null);navigate("faq");};
+
+  // Один раз при логине читаем skillMastery и считаем три флага: есть ли
+  // вообще освоенный навык, есть ли задачи на сегодня, и закрыты ли они.
+  useEffect(()=>{
+    const uid=firebaseUser?.uid; if(!uid){setMasteryStatus({ hasMastered:false, hasDueToday:false, completedToday:false });return;}
+    getDoc(doc(db,"skillMastery",uid)).then(snap=>{
+      const mastery=snap.exists()?(snap.data().skills||{}):{};
+      const today=getAlmatyDateStr(0);
+      const mastered=Object.values(mastery).filter(ms=>ms?.stagesCompleted===3);
+      const hasMastered=mastered.length>0;
+      const hasDueToday=mastered.some(ms=>ms?.next_review_date&&ms.next_review_date<=today);
+      const completedToday=hasMastered&&!hasDueToday&&mastered.some(ms=>ms?.lastReviewedAt===today);
+      setMasteryStatus({hasMastered,hasDueToday,completedToday});
+    }).catch(()=>{});
+  },[firebaseUser?.uid]);
+
+  // Попытка открыть Daily — если ни одного освоенного навыка нет, открываем
+  // lock-модалку (то же поведение, что у sidebar в DashboardScreen).
+  const tryOpenDaily=React.useCallback(()=>{
+    if(!masteryStatus.hasMastered){setLockModalOpen(true);return;}
+    navigate("daily");
+  },[masteryStatus.hasMastered]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── URL / History routing ─────────────────────────────────────────────────
   // Собственный стек навигации (не зависим от browser history stack)
@@ -870,7 +899,7 @@ export default function App() {
 
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);setProfile(p=>p?{...p,onboardingDone:true}:p);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
-      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={()=>navigate("daily")} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser}/>}
+      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={tryOpenDaily} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser} masteryStatus={masteryStatus} onOpenDailyLockModal={()=>setLockModalOpen(true)}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
       {screen==="admin"&&<AdminScreen onBack={()=>goBack()} firebaseUser={firebaseUser}/>}
       {screen==="diagnostics"&&(
@@ -920,7 +949,7 @@ export default function App() {
             if(id==="profile"){ navigateDashSection("profile"); if(screen!=="dashboard") navigate("dashboard"); return; }
             if(id==="dashboard"){ navigateDashSection("home"); if(screen!=="dashboard") navigate("dashboard"); return; }
             if(id==="plan"){ viewPlan(); return; }
-            if(id==="daily"){ navigate("daily"); return; }
+            if(id==="daily"){ tryOpenDaily(); return; }
             if(id==="theory"){ navigate("theory"); return; }
           }}
         />
@@ -943,6 +972,14 @@ export default function App() {
         }}
       />
       <NpcGuide />
+      <DailyLockModal
+        open={lockModalOpen}
+        onClose={()=>setLockModalOpen(false)}
+        smartDiagDone={!!user?.smartDiagDone}
+        onStartDiagnostic={()=>{setLockModalOpen(false);openDiagnostics();}}
+        onViewPlan={()=>{setLockModalOpen(false);viewPlan();}}
+        onOpenFaq={(key)=>{setLockModalOpen(false);openFaq(key);}}
+      />
     </>
   );
 }
