@@ -16,18 +16,6 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
   const [step, setStep] = useState(0);
   const [countdown, setCountdown] = useState(null);
 
-  // Notebook animation frames
-  const frames = [
-    { label:"Запиши условие", icon:"📋", lines:["2x + 5 = 11","","",""] },
-    { label:"Покажи шаги решения", icon:"✏️", lines:["2x + 5 = 11","2x = 11 − 5","2x = 6",""] },
-    { label:"Запиши ответ", icon:"✅", lines:["2x + 5 = 11","2x = 6","x = 3","Ответ: x = 3"] },
-  ];
-  const [frame, setFrame] = useState(0);
-  useEffect(()=>{
-    const t = setInterval(()=>setFrame(f=>(f+1)%frames.length), 1600);
-    return ()=>clearInterval(t);
-  },[]);
-
   const startCountdown = () => {
     setCountdown(3);
   };
@@ -39,20 +27,17 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
   },[countdown]);
 
   const rules = [
-    { icon:"🚫", title:"Не отвлекайся", desc:"Таймер идёт с первого вопроса. Закрой другие вкладки и убери телефон." },
-    { icon:"📝", title:"Пиши всё в черновик", desc:"Каждое действие — на бумаге, пошагово. Это помогает найти ошибку и оценить ход мысли." },
-    { icon:"🔢", title:"Показывай ход решения", desc:"Не пиши только ответ. Запиши условие → шаги → ответ, как показано в примере." },
-    { icon:"⏱️", title:"Следи за временем", desc:"Если задание кажется слишком сложным — пропустить нельзя, дай лучший ответ." },
-    { icon:"📷", title:"Сфотографируй черновик", desc:"После диагностики тебя попросят прикрепить фото черновика — преподаватель проверит ход решения." },
+    { icon:"🚫", title:"Не отвлекайся",       desc:"Таймер идёт с первого вопроса. Закрой другие вкладки." },
+    { icon:"🎯", title:"Отвечай честно",      desc:"Не гугли — чем точнее результат, тем лучше твой план обучения." },
+    { icon:"⏱️", title:"Следи за временем",   desc:"Если задание кажется сложным — выбери лучший вариант и иди дальше." },
+    { icon:"🔀", title:"Адаптивные разделы",  desc:"Диагностика состоит из нескольких разделов. Следующий раздел зависит от твоих ответов — система подбирает задания под твой уровень." },
+    { icon:"📊", title:"Персональный план",   desc:"После полного прохождения всех разделов диагностики получишь индивидуальный план — система сама определит какие навыки нужно подтянуть именно тебе." },
   ];
-
-  const cur = frames[frame];
 
   return (
     <div style={{minHeight:"100vh",background:THEME.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 20px"}}>
       <style>{`
         @keyframes fadeSlide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes writeLine{from{width:0}to{width:100%}}
         @keyframes countPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
         .rules-card{background:#fff;border-radius:20px;border:1px solid ${THEME.border};box-shadow:0 20px 50px -10px rgba(10,25,47,0.08);max-width:760px;width:100%;overflow:hidden;}
         .rules-header{background:${THEME.primary};padding:32px 40px;color:#fff;}
@@ -60,9 +45,6 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
         .rule-row{display:flex;gap:16px;align-items:flex-start;padding:16px 0;border-bottom:1px solid ${THEME.border};}
         .rule-row:last-child{border-bottom:none;}
         .rule-icon{font-size:22px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:${THEME.bg};border-radius:12px;flex-shrink:0;}
-        .notebook{background:#fffdf0;border:2px solid #e8dfa0;border-radius:12px;padding:20px 24px;width:220px;font-family:monospace;flex-shrink:0;}
-        .nb-line{height:24px;border-bottom:1px solid #e0d9a0;display:flex;align-items:center;font-size:13px;color:${THEME.primary};overflow:hidden;position:relative;}
-        .nb-writing{animation:writeLine 0.6s ease forwards;}
         .countdown-circle{width:100px;height:100px;border-radius:50%;background:${THEME.primary};color:${THEME.accent};display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:44px;font-weight:800;animation:countPulse 0.8s ease infinite;margin:0 auto 16px;}
       `}</style>
 
@@ -70,58 +52,30 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
         <div style={{textAlign:"center",animation:"fadeSlide 0.3s ease"}}>
           <div className="countdown-circle">{countdown}</div>
           <div style={{fontFamily:"'Montserrat',sans-serif",fontSize:20,fontWeight:700,color:THEME.primary}}>Приготовься!</div>
-          <div style={{color:THEME.textLight,marginTop:8}}>Достань черновик и ручку</div>
         </div>
       ) : (
         <div className="rules-card rules-hero-card">
           <div className="rules-header">
-            <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:16}}>
               <div style={{fontSize:32}}>📋</div>
               <div>
                 <div style={{fontFamily:"'Montserrat',sans-serif",fontSize:22,fontWeight:800}}>Правила диагностики</div>
                 <div style={{opacity:0.7,fontSize:14,marginTop:4}}>{sectionName||"Общая диагностика"} · {questionCount} вопрос{questionCount===1?"":"ов"}</div>
               </div>
             </div>
-            <div style={{background:"rgba(212,175,55,0.15)",border:"1px solid rgba(212,175,55,0.4)",borderRadius:10,padding:"10px 16px",fontSize:14,color:"#fde68a",display:"flex",gap:10,alignItems:"center"}}>
-              <span>⚠️</span>
-              <span>Таймер запустится автоматически. Убедись, что у тебя есть черновик и ручка.</span>
-            </div>
           </div>
 
           <div className="rules-body">
-            <div className="rules-layout" style={{display:"flex",gap:32,alignItems:"flex-start",marginBottom:32}}>
-              {/* Rules list */}
-              <div className="rules-list" style={{flex:1}}>
-                {rules.map((r,i)=>(
-                  <div key={i} className="rule-row" style={{animation:`fadeSlide 0.4s ease ${i*0.07}s both`}}>
-                    <div className="rule-icon">{r.icon}</div>
-                    <div>
-                      <div style={{fontWeight:700,color:THEME.primary,marginBottom:3}}>{r.title}</div>
-                      <div style={{fontSize:13,color:THEME.textLight,lineHeight:1.5}}>{r.desc}</div>
-                    </div>
+            <div className="rules-list" style={{marginBottom:32}}>
+              {rules.map((r,i)=>(
+                <div key={i} className="rule-row" style={{animation:`fadeSlide 0.4s ease ${i*0.07}s both`}}>
+                  <div className="rule-icon">{r.icon}</div>
+                  <div>
+                    <div style={{fontWeight:700,color:THEME.primary,marginBottom:3}}>{r.title}</div>
+                    <div style={{fontSize:13,color:THEME.textLight,lineHeight:1.5}}>{r.desc}</div>
                   </div>
-                ))}
-              </div>
-
-              {/* Notebook animation */}
-              <div className="how-to-write-card" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
-                <div style={{fontSize:12,fontWeight:700,color:THEME.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Как писать в черновик</div>
-                <div className="notebook equation-block">
-                  <div style={{fontSize:11,fontWeight:700,color:"#a89030",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
-                    <span>{cur.icon}</span><span>{cur.label}</span>
-                  </div>
-                  {cur.lines.map((ln,i)=>(
-                    <div key={`${frame}-${i}`} className="nb-line">
-                      {ln && <span style={{display:"inline-block",overflow:"hidden",whiteSpace:"nowrap",animation:`writeLine ${0.4+i*0.2}s ease forwards`}}>{ln}</span>}
-                    </div>
-                  ))}
                 </div>
-                <div style={{display:"flex",gap:6,marginTop:4}}>
-                  {frames.map((_,i)=>(
-                    <div key={i} style={{width:8,height:8,borderRadius:"50%",background:i===frame?THEME.primary:THEME.border,transition:"background 0.3s"}}/>
-                  ))}
-                </div>
-              </div>
+              ))}
             </div>
 
             <div className="buttons-row" style={{display:"flex",gap:12}}>
