@@ -33,6 +33,7 @@ import IntermediateTestsScreen from "./screens/IntermediateTestsScreen.jsx";
 import BossFightScreen from "./screens/BossFightScreen.jsx";
 import TheoryBrowseScreen from "./screens/TheoryBrowseScreen.jsx";
 import DailyTasksScreen from "./screens/DailyTasksScreen.jsx";
+import FaqScreen from "./screens/FaqScreen.jsx";
 import IndividualPlanScreen from "./screens/IndividualPlanScreen.jsx";
 import SmartDiagRunner from "./components/SmartDiagRunner.jsx";
 import SkillMasteryScreen from "./screens/SkillMasteryScreen.jsx";
@@ -166,7 +167,7 @@ export default function App() {
     const hash=window.location.hash.slice(1);
     if(hash){
       // экраны, требующие авторизации
-      const authRequired=["dashboard","plan","practice","admin","diagnostics","theory","daily","intermediate_tests","mastery","boss_fight","report","report_view","smart_diag","quiz_rules","question","upload","roadmap","onboarding"];
+      const authRequired=["dashboard","plan","practice","admin","diagnostics","theory","daily","intermediate_tests","mastery","boss_fight","report","report_view","smart_diag","quiz_rules","question","upload","roadmap","onboarding","faq"];
       try{
         const raw=localStorage.getItem("aapa_user");
         const hasUser=!!raw;
@@ -312,6 +313,9 @@ export default function App() {
   const [theorySkillId,setTheorySkillId]=useState(null);
   const [masterySkillId,setMasterySkillId]=useState(null);
   const [masterySkillName,setMasterySkillName]=useState('');
+  const [faqInitial,setFaqInitial]=useState(null);
+
+  const openFaq=(key)=>{setFaqInitial(key||null);navigate("faq");};
 
   // ── URL / History routing ─────────────────────────────────────────────────
   // Собственный стек навигации (не зависим от browser history stack)
@@ -749,6 +753,10 @@ export default function App() {
         .sidebar-nav-item:hover{background:rgba(255,255,255,0.09);color:#fff;}
         .sidebar-nav-item.active{background:rgba(212,175,55,0.18);color:${THEME.accent};font-weight:700;}
         .nav-icon{font-size:18px;flex-shrink:0;}
+        .nav-badge{flex-shrink:0;font-size:12px;line-height:1;display:inline-flex;align-items:center;justify-content:center;}
+        .nav-badge-lock{opacity:0.85;}
+        .nav-badge-done{}
+        .nav-badge-due{width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,0.25);}
         .sidebar-user{padding:20px 24px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:12px;}
         .sidebar-user-avatar{width:38px;height:38px;border-radius:50%;background:rgba(212,175,55,0.2);color:${THEME.accent};display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;font-size:14px;flex-shrink:0;}
         .sidebar-user-name{color:#fff;font-weight:600;font-size:13px;}
@@ -862,7 +870,7 @@ export default function App() {
 
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);setProfile(p=>p?{...p,onboardingDone:true}:p);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
-      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={()=>navigate("daily")} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onUpdateUser={handleUpdateUser}/>}
+      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={()=>navigate("daily")} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
       {screen==="admin"&&<AdminScreen onBack={()=>goBack()} firebaseUser={firebaseUser}/>}
       {screen==="diagnostics"&&(
@@ -899,7 +907,8 @@ export default function App() {
       {screen==="plan"&&<IndividualPlanScreen user={user} onBack={()=>goBack()} onStartTraining={(skillId,skillName)=>{setMasterySkillId(skillId);setMasterySkillName(skillName||skillId);navigate("mastery");}}/>}
       {screen==="mastery"&&masterySkillId&&<SkillMasteryScreen user={user} skillId={masterySkillId} skillName={masterySkillName} onBack={()=>{setMasterySkillId(null);setMasterySkillName('');goBack("plan");}}/>}
       {screen==="theory"&&<TheoryBrowseScreen user={user} onBack={()=>{setTheorySkillId(null);goBack();}} initialSkillId={theorySkillId}/>}
-      {screen==="daily"&&<DailyTasksScreen user={user} onBack={()=>goBack()}/>}
+      {screen==="daily"&&<DailyTasksScreen user={user} onBack={()=>goBack()} onOpenDiagnostics={openDiagnostics} onViewPlan={viewPlan} onOpenFaq={openFaq}/>}
+      {screen==="faq"&&<FaqScreen initialQuestion={faqInitial} onBack={()=>goBack()}/>}
       {screen==="intermediate_tests"&&<IntermediateTestsScreen user={user} onStartBoss={sec=>{setBossSection(sec);navigate("boss_fight");}} onBack={()=>goBack()}/>}
       {screen==="boss_fight"&&bossSection&&<BossFightScreen section={bossSection} user={user} onBack={()=>goBack("intermediate_tests")}/>}
       {/* Bottom-nav: only on screens where the user is browsing,

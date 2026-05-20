@@ -8,10 +8,12 @@ import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
 import { useNpc } from "../NpcContext.jsx";
 
-export default function DailyTasksScreen({ user, onBack }) {
+export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onViewPlan, onOpenFaq }) {
   const { showNpcMessage } = useNpc();
   const BG = '#f8fafc';
   const [phase,    setPhase]    = useState('loading'); // loading|playing|done|empty
+  const [emptyReason, setEmptyReason] = useState(null); // 'no-diag'|'no-mastered'|'wait-until'|null
+  const [nextReviewDate, setNextReviewDate] = useState(null); // YYYY-MM-DD when wait-until
   const [queue,    setQueue]    = useState([]);  // [{skillId, skillName, reviewStage, task}]
   const [qIdx,     setQIdx]     = useState(0);
   const [skillLives, setSkillLives] = useState({}); // lives per skill: { [skillId]: number }
@@ -29,6 +31,8 @@ export default function DailyTasksScreen({ user, onBack }) {
   useEffect(() => {
     const load = async () => {
       if (!user?.phone) { setPhase('empty'); return; }
+      // 1) Диагностика ещё не пройдена — самое начало пути.
+      if (!user?.smartDiagDone) { setEmptyReason('no-diag'); setPhase('empty'); return; }
       try {
         const today = getAlmatyDateStr(0);
         const [masterySnap, shSnap] = await Promise.race([
@@ -38,13 +42,25 @@ export default function DailyTasksScreen({ user, onBack }) {
           ]),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
         ]);
-        if (!masterySnap.exists()) { setPhase('empty'); return; }
-        const masteryData = masterySnap.data()?.skills || {};
+        const masteryData = masterySnap.exists() ? (masterySnap.data()?.skills || {}) : {};
+        const masteredEntries = Object.entries(masteryData).filter(([, ms]) => ms?.stagesCompleted === 3);
+
+        // 2) Нет ни одного освоенного навыка (3-й этап ни у кого не пройден).
+        if (masteredEntries.length === 0) { setEmptyReason('no-mastered'); setPhase('empty'); return; }
 
         // Skills due for review today (all due skills, no hard cap)
-        const dueEntries = Object.entries(masteryData)
-          .filter(([, ms]) => ms.stagesCompleted === 3 && ms.next_review_date && ms.next_review_date <= today);
-        if (dueEntries.length === 0) { setPhase('empty'); return; }
+        const dueEntries = masteredEntries
+          .filter(([, ms]) => ms.next_review_date && ms.next_review_date <= today);
+        if (dueEntries.length === 0) {
+          // 3) Есть освоенные, но все next_review_date > today → ждём ближайшую дату.
+          const upcoming = masteredEntries
+            .map(([, ms]) => ms.next_review_date)
+            .filter(Boolean)
+            .sort();
+          if (upcoming.length) { setNextReviewDate(upcoming[0]); setEmptyReason('wait-until'); }
+          else                 { setEmptyReason(null); }
+          setPhase('empty'); return;
+        }
         // Distribute limit evenly: tasksPerSkill = limit / skillCount (min 1)
         const limit = user?.dailyTasksLimit || 10;
         const tasksPerSkill = Math.max(1, Math.floor(limit / dueEntries.length));
@@ -150,20 +166,121 @@ export default function DailyTasksScreen({ user, onBack }) {
     }
   };
 
-  // ── EMPTY ──
-  if (phase === 'empty') return (
-    <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
-      <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
-      <div style={{ maxWidth:480, margin:'80px auto', padding:'0 24px', textAlign:'center' }}>
-        <div style={{ fontSize:56, marginBottom:16 }}>🌙</div>
-        <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary, marginBottom:12 }}>Разминка не нужна</h2>
-        <p style={{ fontFamily:"'Inter',sans-serif", fontSize:15, color:THEME.textLight, lineHeight:1.7 }}>
-          На сегодня нет навыков для повторения. Освой навыки в Индивидуальном плане — они появятся здесь через день после завершения.
-        </p>
-        <button onClick={onBack} style={{ marginTop:28, background:'#6366f1', color:'#fff', border:'none', borderRadius:10, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>Перейти к плану</button>
+  // ── EMPTY ── (4 варианта в зависимости от reason)
+  if (phase === 'empty') {
+    const Btn = ({ onClick, label, primary = true }) => (
+      <button
+        onClick={onClick}
+        style={{
+          marginTop: 28,
+          background: primary ? '#6366f1' : 'transparent',
+          color: primary ? '#fff' : THEME.textLight,
+          border: primary ? 'none' : `1px solid ${THEME.border}`,
+          borderRadius: 10, padding: '12px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+        }}
+      >{label}</button>
+    );
+
+    // 1) Диагностика не пройдена
+    if (emptyReason === 'no-diag') return (
+      <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
+        <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
+        <div style={{ maxWidth:520, margin:'80px auto', padding:'0 24px', textAlign:'center' }}>
+          <div style={{ fontSize:56, marginBottom:16 }}>🎯</div>
+          <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary, marginBottom:12 }}>Сначала пройди диагностику</h2>
+          <p style={{ fontFamily:"'Inter',sans-serif", fontSize:15, color:THEME.textLight, lineHeight:1.7 }}>
+            Ежедневные задачи строятся вокруг твоих освоенных навыков. Чтобы понять, с чего начать, пройди диагностику — это 15–20 минут.
+          </p>
+          <Btn onClick={()=>onOpenDiagnostics?.()} label="Начать диагностику →" />
+        </div>
       </div>
-    </div>
-  );
+    );
+
+    // 2) Нет освоенных навыков — показываем прогресс-шаги
+    if (emptyReason === 'no-mastered') {
+      const steps = [
+        { done: true,  title: 'Диагностика пройдена',     desc: 'План обучения построен.' },
+        { done: false, title: 'Освой первый навык',        desc: 'Три этапа: теория и задачи A → B → C.', hasHelp: true },
+        { done: false, title: 'Получи ежедневные задачи',  desc: 'На следующий день после освоения навыка задачи появятся здесь.' },
+      ];
+      return (
+        <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
+          <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
+          <div style={{ maxWidth:520, margin:'48px auto', padding:'0 24px', textAlign:'center' }}>
+            <div style={{ fontSize:56, marginBottom:12 }}>🎓</div>
+            <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary, marginBottom:8 }}>Освой первый навык</h2>
+            <p style={{ fontFamily:"'Inter',sans-serif", fontSize:14, color:THEME.textLight, lineHeight:1.6, marginBottom:24 }}>
+              Ежедневные задачи откроются, как только в плане появится первый освоенный навык.
+            </p>
+            <div style={{ display:'flex', flexDirection:'column', gap:12, textAlign:'left', maxWidth:420, margin:'0 auto' }}>
+              {steps.map((s, i) => (
+                <div key={i} style={{ display:'flex', gap:12, alignItems:'flex-start', background:'#fff', border:`1px solid ${THEME.border}`, borderRadius:12, padding:'12px 14px' }}>
+                  <div style={{
+                    flexShrink:0, width:26, height:26, borderRadius:'50%',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    background: s.done ? '#10b981' : 'transparent',
+                    border: s.done ? '2px solid #10b981' : `2px solid ${THEME.border}`,
+                    color: s.done ? '#fff' : THEME.textLight,
+                    fontSize:12, fontWeight:700,
+                  }}>{s.done ? '✓' : (i + 1)}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:14, color: s.done ? THEME.textLight : THEME.primary, textDecoration: s.done ? 'line-through' : 'none' }}>{s.title}</div>
+                      {s.hasHelp && (
+                        <button onClick={()=>onOpenFaq?.('skillMastery')} title="Подробнее в FAQ" aria-label="Подробнее в FAQ"
+                          style={{ width:20, height:20, borderRadius:'50%', border:`1px solid ${THEME.border}`, background:'transparent', color:THEME.textLight, fontSize:11, fontWeight:700, cursor:'pointer', lineHeight:1, padding:0 }}
+                        >?</button>
+                      )}
+                    </div>
+                    <div style={{ fontSize:13, color:THEME.textLight, marginTop:2 }}>{s.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Btn onClick={()=>onViewPlan?.()} label="🗺️ Перейти к плану" />
+          </div>
+        </div>
+      );
+    }
+
+    // 3) Все освоенные навыки повторены — ждём следующую дату
+    if (emptyReason === 'wait-until') {
+      const fmt = (ymd) => {
+        try {
+          const [y,m,d] = ymd.split('-').map(Number);
+          return new Date(y, m-1, d).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+        } catch { return ymd; }
+      };
+      return (
+        <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
+          <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
+          <div style={{ maxWidth:520, margin:'80px auto', padding:'0 24px', textAlign:'center' }}>
+            <div style={{ fontSize:56, marginBottom:16 }}>📅</div>
+            <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary, marginBottom:8 }}>Всё повторено!</h2>
+            <p style={{ fontFamily:"'Inter',sans-serif", fontSize:15, color:THEME.textLight, lineHeight:1.7 }}>
+              Следующая разминка — <b style={{ color:THEME.primary }}>{nextReviewDate ? fmt(nextReviewDate) : '—'}</b>. А пока можно освоить ещё пару навыков из плана.
+            </p>
+            <Btn onClick={()=>onViewPlan?.()} label="🗺️ Освоить ещё навыки" />
+          </div>
+        </div>
+      );
+    }
+
+    // 4) Fallback — что-то пошло не так / нет данных / пользователь без uid
+    return (
+      <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
+        <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
+        <div style={{ maxWidth:480, margin:'80px auto', padding:'0 24px', textAlign:'center' }}>
+          <div style={{ fontSize:56, marginBottom:16 }}>🌙</div>
+          <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary, marginBottom:12 }}>Разминка не нужна</h2>
+          <p style={{ fontFamily:"'Inter',sans-serif", fontSize:15, color:THEME.textLight, lineHeight:1.7 }}>
+            На сегодня нет навыков для повторения. Освой навыки в Индивидуальном плане — они появятся здесь через день после завершения.
+          </p>
+          <Btn onClick={()=>onViewPlan?.()} label="Перейти к плану" />
+        </div>
+      </div>
+    );
+  }
 
   // ── LOADING ──
   if (phase === 'loading') return (

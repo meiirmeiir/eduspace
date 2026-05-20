@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "../firestore-rest.js";
 import { compressImage } from "../lib/mathUtils.js";
 import { getAlmatyDateStr } from "../lib/srsUtils.js";
+import DailyLockModal from "../components/DailyLockModal.jsx";
 import { tgPhoto, THEME, STUDENT_STATUSES, DAY_NAMES_SHORT } from "../lib/appConstants.js";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
@@ -12,7 +13,7 @@ import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
 
-export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onUpdateUser }) {
+export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser }) {
   const { startTourIfNew, showNpcMessage } = useNpc();
   const { profile } = useAuth();
   /* If App passes activeSection/setActiveSection — use them (allows
@@ -51,6 +52,8 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const [viewingSubmissions,setViewingSubmissions]=useState(null); // hwId for teacher view
   const [feedbacks,setFeedbacks]=useState({}); // submissionId → {text,grade}
   const [progressData,setProgressData]=useState(null); // {topics:{}, skills:{}}
+  const [masteryStatus,setMasteryStatus]=useState({ hasMastered:false, hasDueToday:false, completedToday:false });
+  const [lockModalOpen,setLockModalOpen]=useState(false);
   const [zoomLessons,setZoomLessons]=useState([]);
   const [newLessonCreating,setNewLessonCreating]=useState(false);
   const [newLessonError,setNewLessonError]=useState('');
@@ -81,13 +84,22 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
       setZoomLessons(_isAdmin?allZL:allZL.filter(l=>l.studentId===uid));
       if(!_isTeacher){
         try{
-          const [upSnap,spSnap]=await Promise.all([
+          const [upSnap,spSnap,smSnap]=await Promise.all([
             getDoc(doc(db,"userProgress",uid)),
             getDoc(doc(db,"skillProgress",uid)),
+            getDoc(doc(db,"skillMastery",uid)),
           ]);
           const topics=upSnap.exists()?(upSnap.data().topics||{}):{};
           const skills=spSnap.exists()?(spSnap.data().skills||{}):{};
           setProgressData({topics,skills});
+          // Compute daily-tasks status flags
+          const mastery=smSnap.exists()?(smSnap.data().skills||{}):{};
+          const today=getAlmatyDateStr(0);
+          const mastered=Object.values(mastery).filter(ms=>ms?.stagesCompleted===3);
+          const hasMastered=mastered.length>0;
+          const hasDueToday=mastered.some(ms=>ms?.next_review_date&&ms.next_review_date<=today);
+          const completedToday=hasMastered&&!hasDueToday&&mastered.some(ms=>ms?.lastReviewedAt===today);
+          setMasteryStatus({hasMastered,hasDueToday,completedToday});
         }catch(_){}
       }
     }catch(e){console.error(e);setDataError(true);}
@@ -248,6 +260,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const navItems=isInactive?[
     {id:"plan",icon:"🗺️",label:"Индивидуальный план обучения"},
     {id:"profile",icon:"👤",label:"Личный кабинет ученика"},
+    {id:"faq",icon:"❓",label:"Частые вопросы"},
     ...(isAdmin?[{id:"admin",icon:"⚙️",label:"Администрирование"}]:[]),
   ]:[
     {id:"home",icon:"🏠",label:"Главная"},
@@ -258,6 +271,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     {id:"theory",icon:"📖",label:"Теория"},
     {id:"daily",icon:"📝",label:"Ежедневные задачи"},
     {id:"profile",icon:"👤",label:"Личный кабинет ученика"},
+    {id:"faq",icon:"❓",label:"Частые вопросы"},
     ...(isAdmin?[{id:"admin",icon:"⚙️",label:"Администрирование"}]:[]),
   ];
 
@@ -268,7 +282,13 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     if(id==="intermediate"){onOpenIntermediateTests();return;}
     if(id==="plan"){onViewPlan();return;}
     if(id==="theory"){onOpenTheory?.();return;}
-    if(id==="daily"){onOpenDaily?.();return;}
+    if(id==="daily"){
+      // Если у ученика ещё нет ни одного освоенного навыка — показываем
+      // модальное окно с прогресс-шагами вместо перехода.
+      if(!masteryStatus.hasMastered){setLockModalOpen(true);return;}
+      onOpenDaily?.();return;
+    }
+    if(id==="faq"){onOpenFaq?.();return;}
     if(id==="admin"){onOpenAdmin();return;}
     setActiveSection(id);
   };
@@ -283,6 +303,14 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
           {navItems.map(item=>{
             // Items also present in the mobile bottom-nav — hide here on mobile to avoid duplication.
             const inBottomNav = ["home","plan","daily","theory","profile"].includes(item.id);
+            // Badge для пункта "Ежедневные задачи":
+            // 🔒 — нет освоенных навыков; 🔴 — есть задачи на сегодня; ✅ — задачи закрыты сегодня.
+            let badge = null;
+            if (item.id === "daily") {
+              if (!masteryStatus.hasMastered)         badge = <span className="nav-badge nav-badge-lock" aria-label="заблокировано">🔒</span>;
+              else if (masteryStatus.hasDueToday)     badge = <span className="nav-badge nav-badge-due" aria-label="есть задачи"/>;
+              else if (masteryStatus.completedToday)  badge = <span className="nav-badge nav-badge-done" aria-label="выполнено">✅</span>;
+            }
             return (
               <button
                 key={item.id}
@@ -291,7 +319,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                 className={`sidebar-nav-item ${activeSection===item.id?"active":""}`}
                 onClick={()=>handleNav(item.id)}
               >
-                <span className="nav-icon">{item.icon}</span><span>{item.label}</span>
+                <span className="nav-icon">{item.icon}</span>
+                <span style={{flex:1}}>{item.label}</span>
+                {badge}
               </button>
             );
           })}
@@ -670,6 +700,15 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
           <div style={{display:"flex",gap:12}}><button type="button" className="cta-button" style={{background:"#fff",border:`1px solid ${THEME.border}`,color:THEME.text}} onClick={()=>{setShowHwForm(false);setHwImageFiles([]);setHwImagePreviews([]);}} disabled={hwSaving}>Отмена</button><button type="submit" className="cta-button active" disabled={hwSaving}>{hwSaving?"Загружаю...":"Добавить"}</button></div>
         </form>
       </div></div>}
+
+      <DailyLockModal
+        open={lockModalOpen}
+        onClose={()=>setLockModalOpen(false)}
+        smartDiagDone={!!user?.smartDiagDone}
+        onStartDiagnostic={()=>{setLockModalOpen(false);onOpenDiagnostics?.();}}
+        onViewPlan={()=>{setLockModalOpen(false);onViewPlan?.();}}
+        onOpenFaq={(key)=>{setLockModalOpen(false);onOpenFaq?.(key);}}
+      />
     </div>
   );
 }
