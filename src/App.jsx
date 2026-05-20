@@ -887,13 +887,14 @@ export default function App() {
       {screen==="boss_fight"&&bossSection&&<BossFightScreen section={bossSection} user={user} onBack={()=>goBack("intermediate_tests")}/>}
       {/* Bottom-nav: only on screens where the user is browsing,
           not while taking a test or onboarding. */}
-      {["dashboard","diagnostics","theory","daily","plan","practice"].includes(screen) && (
+      {["dashboard","theory","daily","plan","practice","diagnostics"].includes(screen) && (
         <MobileBottomNav
           active={screen==="dashboard" ? (dashSection==="profile" ? "profile" : "dashboard") : screen}
           onNavigate={id=>{
             if(id==="profile"){ navigateDashSection("profile"); if(screen!=="dashboard") navigate("dashboard"); return; }
             if(id==="dashboard"){ navigateDashSection("home"); if(screen!=="dashboard") navigate("dashboard"); return; }
-            if(id==="diagnostics"){ openDiagnostics(); return; }
+            if(id==="plan"){ viewPlan(); return; }
+            if(id==="daily"){ navigate("daily"); return; }
             if(id==="theory"){ navigate("theory"); return; }
           }}
         />

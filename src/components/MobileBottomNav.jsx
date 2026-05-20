@@ -2,9 +2,10 @@ import React from "react";
 
 const ITEMS = [
   { id: "dashboard", icon: "🏠", label: "Главная" },
-  { id: "diagnostics", icon: "🎯", label: "Диагностика" },
-  { id: "theory", icon: "📖", label: "Теория" },
-  { id: "profile", icon: "👤", label: "Профиль" },
+  { id: "plan",      icon: "🗺️", label: "План" },
+  { id: "daily",     icon: "📝", label: "Дневник" },
+  { id: "theory",    icon: "📖", label: "Теория" },
+  { id: "profile",   icon: "👤", label: "Профиль" },
 ];
 
 export default function MobileBottomNav({ active, onNavigate }) {
