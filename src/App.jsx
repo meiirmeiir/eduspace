@@ -977,7 +977,7 @@ export default function App() {
         open={lockModalOpen}
         onClose={()=>setLockModalOpen(false)}
         smartDiagDone={!!user?.smartDiagDone}
-        onStartDiagnostic={()=>{setLockModalOpen(false);openDiagnostics();}}
+        onStartDiagnostic={()=>{setLockModalOpen(false);startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details});}}
         onViewPlan={()=>{setLockModalOpen(false);viewPlan();}}
         onOpenFaq={(key)=>{setLockModalOpen(false);openFaq(key);}}
       />
