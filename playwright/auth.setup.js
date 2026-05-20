@@ -11,9 +11,11 @@ const AUTH_FILE = 'playwright/.auth/session.json';
  * успешного входа после логина.
  */
 async function dashboardVisible(page) {
+  // AuthContext грузит profile с ретраями до 10s — даём окно времени.
   return await page.locator('[data-nav-id="home"], [data-nav-id="dashboard"]')
     .first()
-    .isVisible({ timeout: 5_000 })
+    .waitFor({ state: 'visible', timeout: 15_000 })
+    .then(() => true)
     .catch(() => false);
 }
 
@@ -55,9 +57,10 @@ setup('authenticate', async ({ browser }) => {
   // Дашборд (или экран онбординга для нового аккаунта) должен открыться.
   await expect(page).toHaveURL(/#(dashboard|onboarding)/, { timeout: 20_000 });
 
-  // Сохраняем сессию.
+  // Сохраняем сессию. indexedDB:true критично — Firebase Auth хранит токен
+  // именно в IndexedDB, без этого флага залогиненная сессия не восстановится.
   fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
-  await ctx.storageState({ path: AUTH_FILE });
+  await ctx.storageState({ path: AUTH_FILE, indexedDB: true });
   await ctx.close();
   console.log('[auth.setup] new session saved to', AUTH_FILE);
 });
