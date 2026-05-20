@@ -205,6 +205,9 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
    inset so it sits above the home indicator on iOS. ─────────── */
 .mobile-bottom-nav { display:none; }
 @media (max-width: 768px) {
+  /* Hide sidebar items that already appear in the bottom-nav so
+     the burger menu only shows the secondary destinations. */
+  .sidebar-nav-item[data-bottom-dup="1"] { display:none !important; }
   .mobile-bottom-nav {
     display:grid;
     grid-template-columns:repeat(4, 1fr);

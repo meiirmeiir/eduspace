@@ -11,11 +11,14 @@ import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
 
-export default function DashboardScreen({ user, firebaseUser, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onUpdateUser }) {
+export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onUpdateUser }) {
   const { startTourIfNew } = useNpc();
-  const [activeSection,setActiveSection]=useState(()=>{
-    try { const s = localStorage.getItem("aapa_dashboard_section"); return s || "home"; } catch { return "home"; }
-  });
+  /* If App passes activeSection/setActiveSection — use them (allows
+     external navigation, e.g. mobile bottom-nav). Otherwise fall back
+     to local state for backwards compatibility. */
+  const [localSection,setLocalSection]=useState("home");
+  const activeSection = activeSectionProp !== undefined ? activeSectionProp : localSection;
+  const setActiveSection = setActiveSectionProp || setLocalSection;
   const [schedule,setSchedule]=useState([]);
   const [homework,setHomework]=useState([]);
   const [loadingData,setLoadingData]=useState(true);
@@ -242,7 +245,6 @@ export default function DashboardScreen({ user, firebaseUser, onOpenDiagnostics,
     if(id==="daily"){onOpenDaily?.();return;}
     if(id==="admin"){onOpenAdmin();return;}
     setActiveSection(id);
-    try { localStorage.setItem("aapa_dashboard_section", id); } catch {}
   };
 
   return(
@@ -252,7 +254,19 @@ export default function DashboardScreen({ user, firebaseUser, onOpenDiagnostics,
       <aside className={`dashboard-sidebar ${sidebarOpen?"open":""}`}>
         <div className="sidebar-logo"><Logo size={36} light/></div>
         <nav className="sidebar-nav">
-          {navItems.map(item=><button key={item.id} className={`sidebar-nav-item ${activeSection===item.id?"active":""}`} onClick={()=>handleNav(item.id)}><span className="nav-icon">{item.icon}</span><span>{item.label}</span></button>)}
+          {navItems.map(item=>{
+            const inBottomNav = ["home","diagnostics","theory","profile"].includes(item.id);
+            return (
+              <button
+                key={item.id}
+                data-bottom-dup={inBottomNav ? "1" : undefined}
+                className={`sidebar-nav-item ${activeSection===item.id?"active":""}`}
+                onClick={()=>handleNav(item.id)}
+              >
+                <span className="nav-icon">{item.icon}</span><span>{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
         <div className="sidebar-user">
           {user?.avatarUrl

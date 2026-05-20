@@ -188,6 +188,16 @@ export default function App() {
   const [quizLoading,setQuizLoading]=useState(false);
   const [smartDiagEngineState,setSmartDiagEngineState]=useState(null);
   const [roadmap,setRoadmap]=useState(null);
+  /* Dashboard's current sub-section (home/profile/...) lives here so
+     the bottom-nav can switch it even when we're already on the
+     dashboard screen (which wouldn't otherwise re-mount). */
+  const [dashSection,setDashSection]=useState(()=>{
+    try { return localStorage.getItem("aapa_dashboard_section") || "home"; } catch { return "home"; }
+  });
+  const navigateDashSection=(s)=>{
+    setDashSection(s);
+    try { localStorage.setItem("aapa_dashboard_section", s); } catch {}
+  };
   const savingDiagRef=useRef(false);
 
   // NPC: показываем приветствие при открытии карты модулей, скрываем через 10 сек
@@ -835,7 +845,7 @@ export default function App() {
 
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
-      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={()=>navigate("daily")} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onUpdateUser={handleUpdateUser}/>}
+      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={()=>navigate("daily")} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onUpdateUser={handleUpdateUser}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
       {screen==="admin"&&<AdminScreen onBack={()=>goBack()} firebaseUser={firebaseUser}/>}
       {screen==="diagnostics"&&(
@@ -879,10 +889,10 @@ export default function App() {
           not while taking a test or onboarding. */}
       {["dashboard","diagnostics","theory","daily","plan","practice"].includes(screen) && (
         <MobileBottomNav
-          active={screen==="dashboard" ? ((()=>{try{return localStorage.getItem("aapa_dashboard_section")==="profile"?"profile":"dashboard";}catch{return "dashboard";}})()) : screen}
+          active={screen==="dashboard" ? (dashSection==="profile" ? "profile" : "dashboard") : screen}
           onNavigate={id=>{
-            if(id==="profile"){ try{localStorage.setItem("aapa_dashboard_section","profile");}catch{}; navigate("dashboard"); return; }
-            if(id==="dashboard"){ try{localStorage.setItem("aapa_dashboard_section","home");}catch{}; navigate("dashboard"); return; }
+            if(id==="profile"){ navigateDashSection("profile"); if(screen!=="dashboard") navigate("dashboard"); return; }
+            if(id==="dashboard"){ navigateDashSection("home"); if(screen!=="dashboard") navigate("dashboard"); return; }
             if(id==="diagnostics"){ openDiagnostics(); return; }
             if(id==="theory"){ navigate("theory"); return; }
           }}
