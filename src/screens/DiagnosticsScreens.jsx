@@ -255,10 +255,19 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
         {loading && <div style={{textAlign:"center",padding:60,color:THEME.textLight,fontSize:16}}>Загрузка диагностик...</div>}
         {!loading && fetchError && <ErrorCard onRetry={load}/>}
         {!loading && !fetchError && sections.length===0 && (
-          <div style={{textAlign:"center",padding:80}}>
-            <div style={{fontSize:48,marginBottom:16}}>📭</div>
-            <h3 style={{fontFamily:"'Montserrat',sans-serif",color:THEME.primary,marginBottom:8}}>Диагностик пока нет</h3>
-            <p style={{color:THEME.textLight}}>Преподаватель ещё не добавил разделы для вашей цели ({user?.goal} · {user?.details}).</p>
+          <div style={{textAlign:"center",padding:"48px 24px",background:`linear-gradient(135deg, ${THEME.primary} 0%, #1e3a8a 100%)`,borderRadius:18,border:`1px solid ${THEME.accent}30`,marginTop:8}}>
+            <div style={{fontSize:64,marginBottom:16}}>🚀</div>
+            <h3 style={{fontFamily:"'Montserrat',sans-serif",color:"#fff",marginBottom:12,fontSize:24,fontWeight:800}}>Начни с Умной Диагностики</h3>
+            <p style={{color:"rgba(255,255,255,0.8)",fontSize:15,maxWidth:520,margin:"0 auto 28px",lineHeight:1.5}}>
+              Адаптивный тест выявит твои пробелы и построит индивидуальный план обучения. Занимает 20–40 минут.
+            </p>
+            <button onClick={()=>onSelectSection({_smartDiag:true,goal:user?.goalKey,grade:user?.details})}
+              style={{padding:"16px 36px",borderRadius:14,background:THEME.accent,color:THEME.primary,fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:16,border:"none",cursor:"pointer",boxShadow:"0 10px 30px -10px rgba(212,175,55,0.5)"}}>
+              🚀 Пройти Умную Диагностику →
+            </button>
+            <p style={{color:"rgba(255,255,255,0.5)",fontSize:12,marginTop:20}}>
+              Тематические разделы появятся, когда преподаватель добавит их для цели «{user?.goal} · {user?.details}».
+            </p>
           </div>
         )}
         {!loading && !fetchError && sections.length>0 && (()=>{

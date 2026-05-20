@@ -286,6 +286,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
         <div className="mobile-topbar">
           <button className="burger-btn" onClick={()=>setSidebarOpen(true)}>☰</button>
           <Logo size={28}/>
+          <span className="mobile-breadcrumb">
+            {activeSection==="profile" ? "Профиль" : "Главная"}
+          </span>
           <ThemeToggle />
         </div>
         <div className="desktop-header-actions"><ThemeToggle /></div>
