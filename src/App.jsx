@@ -800,9 +800,21 @@ export default function App() {
         .stat-icon-svg{display:inline-flex;width:32px;height:32px;flex-shrink:0;}
         .stat-value{font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;color:${THEME.primary};line-height:1;}
         .stat-label{font-size:12px;color:${THEME.textLight};margin-top:4px;}
-        /* Анимация «рисующейся» галочки в карточке "освоено" */
-        @keyframes check-draw { to { stroke-dashoffset: 0; } }
-        .check-path { stroke-dasharray:24; stroke-dashoffset:24; animation: check-draw 0.6s ease 0.2s forwards; }
+        /* Анимация «рисующейся» галочки в карточке "освоено" + лёгкий bounce */
+        @keyframes check-draw {
+          0%   { stroke-dashoffset: 24; transform: scale(1); }
+          70%  { stroke-dashoffset: 0;  transform: scale(1); }
+          85%  { stroke-dashoffset: 0;  transform: scale(1.15); }
+          100% { stroke-dashoffset: 0;  transform: scale(1); }
+        }
+        .check-path {
+          stroke-dasharray: 24;
+          stroke-dashoffset: 24;
+          /* SVG-путь масштабируем относительно своего bbox, иначе scale уезжает */
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: check-draw 1.2s ease 0.2s forwards;
+        }
         /* Анимация огонька в карточке streak */
         @keyframes fire-flicker {
           0%,100% { transform: scale(1);    opacity: 1; }

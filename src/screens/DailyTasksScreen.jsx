@@ -164,6 +164,27 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       try { await updateDoc(doc(db, 'skillMastery', user.uid), updates); }
       catch(e) { console.error(e); }
     }
+
+    // Streak: «дней подряд активности». Сессия = одно посещение в день.
+    //   lastActiveDate === today      → серия уже зачтена сегодня, ничего не делаем
+    //   lastActiveDate === yesterday  → +1
+    //   старше или отсутствует        → начинаем заново с 1
+    try {
+      const userRef  = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      const data     = userSnap.exists() ? userSnap.data() : {};
+      const today     = getAlmatyDateStr(0);
+      const yesterday = getAlmatyDateStr(-1);
+      const lastActive    = data.lastActiveDate;
+      const currentStreak = Number(data.streak ?? 0);
+      let newStreak;
+      if      (lastActive === today)     newStreak = currentStreak || 1;
+      else if (lastActive === yesterday) newStreak = currentStreak + 1;
+      else                                newStreak = 1;
+      if (newStreak !== currentStreak || lastActive !== today) {
+        await updateDoc(userRef, { streak: newStreak, lastActiveDate: today });
+      }
+    } catch (e) { console.error('streak update:', e); }
   };
 
   // ── EMPTY ── (4 варианта в зависимости от reason)
