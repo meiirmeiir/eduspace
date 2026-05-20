@@ -216,25 +216,26 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
               )}
             </div>
 
-            {/* Фильтр по разделу */}
-            {verticals.length > 0 && (
-              <div data-tour="theory-filters" style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
-                <button onClick={() => setFilterSec('all')} style={{ padding:'6px 16px', borderRadius:20, border:`2px solid ${filterSec==='all'?THEME.primary:THEME.border}`, background:filterSec==='all'?THEME.primary:'transparent', color:filterSec==='all'?THEME.accent:THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>Все разделы</button>
-                {verticals.map(v => (
-                  <button key={v} onClick={() => setFilterSec(v)} style={{ padding:'6px 16px', borderRadius:20, border:`2px solid ${filterSec===v?THEME.primary:THEME.border}`, background:filterSec===v?THEME.primary:'transparent', color:filterSec===v?THEME.accent:THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>{v}</button>
-                ))}
-              </div>
-            )}
+            {/* Фильтры: по разделу и по классу — в общей обёртке для подсветки тура */}
+            <div data-tour="theory-filters">
+              {verticals.length > 0 && (
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
+                  <button onClick={() => setFilterSec('all')} style={{ padding:'6px 16px', borderRadius:20, border:`2px solid ${filterSec==='all'?THEME.primary:THEME.border}`, background:filterSec==='all'?THEME.primary:'transparent', color:filterSec==='all'?THEME.accent:THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>Все разделы</button>
+                  {verticals.map(v => (
+                    <button key={v} onClick={() => setFilterSec(v)} style={{ padding:'6px 16px', borderRadius:20, border:`2px solid ${filterSec===v?THEME.primary:THEME.border}`, background:filterSec===v?THEME.primary:'transparent', color:filterSec===v?THEME.accent:THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>{v}</button>
+                  ))}
+                </div>
+              )}
 
-            {/* Фильтр по классу */}
-            {grades.length > 0 && (
-              <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:24 }}>
-                <button onClick={() => setFilterGrade('all')} style={{ padding:'5px 14px', borderRadius:20, border:`2px solid ${filterGrade==='all'?'#6366f1':THEME.border}`, background:filterGrade==='all'?'#6366f1':'transparent', color:filterGrade==='all'?'#fff':THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>Все классы</button>
-                {grades.map(g => (
-                  <button key={g} onClick={() => setFilterGrade(String(g))} style={{ padding:'5px 14px', borderRadius:20, border:`2px solid ${filterGrade===String(g)?'#6366f1':THEME.border}`, background:filterGrade===String(g)?'#6366f1':'transparent', color:filterGrade===String(g)?'#fff':THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>{g} класс</button>
-                ))}
-              </div>
-            )}
+              {grades.length > 0 && (
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:24 }}>
+                  <button onClick={() => setFilterGrade('all')} style={{ padding:'5px 14px', borderRadius:20, border:`2px solid ${filterGrade==='all'?'#6366f1':THEME.border}`, background:filterGrade==='all'?'#6366f1':'transparent', color:filterGrade==='all'?'#fff':THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>Все классы</button>
+                  {grades.map(g => (
+                    <button key={g} onClick={() => setFilterGrade(String(g))} style={{ padding:'5px 14px', borderRadius:20, border:`2px solid ${filterGrade===String(g)?'#6366f1':THEME.border}`, background:filterGrade===String(g)?'#6366f1':'transparent', color:filterGrade===String(g)?'#fff':THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>{g} класс</button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Счётчик результатов */}
             {q && (

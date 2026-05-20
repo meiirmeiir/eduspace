@@ -95,6 +95,11 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   };
   useEffect(()=>{ loadDashData(); },[firebaseUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // NPC: тур личного кабинета при первом открытии раздела profile.
+  useEffect(()=>{
+    if (activeSection === "profile") startTourIfNew("profile");
+  },[activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // NPC: тур + приветствие при первом входе после онбординга.
   // Зависит от onboardingDone, иначе эффект не перезапустится, если онбординг
   // завершён в той же сессии (uid не меняется). Ключ greeted — per-uid,
@@ -280,6 +285,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               <button
                 key={item.id}
                 data-bottom-dup={inBottomNav ? "1" : undefined}
+                data-nav-id={item.id}
                 className={`sidebar-nav-item ${activeSection===item.id?"active":""}`}
                 onClick={()=>handleNav(item.id)}
               >

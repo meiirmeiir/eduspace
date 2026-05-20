@@ -91,40 +91,65 @@ export default function NpcGuide() {
       delete el.dataset.npcPrevBg;
     };
 
+    const applyHighlight = (el) => {
+      const cs = window.getComputedStyle(el);
+      el.dataset.npcPrevPosition = el.style.position || '';
+      if (cs.position === 'static') el.style.position = 'relative';
+      // Если фон элемента прозрачный — подменяем на ближайший непрозрачный
+      // от родителя, чтобы overlay не «затемнял» содержимое подсвеченного блока.
+      const isTransparent = !cs.backgroundColor || cs.backgroundColor === 'rgba(0, 0, 0, 0)' || cs.backgroundColor === 'transparent';
+      if (isTransparent) {
+        let p = el.parentElement;
+        let opaque = '';
+        while (p) {
+          const bg = window.getComputedStyle(p).backgroundColor;
+          if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') { opaque = bg; break; }
+          p = p.parentElement;
+        }
+        if (opaque) {
+          el.dataset.npcPrevBg = el.style.backgroundColor || '';
+          el.style.backgroundColor = opaque;
+        }
+      }
+      el.classList.add('npc-highlighted');
+      highlightedRef.current = el;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
     if (highlightedRef.current) {
       restore(highlightedRef.current);
       highlightedRef.current = null;
     }
 
+    let observer = null;
+    let timeoutId = null;
+
     if (npcState.visible && npcState.selector && npcState.tourActive) {
-      const el = document.querySelector(npcState.selector);
+      const selector = npcState.selector;
+      const el = document.querySelector(selector);
       if (el) {
-        const cs = window.getComputedStyle(el);
-        el.dataset.npcPrevPosition = el.style.position || '';
-        if (cs.position === 'static') el.style.position = 'relative';
-        // Если фон элемента прозрачный — подменяем на ближайший непрозрачный
-        // от родителя, чтобы overlay не «затемнял» содержимое подсвеченного блока.
-        const isTransparent = !cs.backgroundColor || cs.backgroundColor === 'rgba(0, 0, 0, 0)' || cs.backgroundColor === 'transparent';
-        if (isTransparent) {
-          let p = el.parentElement;
-          let opaque = '';
-          while (p) {
-            const bg = window.getComputedStyle(p).backgroundColor;
-            if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') { opaque = bg; break; }
-            p = p.parentElement;
+        applyHighlight(el);
+      } else {
+        // Целевой элемент ещё не отрендерен (экран в loading-фазе).
+        // Ждём появления через MutationObserver — до 3 секунд.
+        observer = new MutationObserver(() => {
+          const found = document.querySelector(selector);
+          if (found) {
+            observer.disconnect(); observer = null;
+            if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+            applyHighlight(found);
           }
-          if (opaque) {
-            el.dataset.npcPrevBg = el.style.backgroundColor || '';
-            el.style.backgroundColor = opaque;
-          }
-        }
-        el.classList.add('npc-highlighted');
-        highlightedRef.current = el;
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        timeoutId = setTimeout(() => {
+          if (observer) { observer.disconnect(); observer = null; }
+        }, 3000);
       }
     }
 
     return () => {
+      if (observer) observer.disconnect();
+      if (timeoutId) clearTimeout(timeoutId);
       if (highlightedRef.current) {
         restore(highlightedRef.current);
         highlightedRef.current = null;
