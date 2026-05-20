@@ -1,52 +1,8 @@
 /* ════════════════════════════════════════════════════════════
-   DARK THEME  —  filter: invert(1) hue-rotate(180deg)
-   Работает со всеми inline-стилями без исключений.
+   DARK THEME — handled via explicit CSS overrides in index.css.
+   The previous filter:invert approach distorted icons, emoji
+   and accent colors, so it has been removed.
    ════════════════════════════════════════════════════════════ */
-
-/* ── 1. Тёмная тема: white (#fff) → #191919 ──────────────────
-   Математика: brightness(0.902) на white даёт 255×0.902=230,
-   затем invert(1): 255-230=25 = #191919 ✓
-   hue-rotate(180deg) восстанавливает цвета после инверта.
-   ──────────────────────────────────────────────────────────── */
-[data-theme="dark"] #root {
-  filter: brightness(0.902) invert(1) hue-rotate(180deg);
-}
-
-/* ── 2. Картинки — реинверт чтобы выглядели нормально ── */
-[data-theme="dark"] #root img {
-  filter: brightness(1.109) invert(1) hue-rotate(180deg);
-}
-
-/* ── 3. Видео, canvas ── */
-[data-theme="dark"] #root video,
-[data-theme="dark"] #root canvas {
-  filter: brightness(1.109) invert(1) hue-rotate(180deg);
-}
-
-/* ── 4. RPG-карта — она уже тёмная, реинвертируем ── */
-[data-theme="dark"] #root .react-flow__renderer {
-  filter: brightness(1.109) invert(1) hue-rotate(180deg);
-}
-
-/* ── 5. Сайдбар — тёмный в light mode, реинвертируем ── */
-[data-theme="dark"] #root .dashboard-sidebar {
-  filter: brightness(1.109) invert(1) hue-rotate(180deg);
-}
-
-/* ── 6. Тёмные блоки (дорожная карта, другие dark-gradient блоки) ── */
-[data-theme="dark"] #root .dark-invert-back {
-  filter: brightness(1.109) invert(1) hue-rotate(180deg);
-}
-/* Картинки внутри реинвертированных блоков — двойной реинверт = исходный */
-[data-theme="dark"] #root .dark-invert-back img,
-[data-theme="dark"] #root .dashboard-sidebar img {
-  filter: none;
-}
-
-/* ── 5. Фон body — до инверта нужен #e6e6e6 чтобы стал #191919 ── */
-[data-theme="dark"] body {
-  background: #e6e6e6;
-}
 
 /* ── Theme Toggle Switch ── */
 .theme-toggle {

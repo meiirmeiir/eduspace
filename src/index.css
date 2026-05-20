@@ -1,7 +1,9 @@
 /* ──────────────────────────────────────────────────────────────
-   Theme variables (BUG-13)
+   Theme variables (BUG-13).
    Default = light (matches THEME object in appConstants.js).
-   Dark mode = data-theme="dark" → filter:invert in MapStyles.css.
+   Dark mode = data-theme="dark" triggers explicit overrides
+   below, instead of the old filter:invert (which distorted
+   icons, emoji and gold accents).
    ────────────────────────────────────────────────────────────── */
 :root {
   --bg-primary:    #f8fafc;
@@ -17,6 +19,122 @@
 /* Prevent horizontal scroll on the whole document (BUG-6) */
 html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-box; }
 *, *::before, *::after { box-sizing:border-box; }
+
+/* ──────────────────────────────────────────────────────────────
+   DARK THEME (BUG-13) — explicit overrides. Icons, emoji and
+   accent colours stay intact because there is no filter:invert.
+   Sidebar/path/lesson blocks are already dark in the base design
+   (THEME.primary), so they don't need overrides here.
+   ────────────────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --bg-primary:    #0d1117;
+  --bg-secondary:  #161b22;
+  --bg-card:       #1c2333;
+  --text-primary:  #f0f6fc;
+  --text-secondary:#8b949e;
+  --border:        rgba(255,255,255,0.1);
+  color-scheme: dark;
+}
+[data-theme="dark"] body,
+[data-theme="dark"] .dashboard-layout,
+[data-theme="dark"] .dashboard-main,
+[data-theme="dark"] .split-left {
+  background:#0a0e1a !important;
+  color:#e6edf3 !important;
+}
+/* Surface cards (originally white) */
+[data-theme="dark"] .dashboard-section,
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .modal-card,
+[data-theme="dark"] .form-card,
+[data-theme="dark"] .admin-form-card,
+[data-theme="dark"] .admin-card,
+[data-theme="dark"] .confidence-section,
+[data-theme="dark"] .option-card,
+[data-theme="dark"] .rules-card,
+[data-theme="dark"] .results-list-modern,
+[data-theme="dark"] .report-header-card,
+[data-theme="dark"] .mobile-topbar {
+  background:#161b22 !important;
+  border-color:rgba(255,255,255,0.08) !important;
+  color:#e6edf3 !important;
+}
+/* Inset/nested cards (originally THEME.bg = #f8fafc) */
+[data-theme="dark"] .profile-card,
+[data-theme="dark"] .hw-card,
+[data-theme="dark"] .week-day,
+[data-theme="dark"] .result-card-modern,
+[data-theme="dark"] .option-letter,
+[data-theme="dark"] .due-badge {
+  background:#0d1117 !important;
+  border-color:rgba(255,255,255,0.08) !important;
+  color:#e6edf3 !important;
+}
+/* Text that was dark on light surfaces */
+[data-theme="dark"] .dashboard-header h1,
+[data-theme="dark"] .section-title,
+[data-theme="dark"] .stat-value,
+[data-theme="dark"] .profile-name,
+[data-theme="dark"] .topic-name,
+[data-theme="dark"] .hw-title,
+[data-theme="dark"] .question-text,
+[data-theme="dark"] .modal-title,
+[data-theme="dark"] .day-date,
+[data-theme="dark"] .admin-section-title,
+[data-theme="dark"] .option-content {
+  color:#f0f6fc !important;
+}
+/* Secondary / muted text */
+[data-theme="dark"] .stat-label,
+[data-theme="dark"] .profile-phone,
+[data-theme="dark"] .profile-date,
+[data-theme="dark"] .profile-detail,
+[data-theme="dark"] .meta-text,
+[data-theme="dark"] .empty-state,
+[data-theme="dark"] .hw-desc,
+[data-theme="dark"] .day-name,
+[data-theme="dark"] .hero-subtitle {
+  color:#8b949e !important;
+}
+/* Form controls */
+[data-theme="dark"] .input-field,
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="email"],
+[data-theme="dark"] input[type="password"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input[type="search"],
+[data-theme="dark"] input[type="tel"],
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background:#0d1117 !important;
+  color:#f0f6fc !important;
+  border-color:rgba(255,255,255,0.12) !important;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color:#6e7681 !important;
+}
+/* Buttons that were white-on-light */
+[data-theme="dark"] .conf-btn,
+[data-theme="dark"] .add-btn[disabled],
+[data-theme="dark"] .btn-back {
+  background:#1c2333 !important;
+  color:#e6edf3 !important;
+  border-color:rgba(255,255,255,0.1) !important;
+}
+/* Subtle keep-light areas — let yellow/gold accents stay visible */
+[data-theme="dark"] .week-day.today,
+[data-theme="dark"] .hw-card.overdue {
+  background:#1c2333 !important;
+}
+
+/* Profile-specific elements */
+.profile-plan-btn { background:#ffffff !important; color:#0f172a !important; border:1px solid rgba(0,0,0,0.1) !important; }
+.diag-history-item { background:#f8fafc; }
+[data-theme="dark"] .profile-plan-btn { background:#1c2333 !important; color:#f0f6fc !important; border-color:rgba(255,255,255,0.1) !important; }
+[data-theme="dark"] .diag-history-item { background:#0d1117 !important; color:#e6edf3 !important; }
+[data-theme="dark"] .diag-history-title { color:#f0f6fc !important; }
+[data-theme="dark"] .diag-history-num { background:#1c2333 !important; color:#8b949e !important; border-color:rgba(255,255,255,0.12) !important; }
 
 /* ──────────────────────────────────────────────────────────────
    MOBILE OVERRIDES — single (max-width:768px) media query
@@ -87,6 +205,20 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
     width:100% !important;
     min-width:0 !important;
   }
+  /* Profile stats: 3 cards in a row, allow shrinking */
+  .profile-stats-grid {
+    grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
+    gap:8px !important;
+  }
+  .profile-stats-grid .stat-card {
+    padding:12px 10px !important;
+    gap:8px !important;
+    min-width:0 !important;
+    overflow:hidden !important;
+  }
+  .profile-stats-grid .stat-icon { font-size:20px !important; flex-shrink:0 !important; }
+  .profile-stats-grid .stat-value { font-size:18px !important; line-height:1.1 !important; word-break:break-word !important; }
+  .profile-stats-grid .stat-label { font-size:10px !important; line-height:1.2 !important; }
 
   /* ── BUG-7 · Sidebar overlay (mirrors existing 900px behaviour
       using the 768px breakpoint per the spec) ──────────────── */

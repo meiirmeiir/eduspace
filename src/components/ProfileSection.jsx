@@ -167,15 +167,15 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
         </div>
         <div className="profile-actions">
           <button className="cta-button active" style={{width:"auto",padding:"14px 28px"}} onClick={onOpenDiagnostics}>🎯 Пройти диагностику</button>
-          <button className="cta-button active" style={{width:"auto",padding:"14px 28px",background:"#fff",color:THEME.primary,border:`1px solid ${THEME.border}`,boxShadow:"none"}} onClick={onViewPlan}>🗺️ Мой план обучения</button>
+          <button className="cta-button active profile-plan-btn" style={{width:"auto",padding:"14px 28px",boxShadow:"none"}} onClick={onViewPlan}>🗺️ Мой план обучения</button>
         </div>
       </div>
 
       {/* Stats summary */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:24}}>
-        <div className="stat-card"><div className="stat-icon">📋</div><div><div className="stat-value">{totalDiag}</div><div className="stat-label">диагностик пройдено</div></div></div>
-        <div className="stat-card"><div className="stat-icon">📊</div><div><div className="stat-value">{Object.keys(expertMap).length}</div><div className="stat-label">экспертных отчётов</div></div></div>
-        <div className="stat-card"><div className="stat-icon">⏱️</div><div><div className="stat-value" style={{fontSize:totalHr>0?16:22}}>{totalDiag>0?timeLabel:"—"}</div><div className="stat-label">всего потрачено</div></div></div>
+      <div className="profile-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(3, minmax(0, 1fr))",gap:16,marginBottom:24}}>
+        <div className="stat-card"><div className="stat-icon">📋</div><div style={{minWidth:0}}><div className="stat-value">{totalDiag}</div><div className="stat-label">диагностик пройдено</div></div></div>
+        <div className="stat-card"><div className="stat-icon">📊</div><div style={{minWidth:0}}><div className="stat-value">{Object.keys(expertMap).length}</div><div className="stat-label">экспертных отчётов</div></div></div>
+        <div className="stat-card"><div className="stat-icon">⏱️</div><div style={{minWidth:0}}><div className="stat-value" style={{fontSize:totalHr>0?14:18,wordBreak:"break-word"}}>{totalDiag>0?timeLabel:"—"}</div><div className="stat-label">всего потрачено</div></div></div>
       </div>
 
       {/* Medals */}
@@ -209,15 +209,15 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
               const num=results.length-i;
               const title=r.sectionName||"Общая диагностика";
               return(
-                <div key={r.id} onClick={hasReport?()=>{setViewingExpert(expertMap[r.id]);setViewingPhotos(r.studentPhotos||[]);}:undefined}
-                  style={{padding:"16px 20px",borderRadius:12,background:THEME.bg,border:`1px solid ${hasReport?THEME.accent:THEME.border}`,borderLeft:`4px solid ${hasReport?THEME.accent:THEME.border}`,cursor:hasReport?"pointer":"default",transition:"box-shadow 0.15s"}}
+                <div key={r.id} className="diag-history-item" onClick={hasReport?()=>{setViewingExpert(expertMap[r.id]);setViewingPhotos(r.studentPhotos||[]);}:undefined}
+                  style={{padding:"16px 20px",borderRadius:12,border:`1px solid ${hasReport?THEME.accent:THEME.border}`,borderLeft:`4px solid ${hasReport?THEME.accent:THEME.border}`,cursor:hasReport?"pointer":"default",transition:"box-shadow 0.15s"}}
                   onMouseEnter={e=>{if(hasReport)e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,0.07)";}}
                   onMouseLeave={e=>e.currentTarget.style.boxShadow=""}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
-                        <span style={{fontSize:11,fontWeight:700,color:THEME.textLight,background:"#fff",border:`1px solid ${THEME.border}`,borderRadius:99,padding:"1px 9px"}}>#{num}</span>
-                        <span style={{fontWeight:700,color:THEME.primary,fontSize:14}}>{title}</span>
+                        <span className="diag-history-num" style={{fontSize:11,fontWeight:700,color:THEME.textLight,background:"#fff",border:`1px solid ${THEME.border}`,borderRadius:99,padding:"1px 9px"}}>#{num}</span>
+                        <span className="diag-history-title" style={{fontWeight:700,color:THEME.primary,fontSize:14}}>{title}</span>
                       </div>
                       <div style={{fontSize:12,color:THEME.textLight}}>{new Date(r.completedAt).toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"})} · {r.totalQuestions} вопросов · {fmtTime(r.totalTime||0)}</div>
                       {hasReport
