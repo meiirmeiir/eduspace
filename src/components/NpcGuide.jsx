@@ -82,17 +82,42 @@ export default function NpcGuide() {
   if (profile && !profile.onboardingDone) return null;
 
   useEffect(() => {
+    const restore = (el) => {
+      if (!el) return;
+      el.classList.remove('npc-highlighted');
+      el.style.position = el.dataset.npcPrevPosition || '';
+      el.style.backgroundColor = el.dataset.npcPrevBg || '';
+      delete el.dataset.npcPrevPosition;
+      delete el.dataset.npcPrevBg;
+    };
+
     if (highlightedRef.current) {
-      highlightedRef.current.classList.remove('npc-highlighted');
-      highlightedRef.current.style.position = '';
+      restore(highlightedRef.current);
       highlightedRef.current = null;
     }
 
     if (npcState.visible && npcState.selector && npcState.tourActive) {
       const el = document.querySelector(npcState.selector);
       if (el) {
-        const computed = window.getComputedStyle(el).position;
-        if (computed === 'static') el.style.position = 'relative';
+        const cs = window.getComputedStyle(el);
+        el.dataset.npcPrevPosition = el.style.position || '';
+        if (cs.position === 'static') el.style.position = 'relative';
+        // Если фон элемента прозрачный — подменяем на ближайший непрозрачный
+        // от родителя, чтобы overlay не «затемнял» содержимое подсвеченного блока.
+        const isTransparent = !cs.backgroundColor || cs.backgroundColor === 'rgba(0, 0, 0, 0)' || cs.backgroundColor === 'transparent';
+        if (isTransparent) {
+          let p = el.parentElement;
+          let opaque = '';
+          while (p) {
+            const bg = window.getComputedStyle(p).backgroundColor;
+            if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') { opaque = bg; break; }
+            p = p.parentElement;
+          }
+          if (opaque) {
+            el.dataset.npcPrevBg = el.style.backgroundColor || '';
+            el.style.backgroundColor = opaque;
+          }
+        }
         el.classList.add('npc-highlighted');
         highlightedRef.current = el;
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -101,8 +126,7 @@ export default function NpcGuide() {
 
     return () => {
       if (highlightedRef.current) {
-        highlightedRef.current.classList.remove('npc-highlighted');
-        highlightedRef.current.style.position = '';
+        restore(highlightedRef.current);
         highlightedRef.current = null;
       }
     };

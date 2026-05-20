@@ -12,7 +12,7 @@ import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
 
 export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onUpdateUser }) {
-  const { startTourIfNew } = useNpc();
+  const { startTourIfNew, showNpcMessage } = useNpc();
   /* If App passes activeSection/setActiveSection — use them (allows
      external navigation, e.g. mobile bottom-nav). Otherwise fall back
      to local state for backwards compatibility. */
@@ -91,7 +91,17 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     }catch(e){console.error(e);setDataError(true);}
     setLoadingData(false);
   };
-  useEffect(()=>{ loadDashData(); startTourIfNew("dashboard"); },[firebaseUser?.uid]);
+  useEffect(()=>{
+    loadDashData();
+    startTourIfNew("dashboard");
+    // Первое посещение дашборда после онбординга — персональное приветствие
+    try {
+      if (user?.onboardingDone && !localStorage.getItem("aapa_npc_greeted")) {
+        showNpcMessage("greetings", 8000);
+        localStorage.setItem("aapa_npc_greeted", "1");
+      }
+    } catch {}
+  },[firebaseUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-deactivate when learning period expires
   useEffect(()=>{

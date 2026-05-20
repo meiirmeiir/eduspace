@@ -4,9 +4,11 @@ import { THEME } from "../lib/appConstants.js";
 import { isStageUnlocked, getAlmatyDateStr, SRS_INTERVALS, getAlmatyNextMidnightAfter, fmtCountdown } from "../lib/srsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
+import { useNpc } from "../NpcContext.jsx";
 
 // Handles 3-stage mastery flow for a single skill
 export default function SkillMasteryScreen({ user, skillId, skillName, onBack }) {
+  const { showNpcMessage } = useNpc();
   const [loading,      setLoading]      = useState(true);
   const [taskData,     setTaskData]     = useState(null);   // { a:[...], b:[...], c:[...] }
   const [theory,       setTheory]       = useState(null);   // skillTheory entry
@@ -97,6 +99,10 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
     setRevealed(true);
     const correct = tasks[taskIdx]?.correct === optIdx;
 
+    if (!correct) {
+      showNpcMessage('encouragement', 5000);
+    }
+
     if (stage === 1) {
       const newScore = s1Score + (correct ? 1 : 0);
       setS1Score(newScore);
@@ -104,6 +110,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
       if (taskIdx === tasks.length - 1) {
         if (newScore >= 8) {
           await saveMasteryStage(1);
+          showNpcMessage('success', 6000);
           setPhase('result');
         }
         // else show retry
@@ -113,6 +120,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
       setS2Energy(newEnergy);
       if (newEnergy >= 8) {
         await saveMasteryStage(2);
+        showNpcMessage('success', 6000);
         setPhase('result');
         return;
       }
@@ -123,6 +131,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
       setS3Total(newTotal);
       if (newStreak >= 5) {
         await saveMasteryStage(3);
+        showNpcMessage('success', 6000);
         setPhase('result');
         return;
       }

@@ -6,8 +6,10 @@ import { getAlmatyDateStr, SRS_INTERVALS } from "../lib/srsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
+import { useNpc } from "../NpcContext.jsx";
 
 export default function DailyTasksScreen({ user, onBack }) {
+  const { showNpcMessage } = useNpc();
   const BG = '#f8fafc';
   const [phase,    setPhase]    = useState('loading'); // loading|playing|done|empty
   const [queue,    setQueue]    = useState([]);  // [{skillId, skillName, reviewStage, task}]
@@ -20,6 +22,7 @@ export default function DailyTasksScreen({ user, onBack }) {
   const [degraded, setDegraded] = useState(new Set()); // skillIds to degrade
   const [saving,   setSaving]   = useState(false);
   const [lastWrongWasDanger, setLastWrongWasDanger] = useState(false); // lives=0 warning
+  const [streak,   setStreak]   = useState(0); // consecutive correct answers (for NPC encouragement)
 
   const shuf = arr => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
 
@@ -86,7 +89,13 @@ export default function DailyTasksScreen({ user, onBack }) {
     if (isCorrect) {
       setCorrect(p => new Set([...p, current.skillId]));
       setLastWrongWasDanger(false);
+      const nextStreak = streak + 1;
+      setStreak(nextStreak);
+      if (nextStreak >= 3 && nextStreak % 3 === 0) {
+        showNpcMessage('streak', 4000);
+      }
     } else {
+      setStreak(0);
       const curLives = skillLives[current.skillId] ?? 2;
       if (curLives <= 0) {
         // No lives left for this skill — degrade it

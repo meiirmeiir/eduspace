@@ -476,6 +476,7 @@ export default function App() {
       savingDiagRef.current=true;
       clearQuizProgress();
       setReport({answers:next});
+      showNpcMessage("success", 6000);
       try{
         const correct=next.filter(a=>a.correct).length;
         const totalTime=next.reduce((s,a)=>s+(a.timeSpent||0),0);
