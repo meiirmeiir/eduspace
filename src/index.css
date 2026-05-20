@@ -1,24 +1,16 @@
 /* ──────────────────────────────────────────────────────────────
-   Theme variables (BUG-4)
+   Theme variables (BUG-13)
+   Default = light (matches THEME object in appConstants.js).
+   Dark mode = data-theme="dark" → filter:invert in MapStyles.css.
    ────────────────────────────────────────────────────────────── */
 :root {
-  --bg-primary:    #0d1117;
-  --bg-secondary:  #161b22;
-  --bg-card:       #1c2333;
-  --text-primary:  #ffffff;
-  --text-secondary:#8b949e;
-  --accent:        #f5c518;
-  --accent-hover:  #e6b800;
-  --border:        rgba(255,255,255,0.1);
-}
-:root[data-theme="light"] {
-  --bg-primary:    #f5f7fa;
+  --bg-primary:    #f8fafc;
   --bg-secondary:  #ffffff;
   --bg-card:       #ffffff;
-  --text-primary:  #1a1a2e;
-  --text-secondary:#555555;
-  --accent:        #c49a00;
-  --accent-hover:  #a37f00;
+  --text-primary:  #0f172a;
+  --text-secondary:#64748b;
+  --accent:        #d4af37;
+  --accent-hover:  #b8961f;
   --border:        rgba(0,0,0,0.1);
 }
 
@@ -154,10 +146,12 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   /* ── BUG-10 / BUG-15 · Confidence buttons (emoji on mobile) ──── */
   .confidence-grid {
     display:grid !important;
-    grid-template-columns:repeat(5,1fr) !important;
+    grid-template-columns:repeat(5, minmax(0, 1fr)) !important;
     gap:6px !important;
   }
-  .confidence-btn {
+  /* .conf-btn.confidence-btn — higher specificity beats App.jsx
+     mobile overrides (min-width:70px) that would force overflow. */
+  .conf-btn.confidence-btn {
     display:flex !important;
     flex-direction:column !important;
     align-items:center !important;
@@ -165,20 +159,21 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
     gap:4px !important;
     min-height:64px !important;
     min-width:0 !important;
-    padding:6px 4px !important;
+    width:100% !important;
+    padding:6px 2px !important;
     border-radius:16px !important;
-    font-size:26px !important;
-    background:var(--bg-card, rgba(255,255,255,0.05)) !important;
-    border:1.5px solid var(--border, rgba(255,255,255,0.1)) !important;
+    font-size:24px !important;
+    background:var(--bg-card, #ffffff) !important;
+    border:1.5px solid var(--border, rgba(0,0,0,0.1)) !important;
     cursor:pointer !important;
     transition:transform 0.1s, border-color 0.15s, background 0.15s !important;
   }
-  .confidence-btn:active {
+  .conf-btn.confidence-btn:active {
     transform:scale(0.93) !important;
   }
-  .confidence-btn.selected {
-    border-color:var(--accent, #f5c518) !important;
-    background:rgba(245, 197, 24, 0.12) !important;
+  .conf-btn.confidence-btn.selected {
+    border-color:var(--accent, #d4af37) !important;
+    background:rgba(212, 175, 55, 0.12) !important;
     transform:scale(1.06) !important;
   }
   .confidence-label { display:none !important; }
@@ -186,8 +181,9 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   .confidence-short {
     display:inline-block !important;
     font-size:10px !important;
-    color:var(--text-secondary, #8b949e) !important;
+    color:var(--text-secondary, #64748b) !important;
     line-height:1 !important;
+    white-space:nowrap !important;
   }
 
   /* ── BUG-11 · Confidence block already follows answers in JSX;

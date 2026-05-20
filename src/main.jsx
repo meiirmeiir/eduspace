@@ -6,11 +6,13 @@ import { NpcProvider } from './NpcContext.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import './index.css'
 
-// Apply saved light theme before first render (BUG-4)
+// BUG-13: apply saved dark theme before first render.
+// Default = light (no attribute). data-theme="dark" activates the
+// filter:invert dark mode from MapStyles.css.
 try {
   const saved = localStorage.getItem('theme');
-  if (saved === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
+  if (saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
   }
 } catch {}
 
