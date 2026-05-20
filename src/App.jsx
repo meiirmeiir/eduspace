@@ -21,6 +21,7 @@ import { getContent } from "./lib/contentCache.js";
 import { useTheme } from "./ThemeContext.jsx";
 import Logo from "./components/ui/Logo.jsx";
 import MobileBottomNav from "./components/MobileBottomNav.jsx";
+import CommandPalette from "./components/CommandPalette.jsx";
 import OnboardingScreen from "./screens/OnboardingScreen.jsx";
 import { DiagnosticRulesScreen, DiagnosticsScreen, QuestionScreen } from "./screens/DiagnosticsScreens.jsx";
 import ReportScreen from "./screens/ReportScreen.jsx";
@@ -198,6 +199,18 @@ export default function App() {
     setDashSection(s);
     try { localStorage.setItem("aapa_dashboard_section", s); } catch {}
   };
+  // Command palette (⌘K / Ctrl+K)
+  const [cmdOpen, setCmdOpen] = useState(false);
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCmdOpen(o => !o);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
   const savingDiagRef=useRef(false);
 
   // NPC: показываем приветствие при открытии карты модулей, скрываем через 10 сек
@@ -899,6 +912,23 @@ export default function App() {
           }}
         />
       )}
+      <CommandPalette
+        isOpen={cmdOpen}
+        onClose={()=>setCmdOpen(false)}
+        onNavigate={(action)=>{
+          if(!action) return;
+          switch(action.type){
+            case "dashboard":   navigateDashSection("home"); navigate("dashboard"); break;
+            case "profile":     navigateDashSection("profile"); navigate("dashboard"); break;
+            case "plan":        viewPlan(); break;
+            case "theory":      setTheorySkillId(null); navigate("theory"); break;
+            case "theory-skill":setTheorySkillId(action.skillId); navigate("theory"); break;
+            case "daily":       navigate("daily"); break;
+            case "smart-diag":  startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details}); break;
+            default: break;
+          }
+        }}
+      />
       <NpcGuide />
     </>
   );
