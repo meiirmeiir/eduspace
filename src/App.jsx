@@ -319,7 +319,7 @@ export default function App() {
   // Статус "ежедневных задач" — единый источник правды для бейджей в сайдбаре,
   // мобильного bottom-nav и lock-модалки (которая теперь рендерится здесь
   // и потому доступна на любом экране — например, при тапе Daily из Theory).
-  const [masteryStatus,setMasteryStatus]=useState({ hasMastered:false, hasDueToday:false, completedToday:false });
+  const [masteryStatus,setMasteryStatus]=useState({ hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false });
   const [lockModalOpen,setLockModalOpen]=useState(false);
 
   const openFaq=(key)=>{setFaqInitial(key||null);navigate("faq");};
@@ -327,15 +327,16 @@ export default function App() {
   // Один раз при логине читаем skillMastery и считаем три флага: есть ли
   // вообще освоенный навык, есть ли задачи на сегодня, и закрыты ли они.
   useEffect(()=>{
-    const uid=firebaseUser?.uid; if(!uid){setMasteryStatus({ hasMastered:false, hasDueToday:false, completedToday:false });return;}
+    const uid=firebaseUser?.uid; if(!uid){setMasteryStatus({ hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false });return;}
     getDoc(doc(db,"skillMastery",uid)).then(snap=>{
       const mastery=snap.exists()?(snap.data().skills||{}):{};
       const today=getAlmatyDateStr(0);
       const mastered=Object.values(mastery).filter(ms=>ms?.stagesCompleted===3);
-      const hasMastered=mastered.length>0;
+      const masteredCount=mastered.length;
+      const hasMastered=masteredCount>0;
       const hasDueToday=mastered.some(ms=>ms?.next_review_date&&ms.next_review_date<=today);
       const completedToday=hasMastered&&!hasDueToday&&mastered.some(ms=>ms?.lastReviewedAt===today);
-      setMasteryStatus({hasMastered,hasDueToday,completedToday});
+      setMasteryStatus({hasMastered,masteredCount,hasDueToday,completedToday});
     }).catch(()=>{});
   },[firebaseUser?.uid]);
 
@@ -793,11 +794,24 @@ export default function App() {
         .dashboard-main{margin-left:268px;flex:1;padding:40px 48px;min-height:100vh;}
         .dashboard-header{margin-bottom:32px;}
         .dashboard-header h1{font-family:'Montserrat',sans-serif;font-size:30px;font-weight:800;color:${THEME.primary};}
-        .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px;}
+        .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
         .stat-card{background:#fff;border-radius:14px;border:1px solid ${THEME.border};padding:20px 24px;display:flex;align-items:center;gap:16px;}
         .stat-icon{font-size:28px;}
+        .stat-icon-svg{display:inline-flex;width:32px;height:32px;flex-shrink:0;}
         .stat-value{font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;color:${THEME.primary};line-height:1;}
         .stat-label{font-size:12px;color:${THEME.textLight};margin-top:4px;}
+        /* Анимация «рисующейся» галочки в карточке "освоено" */
+        @keyframes check-draw { to { stroke-dashoffset: 0; } }
+        .check-path { stroke-dasharray:24; stroke-dashoffset:24; animation: check-draw 0.6s ease 0.2s forwards; }
+        /* Анимация огонька в карточке streak */
+        @keyframes fire-flicker {
+          0%,100% { transform: scale(1);    opacity: 1; }
+          25%     { transform: scale(1.08); opacity: 0.92; }
+          50%     { transform: scale(0.96); opacity: 1; }
+          75%     { transform: scale(1.04); opacity: 0.88; }
+        }
+        .stat-icon-fire { display:inline-block; transform-origin:center; animation: fire-flicker 1.8s ease-in-out infinite; }
+        .stat-icon-muted { opacity:0.45; filter:grayscale(0.4); }
         .dashboard-section{background:#fff;border-radius:16px;border:1px solid ${THEME.border};padding:28px 32px;margin-bottom:28px;}
         .section-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
         .section-title{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:800;color:${THEME.primary};}
@@ -864,7 +878,7 @@ export default function App() {
           .profile-avatar{width:60px;height:60px;font-size:22px;}
         }
         @media(max-width:600px){
-          .stats-row{grid-template-columns:1fr;} .week-calendar{grid-template-columns:repeat(2,1fr);}
+          .week-calendar{grid-template-columns:repeat(2,1fr);}
           .hw-card{flex-direction:column;align-items:flex-start;} .dashboard-section{padding:20px 16px;}
           .card-main{flex-direction:column;align-items:flex-start;} .status-info{text-align:left;}
           .dash-grid-2{grid-template-columns:1fr!important;}
@@ -874,6 +888,9 @@ export default function App() {
           .modal-card{padding:20px 16px;}
           .section-title-row{flex-direction:column;align-items:flex-start;}
           .dashboard-main{padding:0 12px 32px!important;}
+        }
+        @media(max-width:360px){
+          .stats-row{grid-template-columns:1fr;}
         }
         @media(max-width:600px){
           .question-text{font-size:20px!important;margin-bottom:24px!important;}

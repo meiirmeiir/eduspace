@@ -12,7 +12,17 @@ import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
 
-export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, hasDueToday:false, completedToday:false }, onOpenDailyLockModal }) {
+// Простая русская плюрализация: pluralize(2, ['день','дня','дней']) → 'дня'
+function pluralize(n, [one, few, many]) {
+  const a = Math.abs(Number(n) || 0) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return many;
+  if (b > 1 && b < 5)   return few;
+  if (b === 1)          return one;
+  return many;
+}
+
+export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal }) {
   const { startTourIfNew, showNpcMessage } = useNpc();
   const { profile } = useAuth();
   /* If App passes activeSection/setActiveSection — use them (allows
@@ -420,7 +430,41 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             <div className="stats-row">
               <div className="stat-card"><div className="stat-icon">📅</div><div><div className="stat-value">{schedule.length}</div><div className="stat-label">занятий в неделю</div></div></div>
               <div className="stat-card"><div className="stat-icon">📚</div><div><div className="stat-value">{homework.filter(h=>new Date(h.dueDate+"T23:59:59")>=today).length}</div><div className="stat-label">активных ДЗ</div></div></div>
-              <div className="stat-card"><div className="stat-icon">🎯</div><div><div className="stat-value" style={{fontSize:16}}>{user?.details||"—"}</div><div className="stat-label">цель</div></div></div>
+              {/* Освоено навыков — SVG-галочка «рисуется» при загрузке */}
+              <div className="stat-card">
+                <span className="stat-icon-svg" aria-hidden="true">
+                  <svg width="32" height="32" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke="#10b981" strokeWidth="2" fill="rgba(16,185,129,0.08)"/>
+                    <path className="check-path" d="M7 12 l3.5 3.5 L17 8.5" stroke="#10b981" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </span>
+                <div>
+                  <div className="stat-value">{masteryStatus?.masteredCount ?? 0}</div>
+                  <div className="stat-label">{pluralize(masteryStatus?.masteredCount ?? 0, ['навык освоен','навыка освоено','навыков освоено'])}</div>
+                </div>
+              </div>
+              {/* Streak — огонёк мерцает если >0, тусклый если 0 */}
+              {(() => {
+                const streakNum = Number(user?.streak ?? 0);
+                return (
+                  <div className="stat-card">
+                    <span className={`stat-icon ${streakNum > 0 ? 'stat-icon-fire' : 'stat-icon-muted'}`} aria-hidden="true">🔥</span>
+                    <div>
+                      {streakNum > 0 ? (
+                        <>
+                          <div className="stat-value">{streakNum}</div>
+                          <div className="stat-label">{pluralize(streakNum, ['день подряд','дня подряд','дней подряд'])}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="stat-value" style={{fontSize:15}}>Начни серию</div>
+                          <div className="stat-label">сегодня</div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Schedule */}
