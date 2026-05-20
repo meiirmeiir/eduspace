@@ -7,7 +7,7 @@ export default function ThemeToggle() {
     <div className="theme-toggle">
       <button className="theme-toggle-track" onClick={toggle} title={dark ? 'Светлая тема' : 'Тёмная тема'}>
         <span className={`theme-toggle-thumb${dark ? ' is-dark' : ''}`}>
-          {dark ? '🌙' : '☀️'}
+          <span className="theme-toggle-glyph">{dark ? '🌙' : '☀️'}</span>
         </span>
       </button>
     </div>
