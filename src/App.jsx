@@ -945,6 +945,7 @@ export default function App() {
       {["dashboard","theory","daily","plan","practice","diagnostics"].includes(screen) && (
         <MobileBottomNav
           active={screen==="dashboard" ? (dashSection==="profile" ? "profile" : "dashboard") : screen}
+          dailyStatus={!masteryStatus.hasMastered ? 'locked' : (masteryStatus.hasDueToday ? 'due' : (masteryStatus.completedToday ? 'done' : null))}
           onNavigate={id=>{
             if(id==="profile"){ navigateDashSection("profile"); if(screen!=="dashboard") navigate("dashboard"); return; }
             if(id==="dashboard"){ navigateDashSection("home"); if(screen!=="dashboard") navigate("dashboard"); return; }

@@ -344,7 +344,24 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
     line-height:1.1;
     transition:color 0.15s;
   }
-  .mbn-icon { font-size:20px; line-height:1; }
+  .mbn-icon { font-size:20px; line-height:1; position:relative; display:inline-block; }
+  /* Бейджи у пункта «Ежедневные задачи»: 🔒 / 🔴 / ✅ */
+  .mbn-badge {
+    position:absolute;
+    top:-4px;
+    right:-10px;
+    line-height:1;
+    pointer-events:none;
+  }
+  .mbn-badge-lock { font-size:11px; }
+  .mbn-badge-done { font-size:11px; }
+  .mbn-badge-due {
+    width:8px; height:8px;
+    border-radius:50%;
+    background:#ef4444;
+    box-shadow:0 0 0 2px #fff;
+  }
+  [data-theme="dark"] .mbn-badge-due { box-shadow:0 0 0 2px #161b22; }
   .mbn-label {
     font-weight:600;
     font-size:10px;
