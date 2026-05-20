@@ -164,6 +164,9 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   border-bottom-color:rgba(255,255,255,0.08) !important;
 }
 
+/* Burger menu — dark-navy by default, invisible on dark topbar */
+[data-theme="dark"] .burger-btn { color:#f0f6fc !important; }
+
 /* ──────────────────────────────────────────────────────────────
    MOBILE OVERRIDES — single (max-width:768px) media query
    ────────────────────────────────────────────────────────────── */
