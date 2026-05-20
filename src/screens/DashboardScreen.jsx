@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNpc } from "../NpcContext.jsx";
+import { useAuth } from "../contexts/AuthContext.jsx";
 import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "../firestore-rest.js";
 import { compressImage } from "../lib/mathUtils.js";
 import { getAlmatyDateStr } from "../lib/srsUtils.js";
@@ -13,6 +14,7 @@ import RecordingModal from "../components/RecordingModal.jsx";
 
 export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onUpdateUser }) {
   const { startTourIfNew, showNpcMessage } = useNpc();
+  const { profile } = useAuth();
   /* If App passes activeSection/setActiveSection — use them (allows
      external navigation, e.g. mobile bottom-nav). Otherwise fall back
      to local state for backwards compatibility. */
@@ -91,17 +93,24 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     }catch(e){console.error(e);setDataError(true);}
     setLoadingData(false);
   };
+  useEffect(()=>{ loadDashData(); },[firebaseUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // NPC: тур + приветствие при первом входе после онбординга.
+  // Зависит от onboardingDone, иначе эффект не перезапустится, если онбординг
+  // завершён в той же сессии (uid не меняется). Ключ greeted — per-uid,
+  // чтобы разные аккаунты в одном браузере получили своё приветствие.
   useEffect(()=>{
-    loadDashData();
+    const uid = firebaseUser?.uid;
+    if (!uid || !profile?.onboardingDone) return;
     startTourIfNew("dashboard");
-    // Первое посещение дашборда после онбординга — персональное приветствие
     try {
-      if (user?.onboardingDone && !localStorage.getItem("aapa_npc_greeted")) {
+      const greetedKey = `aapa_npc_greeted_${uid}`;
+      if (!localStorage.getItem(greetedKey)) {
         showNpcMessage("greetings", 8000);
-        localStorage.setItem("aapa_npc_greeted", "1");
+        localStorage.setItem(greetedKey, "1");
       }
     } catch {}
-  },[firebaseUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+  },[firebaseUser?.uid, profile?.onboardingDone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-deactivate when learning period expires
   useEffect(()=>{
