@@ -24,14 +24,17 @@ function resolveMessage(key, name) {
   return applyName(key, name);
 }
 
-// Ключ в localStorage для хранения просмотренных туров — per-uid,
-// чтобы разные аккаунты в одном браузере не делили прогресс туров.
+// Ключи в localStorage — оба per-uid: разные аккаунты в одном браузере
+// не делят ни прогресс туров, ни персональный toggle помощника.
 const SEEN_KEY_PREFIX = 'aapa_npc_seen_tours';
 // User-controlled toggle. Default: hints are ON; user can opt out via profile.
-const ENABLED_KEY = 'aapa_npc_enabled';
+const ENABLED_KEY_PREFIX = 'aapa_npc_enabled';
 
 function seenKeyFor(uid) {
   return uid ? `${SEEN_KEY_PREFIX}_${uid}` : SEEN_KEY_PREFIX;
+}
+function enabledKeyFor(uid) {
+  return uid ? `${ENABLED_KEY_PREFIX}_${uid}` : ENABLED_KEY_PREFIX;
 }
 function getSeenTours(uid) {
   try { return JSON.parse(localStorage.getItem(seenKeyFor(uid)) || '{}'); } catch { return {}; }
@@ -43,11 +46,11 @@ function markTourSeen(uid, screenKey) {
     localStorage.setItem(seenKeyFor(uid), JSON.stringify(seen));
   } catch {}
 }
-export function isNpcEnabled() {
-  try { return localStorage.getItem(ENABLED_KEY) !== '0'; } catch { return true; }
+export function isNpcEnabled(uid) {
+  try { return localStorage.getItem(enabledKeyFor(uid)) !== '0'; } catch { return true; }
 }
-export function setNpcEnabled(enabled) {
-  try { localStorage.setItem(ENABLED_KEY, enabled ? '1' : '0'); } catch {}
+export function setNpcEnabled(uid, enabled) {
+  try { localStorage.setItem(enabledKeyFor(uid), enabled ? '1' : '0'); } catch {}
 }
 
 export function NpcProvider({ children }) {
@@ -55,10 +58,10 @@ export function NpcProvider({ children }) {
   const uid = firebaseUser?.uid;
   const [state, setState] = useState({ visible: false, message: '', selector: null, tourActive: false });
   const timerRef = useRef(null);
-  const tourRef = useRef({ steps: [], idx: 0, screenKey: '' });
+  const tourRef = useRef({ steps: [], idx: 0, screenKey: '', onComplete: null });
 
   const showNpcMessage = useCallback((key, durationMs = 0) => {
-    if (!isNpcEnabled()) return;
+    if (!isNpcEnabled(uid)) return;
     const message = resolveMessage(key, profile?.firstName);
     if (!message) return;
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -68,12 +71,12 @@ export function NpcProvider({ children }) {
         setState(s => ({ ...s, visible: false }));
       }, durationMs);
     }
-  }, [profile?.firstName]);
+  }, [profile?.firstName, uid]);
 
   const hideNpc = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setState({ visible: false, message: '', selector: null, tourActive: false });
-    tourRef.current = { steps: [], idx: 0, screenKey: '' };
+    tourRef.current = { steps: [], idx: 0, screenKey: '', onComplete: null };
   }, []);
 
   // Показать конкретный шаг тура
@@ -81,14 +84,19 @@ export function NpcProvider({ children }) {
     // Очищаем таймер автоскрытия от предыдущего showNpcMessage —
     // иначе таймер от greeting (8с) скроет начавшийся тур.
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    // Помечаем тур просмотренным сразу на первом шаге — если пользователь
+    // закроет вкладку до завершения, тур не запустится повторно.
+    if (idx === 0) markTourSeen(uid, screenKey);
     if (idx >= steps.length) {
       markTourSeen(uid, screenKey);
+      const cb = tourRef.current.onComplete;
       setState({ visible: false, message: '', selector: null, tourActive: false });
-      tourRef.current = { steps: [], idx: 0, screenKey: '' };
+      tourRef.current = { steps: [], idx: 0, screenKey: '', onComplete: null };
+      cb?.();
       return;
     }
     const step = steps[idx];
-    tourRef.current = { steps, idx, screenKey };
+    tourRef.current = { steps, idx, screenKey, onComplete: tourRef.current.onComplete };
     setState({ visible: true, message: applyName(step.message, profile?.firstName), selector: step.selector || null, tourActive: true, stepIdx: idx, totalSteps: steps.length });
   }, [profile?.firstName, uid]);
 
@@ -98,22 +106,31 @@ export function NpcProvider({ children }) {
   }, [showTourStep]);
 
   const skipTour = useCallback(() => {
-    const { screenKey } = tourRef.current;
+    const { screenKey, onComplete } = tourRef.current;
     if (screenKey) markTourSeen(uid, screenKey);
     hideNpc();
+    onComplete?.();
   }, [hideNpc, uid]);
 
-  // Запустить тур для экрана — только если ещё не видели и помощник включён
-  const startTourIfNew = useCallback((screenKey) => {
-    if (!isNpcEnabled()) return;
+  // Запустить тур для экрана — только если ещё не видели и помощник включён.
+  // Возвращает true если тур реально запустится (с задержкой), false иначе.
+  // onComplete — опциональный колбек, вызывается когда тур завершён или пропущен.
+  // Не запускает тур пока auth не загрузил uid — иначе markTourSeen
+  // запишет в legacy-ключ, и тур повторится при следующем входе.
+  const startTourIfNew = useCallback((screenKey, onComplete) => {
+    if (!uid) return false;
+    if (!isNpcEnabled(uid)) return false;
     const steps = TOURS[screenKey];
-    if (!steps || !steps.length) return;
+    if (!steps || !steps.length) return false;
     const seen = getSeenTours(uid);
-    if (seen[screenKey]) return;
+    if (seen[screenKey]) return false;
+    // Сохраняем onComplete до отложенного запуска первого шага
+    tourRef.current = { steps: [], idx: 0, screenKey: '', onComplete: onComplete || null };
     // Небольшая задержка чтобы экран успел отрисоваться
     setTimeout(() => {
       showTourStep(steps, 0, screenKey);
     }, 600);
+    return true;
   }, [showTourStep, uid]);
 
   return (

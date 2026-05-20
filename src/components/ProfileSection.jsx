@@ -2,11 +2,14 @@ import React, { useState, useEffect, useRef } from "react";
 import { collection, doc, getDocs, query, updateDoc, where, db } from "../firestore-rest.js";
 import { THEME, REG_GOALS, getSpecificList } from "../lib/appConstants.js";
 import { isNpcEnabled, setNpcEnabled } from "../NpcContext.jsx";
+import { useAuth } from "../contexts/AuthContext.jsx";
 import ChangePasswordInline from "./ChangePasswordInline.jsx";
 import ExpertReportView from "../screens/ExpertReportView.jsx";
 import ErrorCard from "./ui/ErrorCard.jsx";
 
 export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser }) {
+  const { firebaseUser } = useAuth();
+  const uid = firebaseUser?.uid;
   const [results,setResults]=useState([]);
   const [loading,setLoading]=useState(true);
   const [fetchError,setFetchError]=useState(false);
@@ -24,7 +27,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   });
   const [editSaving,setEditSaving]=useState(false);
   const [avatarUploading,setAvatarUploading]=useState(false);
-  const [npcOn,setNpcOn]=useState(()=>isNpcEnabled());
+  const [npcOn,setNpcOn]=useState(()=>isNpcEnabled(uid));
   const avatarInputRef=useRef(null);
 
   const handleAvatarChange=async(e)=>{
@@ -83,6 +86,8 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
     setLoading(false);
   };
   useEffect(()=>{ load(); },[user?.uid||user?.id]);
+  // Подтянуть toggle помощника при смене uid (другой аккаунт в том же браузере).
+  useEffect(()=>{ setNpcOn(isNpcEnabled(uid)); },[uid]);
 
   if(viewingExpert) return <ExpertReportView report={viewingExpert} studentPhotos={viewingPhotos} onBack={()=>{setViewingExpert(null);setViewingPhotos([]);}}/>;
 
@@ -166,7 +171,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                 <button onClick={()=>setIsEditing(true)} style={{marginTop:10,background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"6px 16px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Редактировать профиль</button>
                 <ChangePasswordInline />
                 <label style={{display:"flex",alignItems:"center",gap:10,marginTop:12,fontSize:13,color:THEME.textLight,cursor:"pointer"}}>
-                  <input type="checkbox" checked={npcOn} onChange={e=>{setNpcOn(e.target.checked);setNpcEnabled(e.target.checked);}} style={{width:16,height:16,cursor:"pointer"}}/>
+                  <input type="checkbox" checked={npcOn} onChange={e=>{setNpcOn(e.target.checked);setNpcEnabled(uid,e.target.checked);}} style={{width:16,height:16,cursor:"pointer"}}/>
                   Показывать подсказки помощника
                 </label>
               </>

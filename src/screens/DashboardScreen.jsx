@@ -101,20 +101,22 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   },[activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // NPC: тур + приветствие при первом входе после онбординга.
-  // Зависит от onboardingDone, иначе эффект не перезапустится, если онбординг
-  // завершён в той же сессии (uid не меняется). Ключ greeted — per-uid,
-  // чтобы разные аккаунты в одном браузере получили своё приветствие.
+  // Greeting показывается ПОСЛЕ завершения dashboard-тура (или сразу, если
+  // тур уже пройден) — чтобы не конкурировать с туром за state помощника.
   useEffect(()=>{
     const uid = firebaseUser?.uid;
     if (!uid || !profile?.onboardingDone) return;
-    startTourIfNew("dashboard");
-    try {
-      const greetedKey = `aapa_npc_greeted_${uid}`;
-      if (!localStorage.getItem(greetedKey)) {
-        showNpcMessage("greetings", 8000);
-        localStorage.setItem(greetedKey, "1");
-      }
-    } catch {}
+    const greetedKey = `aapa_npc_greeted_${uid}`;
+    const showGreeting = () => {
+      try {
+        if (!localStorage.getItem(greetedKey)) {
+          showNpcMessage("greetings", 8000);
+          localStorage.setItem(greetedKey, "1");
+        }
+      } catch {}
+    };
+    const tourWillFire = startTourIfNew("dashboard", showGreeting);
+    if (!tourWillFire) showGreeting();
   },[firebaseUser?.uid, profile?.onboardingDone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-deactivate when learning period expires

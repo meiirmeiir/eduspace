@@ -213,15 +213,18 @@ export default function App() {
   }, []);
   const savingDiagRef=useRef(false);
 
-  // NPC: показываем приветствие при открытии карты модулей, скрываем через 10 сек
+  // NPC: запускаем тур экрана. Зависим от firebaseUser?.uid, чтобы эффект
+  // перезапустился когда auth загрузится (иначе тур стартует до того, как
+  // NpcContext получит uid, и markTourSeen запишет в legacy-ключ).
   useEffect(()=>{
+    if(!firebaseUser?.uid) return;
     if(screen==="plan")       startTourIfNew("plan");
     if(screen==="theory")     startTourIfNew("theory");
     if(screen==="diagnostics") startTourIfNew("diagnostics");
     if(screen==="practice")   startTourIfNew("practice");
     if(screen==="daily")      startTourIfNew("daily");
     if(screen==="intermediate_tests") startTourIfNew("intermediate");
-  },[screen]); // eslint-disable-line react-hooks/exhaustive-deps
+  },[screen, firebaseUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveQuizProgress=(qs,idx,ans,secName,sec)=>{
     if(!user?.uid)return;

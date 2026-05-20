@@ -56,10 +56,8 @@ if (!document.getElementById(STYLE_ID)) {
       gap: 16px;
       max-width: 640px;
     }
-    /* На мобильных сайдбар скрыт — NPC занимает всю ширину */
-    @media (max-width: 768px) {
-      .npc-panel { left: 0; right: 16px; bottom: 16px; }
-    }
+    /* Мобильная вёрстка NPC — централизована в src/index.css
+       (правила для .assistant-widget / .assistant-avatar / .assistant-text). */
   `;
   document.head.appendChild(style);
 }

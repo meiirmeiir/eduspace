@@ -564,20 +564,39 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   .landing-divider     { margin-top:32px !important; margin-bottom:32px !important; }
   .landing-star-rating { padding-bottom:32px !important; }
 
-  /* ── BUG-3 · Assistant widget overflow ───────────────────── */
+  /* ── NPC помощник на мобильных ────────────────────────────── */
   .assistant-widget {
     position:fixed !important;
-    bottom:80px  !important;
-    left:16px    !important;
-    right:16px   !important;
-    width:auto   !important;
-    max-height:calc(100vh - 160px) !important;
-    overflow-y:auto !important;
+    bottom:calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+    left:8px   !important;
+    right:8px  !important;
+    width:auto !important;
   }
-  .assistant-avatar { max-width:120px !important; max-height:120px !important; }
-  .assistant-avatar > div:first-child { width:120px !important; height:120px !important; }
-  .assistant-widget .npc-panel-inner   { max-width:100% !important; flex-wrap:wrap; }
-  .assistant-text   { overflow:hidden; word-break:break-word; }
+  .assistant-avatar { max-width:64px !important; max-height:64px !important; }
+  .assistant-avatar > div:first-child {
+    width:64px !important;
+    height:64px !important;
+    border-radius:12px !important;
+  }
+  .assistant-widget .npc-panel-inner {
+    max-width:100% !important;
+    flex-direction:row !important;
+    flex-wrap:nowrap !important;
+    align-items:flex-end !important;
+    gap:10px !important;
+  }
+  /* Диалоговое окно (первый прямой потомок панели) — ужимается до доступной ширины */
+  .assistant-widget .assistant-text > div:first-child {
+    min-width:0 !important;
+    max-width:100% !important;
+    flex:1 1 auto !important;
+    padding:12px 14px 10px !important;
+  }
+  .assistant-widget .assistant-text p {
+    font-size:13px !important;
+    line-height:1.5 !important;
+  }
+  .assistant-text { overflow:hidden; word-break:break-word; }
   .assistant-buttons {
     display:flex !important;
     justify-content:space-between !important;
