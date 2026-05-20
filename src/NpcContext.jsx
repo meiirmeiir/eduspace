@@ -96,8 +96,13 @@ export function NpcProvider({ children }) {
       return;
     }
     const step = steps[idx];
+    // На мобильном (≤ 768px) — используем альтернативные селектор/текст,
+    // если шаг их определяет (например, sidebar → bottom-nav).
+    const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+    const stepSelector = (isMobile && step.mobileSelector) || step.selector;
+    const stepMessage  = (isMobile && step.mobileMessage)  || step.message;
     tourRef.current = { steps, idx, screenKey, onComplete: tourRef.current.onComplete };
-    setState({ visible: true, message: applyName(step.message, profile?.firstName), selector: step.selector || null, tourActive: true, stepIdx: idx, totalSteps: steps.length });
+    setState({ visible: true, message: applyName(stepMessage, profile?.firstName), selector: stepSelector || null, tourActive: true, stepIdx: idx, totalSteps: steps.length });
   }, [profile?.firstName, uid]);
 
   const nextTourStep = useCallback(() => {

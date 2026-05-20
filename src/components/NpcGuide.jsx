@@ -122,16 +122,29 @@ export default function NpcGuide() {
     let observer = null;
     let timeoutId = null;
 
+    // Среди всех совпадений селектора берём первый ВИДИМЫЙ элемент.
+    // Это важно для responsive-вёрстки: одна и та же навигация может
+    // существовать и в скрытом sidebar, и в bottom-nav на мобильном —
+    // нужно подсвечивать ту, что реально видна.
+    const findVisible = (selector) => {
+      const nodes = document.querySelectorAll(selector);
+      for (const node of nodes) {
+        const cs = window.getComputedStyle(node);
+        if (cs.display !== 'none' && cs.visibility !== 'hidden') return node;
+      }
+      return null;
+    };
+
     if (npcState.visible && npcState.selector && npcState.tourActive) {
       const selector = npcState.selector;
-      const el = document.querySelector(selector);
+      const el = findVisible(selector);
       if (el) {
         applyHighlight(el);
       } else {
         // Целевой элемент ещё не отрендерен (экран в loading-фазе).
         // Ждём появления через MutationObserver — до 3 секунд.
         observer = new MutationObserver(() => {
-          const found = document.querySelector(selector);
+          const found = findVisible(selector);
           if (found) {
             observer.disconnect(); observer = null;
             if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }

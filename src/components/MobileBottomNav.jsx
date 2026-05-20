@@ -14,6 +14,7 @@ export default function MobileBottomNav({ active, onNavigate }) {
       {ITEMS.map(item => (
         <button
           key={item.id}
+          data-nav-id={item.id}
           className={`mbn-item ${active === item.id ? "active" : ""}`}
           onClick={() => onNavigate(item.id)}
           aria-current={active === item.id ? "page" : undefined}

@@ -27,6 +27,8 @@ export const TOURS = {
     {
       selector: '.dashboard-sidebar',
       message: 'Навигация слева — быстрый переход между разделами: теория, практика, тесты, карта модулей.',
+      mobileSelector: '.mobile-bottom-nav',
+      mobileMessage: 'Нижняя панель — быстрый переход между разделами: главная, план, ежедневные, теория, профиль.',
     },
   ],
   plan: [
