@@ -150,6 +150,11 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // ── Платежи: только admin ─────────────────────────────────────────────────
+    match /payments/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     // ── Доска (whiteboard): участники урока — оба залогинены ─────────────────
     match /wbImages/{docId}    { allow read, write: if isSignedIn(); }
     match /wbStrokes/{docId}   { allow read, write: if isSignedIn(); }

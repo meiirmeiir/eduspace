@@ -185,25 +185,42 @@ export default function AdminScreen({ onBack, firebaseUser }) {
     if(!firebaseUser) return;
     const load=async()=>{
       try{
-        const [sS,qS,uS,thS,tpS,skS,skDbS,pmS,shS,paymS]=await Promise.all([getDocs(collection(db,"sections")),getDocs(collection(db,"questions")),getDocs(collection(db,"users")),getDocs(collection(db,"theories")),getDocs(collection(db,"topics")),getDocs(collection(db,"skills")),getDocs(collection(db,"skillsDb")),getDocs(collection(db,"prereqMap")),getDocs(collection(db,"skillHierarchies")),getDocs(collection(db,"payments"))]);
-        setPayments(paymS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")));
-        setSections(sS.docs.map(d=>({id:d.id,...d.data()})));
-        setQuestions(qS.docs.map(d=>({id:d.id,...d.data()})));
-        setStudents(uS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.lastName||"").localeCompare(b.lastName||"")));
-        setTheories(thS.docs.map(d=>({id:d.id,...d.data()})));
-        setTopics(tpS.docs.map(d=>({id:d.id,...d.data()})));
-        setAllDbSkills(skS.docs.map(d=>({id:d.id,...d.data()})));
-        setSkillsDb(skDbS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name)));
-        setPrereqMapData(pmS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name)));
-        setSkillHierarchies(shS.docs.map(d=>({id:d.id,...d.data()})));
-        const cgS=await getDocs(collection(db,'crossGradeLinks'));
-        setCrossGradeLinks(cgS.docs.map(d=>({id:d.id,...d.data()})));
-        const mmS=await getDoc(doc(db,'globalSkillMap','master'));
-        if(mmS.exists())setMasterMap(mmS.data());
-        const tbS=await getDocs(collection(db,'taskBank'));
-        setTaskBankEntries(tbS.docs.map(d=>({id:d.id,...d.data()})));
-        const stS=await getDocs(collection(db,'skillTheory'));
-        setSkillTheoryEntries(stS.docs.map(d=>({id:d.id,...d.data()})));
+        const keys=["sections","questions","users","theories","topics","skills","skillsDb","prereqMap","skillHierarchies","payments","crossGradeLinks","taskBank","skillTheory"];
+        const settled=await Promise.allSettled([
+          getDocs(collection(db,"sections")),
+          getDocs(collection(db,"questions")),
+          getDocs(collection(db,"users")),
+          getDocs(collection(db,"theories")),
+          getDocs(collection(db,"topics")),
+          getDocs(collection(db,"skills")),
+          getDocs(collection(db,"skillsDb")),
+          getDocs(collection(db,"prereqMap")),
+          getDocs(collection(db,"skillHierarchies")),
+          getDocs(collection(db,"payments")),
+          getDocs(collection(db,"crossGradeLinks")),
+          getDocs(collection(db,"taskBank")),
+          getDocs(collection(db,"skillTheory")),
+        ]);
+        settled.forEach((r,i)=>{ if(r.status==='rejected') console.warn(`[AdminScreen] load failed for "${keys[i]}":`,r.reason); });
+        const ok=(i)=>settled[i].status==='fulfilled'?settled[i].value:null;
+        const sS=ok(0), qS=ok(1), uS=ok(2), thS=ok(3), tpS=ok(4), skS=ok(5), skDbS=ok(6), pmS=ok(7), shS=ok(8), paymS=ok(9), cgS=ok(10), tbS=ok(11), stS=ok(12);
+        if(sS)    setSections(sS.docs.map(d=>({id:d.id,...d.data()})));
+        if(qS)    setQuestions(qS.docs.map(d=>({id:d.id,...d.data()})));
+        if(uS)    setStudents(uS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.lastName||"").localeCompare(b.lastName||"")));
+        if(thS)   setTheories(thS.docs.map(d=>({id:d.id,...d.data()})));
+        if(tpS)   setTopics(tpS.docs.map(d=>({id:d.id,...d.data()})));
+        if(skS)   setAllDbSkills(skS.docs.map(d=>({id:d.id,...d.data()})));
+        if(skDbS) setSkillsDb(skDbS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name)));
+        if(pmS)   setPrereqMapData(pmS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name)));
+        if(shS)   setSkillHierarchies(shS.docs.map(d=>({id:d.id,...d.data()})));
+        if(paymS) setPayments(paymS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")));
+        if(cgS)   setCrossGradeLinks(cgS.docs.map(d=>({id:d.id,...d.data()})));
+        if(tbS)   setTaskBankEntries(tbS.docs.map(d=>({id:d.id,...d.data()})));
+        if(stS)   setSkillTheoryEntries(stS.docs.map(d=>({id:d.id,...d.data()})));
+        try{
+          const mmS=await getDoc(doc(db,'globalSkillMap','master'));
+          if(mmS.exists())setMasterMap(mmS.data());
+        }catch(e){console.warn('[AdminScreen] load failed for "globalSkillMap/master":',e);}
       }catch(e){console.error(e);}
       setLoading(false);
     };
