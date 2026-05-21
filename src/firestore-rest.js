@@ -244,12 +244,22 @@ export async function updateDoc(ref, data) {
   const mask = keys.map(f => `updateMask.fieldPaths=${encodeURIComponent(f)}`).join('&');
   const url = `${BASE()}/${encodeFsPath(ref.path)}?${mask}&key=${getKey()}`;
   const body = { fields: toFsFields(data) };
+  /* eslint-disable no-console -- temporary debug logging */
+  const safeUrl = url.replace(/[?&]key=[^&]+/, '');
+  console.log('[updateDoc] PATCH', safeUrl);
+  console.log('[updateDoc] body:', JSON.stringify(body));
+  /* eslint-enable no-console */
   const resp = await fetch(url, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ..._authHeader(), ...(await _appCheckHeader()) },
     body: JSON.stringify(body),
   });
-  if (!resp.ok) throw new Error(`Firestore UPDATE error: HTTP ${resp.status}`);
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '<no body>');
+    console.error('[updateDoc] FAILED HTTP', resp.status, errText);
+    throw new Error(`Firestore UPDATE error: HTTP ${resp.status} — ${errText.slice(0,200)}`);
+  }
+  console.log('[updateDoc] OK', resp.status);
 }
 
 // ── Добавление нового документа ───────────────────────────────────────────────
