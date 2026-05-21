@@ -283,6 +283,32 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
+  // Проверка истечения статуса/пробного периода при логине.
+  // statusExpiry < сегодня → status = 'inactive' (и для trial с trialExpiry).
+  useEffect(()=>{
+    const _uid=firebaseUser?.uid; if(!_uid) return;
+    (async()=>{
+      try{
+        const snap=await getDoc(doc(db,"users",_uid));
+        if(!snap.exists()) return;
+        const data=snap.data();
+        const today=new Date().toISOString().slice(0,10);
+        const statusExpired=data.statusExpiry && data.statusExpiry<today && data.status!=='inactive';
+        const trialExpired=data.status==='trial' && data.trialExpiry && data.trialExpiry<today;
+        if(statusExpired || trialExpired){
+          await updateDoc(doc(db,"users",_uid),{status:'inactive'});
+          setUser(prev=>{
+            const next={...(prev||{}),status:'inactive'};
+            try{localStorage.setItem("aapa_user",JSON.stringify(next));}catch{}
+            return next;
+          });
+          setProfile(p=>p?{...p,status:'inactive'}:p);
+        }
+      }catch(e){console.warn("status expiry check:",e);}
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[firebaseUser?.uid]);
+
   // Синхронизация smartDiag-полей из Firestore при каждом монтировании.
   // Нужно, чтобы сброс флага администратором отражался у залогиненного студента
   // без повторного входа (данные в localStorage могут быть устаревшими).
@@ -346,6 +372,15 @@ export default function App() {
     if(!masteryStatus.hasMastered){setLockModalOpen(true);return;}
     navigate("daily");
   },[masteryStatus.hasMastered]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Защита роутов для inactive: разрешены только dashboard и faq, всё остальное → dashboard.
+  useEffect(()=>{
+    if(user?.status!=='inactive') return;
+    if(screen==='dashboard' || screen==='faq' || screen==='landing' || screen==='onboarding') return;
+    // _setScreen ещё не объявлен здесь — используем setScreen напрямую + history.
+    window.history.replaceState({screen:'dashboard'},"","#dashboard");
+    setScreen('dashboard');
+  },[screen,user?.status]);
 
   // ── URL / History routing ─────────────────────────────────────────────────
   // Собственный стек навигации (не зависим от browser history stack)

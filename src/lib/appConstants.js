@@ -33,6 +33,24 @@ export const STUDENT_STATUSES = [
   { value:"graduated", label:"Выпускник",       color:"#6366F1" },
   { value:"tester",    label:"Тестировщик",     color:"#8B5CF6" },
 ];
+export const PLANS = {
+  solo:         { label: 'Самостоятельно',        price: 2000,   type: 'solo' },
+  group_1:      { label: 'Групповой 1 раз/нед',   price: 16000,  type: 'teacher' },
+  group_2:      { label: 'Групповой 2 раза/нед',  price: 32000,  type: 'teacher' },
+  group_3:      { label: 'Групповой 3 раза/нед',  price: 48000,  type: 'teacher' },
+  individual_1: { label: 'Индивид. 1 раз/нед',    price: 40000,  type: 'teacher' },
+  individual_2: { label: 'Индивид. 2 раза/нед',   price: 80000,  type: 'teacher' },
+  individual_3: { label: 'Индивид. 3 раза/нед',   price: 120000, type: 'teacher' },
+};
+export const PAYMENT_METHODS = [
+  { value: 'kaspi', label: 'Kaspi Bank' },
+  { value: 'halyk', label: 'Halyk Bank' },
+  { value: 'forte', label: 'Forte Bank' },
+  { value: 'jusan', label: 'Jusan Bank' },
+  { value: 'bcc',   label: 'БЦК (Банк ЦентрКредит)' },
+  { value: 'cash',  label: 'Наличные' },
+  { value: 'other', label: 'Другое' },
+];
 export const QUESTION_TYPES = [
   { value:"mcq",       label:"Один правильный ответ (MCQ)" },
   { value:"multiple",  label:"Несколько правильных ответов" },

@@ -11,6 +11,7 @@ import {
   onIdTokenChanged,
 } from 'firebase/auth';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -21,8 +22,9 @@ const firebaseConfig = {
   appId:             import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-export const app  = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+export const app     = initializeApp(firebaseConfig);
+export const auth    = getAuth(app);
+export const storage = getStorage(app);
 auth.languageCode = 'ru';
 
 const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
@@ -45,4 +47,7 @@ export {
   EmailAuthProvider,
   signOut,
   onIdTokenChanged,
+  storageRef,
+  uploadBytes,
+  getDownloadURL,
 };

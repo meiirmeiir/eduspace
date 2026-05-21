@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "../firestore-rest.js";
 import { compressImage } from "../lib/mathUtils.js";
 import { getAlmatyDateStr } from "../lib/srsUtils.js";
-import { tgPhoto, THEME, STUDENT_STATUSES, DAY_NAMES_SHORT } from "../lib/appConstants.js";
+import { tgPhoto, THEME, STUDENT_STATUSES, DAY_NAMES_SHORT, PLANS } from "../lib/appConstants.js";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
@@ -46,7 +46,13 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const today=new Date();
   const [weekOffset,setWeekOffset]=useState(0);
   const [openedLesson,setOpenedLesson]=useState(null); // {lesson, date}
-  const statusObj=STUDENT_STATUSES.find(s=>s.value===user?.status)||STUDENT_STATUSES[1];
+  const planKey=user?.status;
+  const isSolo=planKey==='solo';
+  const isPaidPlan=!!planKey&&(planKey.startsWith('group_')||planKey.startsWith('individual_'));
+  const trialDaysLeft=user?.trialExpiry?Math.max(0,Math.ceil((new Date(user.trialExpiry+"T23:59:59")-new Date())/(864e5))):null;
+  const _stdStatus=STUDENT_STATUSES.find(s=>s.value===planKey);
+  const _planForStatus=planKey&&PLANS[planKey]?{value:planKey,label:PLANS[planKey].label,color:THEME.accent}:null;
+  const statusObj=_stdStatus||_planForStatus||STUDENT_STATUSES[1];
   const [students,setStudents]=useState([]);
   const [hwImageFiles,setHwImageFiles]=useState([]);
   const [hwImagePreviews,setHwImagePreviews]=useState([]);
@@ -349,7 +355,14 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
         </div>
         <div className="desktop-header-actions"><ThemeToggle /></div>
 
-        {activeSection==="home"&&(
+        {activeSection==="home"&&isInactive&&!isTeacher&&(
+          <div style={{maxWidth:520,margin:"80px auto",background:"#fff",border:`1px solid ${THEME.border}`,borderRadius:16,padding:"48px 32px",textAlign:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.04)"}}>
+            <div style={{fontSize:56,marginBottom:16}}>⛔</div>
+            <h2 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:22,color:THEME.primary,marginBottom:12}}>Твой доступ истёк</h2>
+            <p style={{color:THEME.textLight,fontSize:15,lineHeight:1.6}}>Обратись к преподавателю для продления.</p>
+          </div>
+        )}
+        {activeSection==="home"&&!(isInactive&&!isTeacher)&&(
           <>
             <div className="dashboard-header">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
@@ -357,6 +370,15 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                 <span style={{background:statusObj.color+"18",color:statusObj.color,fontWeight:700,fontSize:13,padding:"6px 16px",borderRadius:99,border:`1px solid ${statusObj.color}30`,alignSelf:"center"}}>{statusObj.label}</span>
               </div>
             </div>
+
+            {isTrial&&!isTeacher&&(
+              <div style={{background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.35)",borderRadius:12,padding:"14px 18px",marginBottom:20,display:"flex",alignItems:"center",gap:12}}>
+                <span style={{fontSize:22}}>⏳</span>
+                <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:14,color:"#92400e"}}>
+                  Пробный период: осталось {trialDaysLeft??0} {(()=>{ const n=Math.abs(trialDaysLeft??0)%100, b=n%10; if(n>10&&n<20)return 'дней'; if(b>1&&b<5)return 'дня'; if(b===1)return 'день'; return 'дней'; })()}
+                </div>
+              </div>
+            )}
 
 
             {/* Умная диагностика — для goals: gaps / future */}
@@ -428,8 +450,8 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             )}
 
             <div className="stats-row">
-              <div className="stat-card"><div className="stat-icon">📅</div><div><div className="stat-value">{schedule.length}</div><div className="stat-label">занятий в неделю</div></div></div>
-              <div className="stat-card"><div className="stat-icon">📚</div><div><div className="stat-value">{homework.filter(h=>new Date(h.dueDate+"T23:59:59")>=today).length}</div><div className="stat-label">активных ДЗ</div></div></div>
+              {!isSolo&&<div className="stat-card"><div className="stat-icon">📅</div><div><div className="stat-value">{schedule.length}</div><div className="stat-label">занятий в неделю</div></div></div>}
+              {!isSolo&&<div className="stat-card"><div className="stat-icon">📚</div><div><div className="stat-value">{homework.filter(h=>new Date(h.dueDate+"T23:59:59")>=today).length}</div><div className="stat-label">активных ДЗ</div></div></div>}
               {/* Освоено навыков — SVG-галочка «рисуется» при загрузке */}
               <div className="stat-card">
                 <span className="stat-icon-svg" aria-hidden="true">
@@ -468,6 +490,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             </div>
 
             {/* Schedule */}
+            {!isSolo&&(
             <div data-tour="next-lesson" className="dashboard-section">
               <div className="section-title-row">
                 <h2 className="section-title">📅 Расписание занятий</h2>
@@ -520,7 +543,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                 })}
               </div>
             </div>
+            )}
             {/* Homework */}
+            {!isSolo&&(
             <div data-tour="homework" className="dashboard-section">
               <div className="section-title-row"><h2 className="section-title">📚 Домашние задания</h2>{isTeacher&&<button className="add-btn" onClick={()=>setShowHwForm(true)}>+ Добавить ДЗ</button>}</div>
               {loadingData?<div className="empty-state">Загрузка...</div>:dataError?<ErrorCard onRetry={loadDashData}/>:homework.length===0?<div className="empty-state">{isTeacher?"Нажмите «+ Добавить ДЗ».":"Домашних заданий пока нет."}</div>:(
@@ -602,6 +627,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                 </div>
               )}
             </div>
+            )}
           </>
         )}
 

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from "../firestore-rest.js";
 import { compressImage, parseGradeNumber, computeSkillC, getM_c, computeKAdj, computeS_diag, computeM_g_final } from "../lib/mathUtils.js";
 import { runDiagnosticSimulation } from "../lib/diagnosticUtils.js";
-import { REG_GOALS, DIFFICULTY_COLORS, EXAMS_LIST, GRADES_LIST, STUDENT_STATUSES, QUESTION_TYPES, THEME } from "../lib/appConstants.js";
+import { REG_GOALS, DIFFICULTY_COLORS, EXAMS_LIST, GRADES_LIST, STUDENT_STATUSES, QUESTION_TYPES, THEME, PLANS, PAYMENT_METHODS } from "../lib/appConstants.js";
+import { storage, storageRef, uploadBytes, getDownloadURL } from "../lib/firebase.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import RadarChart from "../components/ui/RadarChart.jsx";
@@ -169,11 +170,23 @@ export default function AdminScreen({ onBack, firebaseUser }) {
   const [dtPreviewAnswer,setDtPreviewAnswer]=useState(null);
   const [dtFilterGrade,setDtFilterGrade]=useState('');
 
+  // Payments admin
+  const [payments,setPayments]=useState([]);
+  const [payStudentId,setPayStudentId]=useState('');
+  const [payPlanKey,setPayPlanKey]=useState('');
+  const [payMethod,setPayMethod]=useState('');
+  const [payStartDate,setPayStartDate]=useState(()=>new Date().toISOString().slice(0,10));
+  const [payNote,setPayNote]=useState('');
+  const [payReceiptFile,setPayReceiptFile]=useState(null);
+  const [paySaving,setPaySaving]=useState(false);
+  const [payFilterStudent,setPayFilterStudent]=useState('all');
+
   useEffect(()=>{
     if(!firebaseUser) return;
     const load=async()=>{
       try{
-        const [sS,qS,uS,thS,tpS,skS,skDbS,pmS,shS]=await Promise.all([getDocs(collection(db,"sections")),getDocs(collection(db,"questions")),getDocs(collection(db,"users")),getDocs(collection(db,"theories")),getDocs(collection(db,"topics")),getDocs(collection(db,"skills")),getDocs(collection(db,"skillsDb")),getDocs(collection(db,"prereqMap")),getDocs(collection(db,"skillHierarchies"))]);
+        const [sS,qS,uS,thS,tpS,skS,skDbS,pmS,shS,paymS]=await Promise.all([getDocs(collection(db,"sections")),getDocs(collection(db,"questions")),getDocs(collection(db,"users")),getDocs(collection(db,"theories")),getDocs(collection(db,"topics")),getDocs(collection(db,"skills")),getDocs(collection(db,"skillsDb")),getDocs(collection(db,"prereqMap")),getDocs(collection(db,"skillHierarchies")),getDocs(collection(db,"payments"))]);
+        setPayments(paymS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")));
         setSections(sS.docs.map(d=>({id:d.id,...d.data()})));
         setQuestions(qS.docs.map(d=>({id:d.id,...d.data()})));
         setStudents(uS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.lastName||"").localeCompare(b.lastName||"")));
@@ -1521,7 +1534,7 @@ export default function AdminScreen({ onBack, firebaseUser }) {
     alert(`Импортировано ${rows.length} строк`);
   };
 
-  const TABS=[{id:"sections",label:"📂 Разделы"},{id:"questions",label:"❓ Вопросы"},{id:"theory",label:"📖 Теория"},{id:"skills",label:"🎯 Навыки"},{id:"skillmap",label:"🗺️ Карта навыков"},{id:"students",label:"👥 Ученики"},{id:"reports",label:"📋 Отчёты"},{id:"plans",label:"📋 Планы"},{id:"cdm",label:"🧠 CDM"},{id:"simulator",label:"🧪 Симулятор"},{id:"dailytasks",label:"📝 Ежедневные задачи"},{id:"skilltasks",label:"🎮 Задачи навыков"}];
+  const TABS=[{id:"sections",label:"📂 Разделы"},{id:"questions",label:"❓ Вопросы"},{id:"theory",label:"📖 Теория"},{id:"skills",label:"🎯 Навыки"},{id:"skillmap",label:"🗺️ Карта навыков"},{id:"students",label:"👥 Ученики"},{id:"payments",label:"💳 Платежи"},{id:"reports",label:"📋 Отчёты"},{id:"plans",label:"📋 Планы"},{id:"cdm",label:"🧠 CDM"},{id:"simulator",label:"🧪 Симулятор"},{id:"dailytasks",label:"📝 Ежедневные задачи"},{id:"skilltasks",label:"🎮 Задачи навыков"}];
 
   const getPivotSkillsForGrade=(grade)=>{
     const result=[];
@@ -2024,6 +2037,59 @@ ${JSON.stringify({section:hier.section,clusters},null,2)}`;
       alert('✓ Иерархия CDM сохранена!');
     }catch(e){alert('Ошибка: '+e.message);}
     setCdmSaving(false);
+  };
+
+  // ── Payments helpers ──────────────────────────────────────────────────────
+  const addOneMonthIso=(isoDate)=>{
+    const d=new Date(isoDate+"T00:00:00");
+    d.setMonth(d.getMonth()+1);
+    return d.toISOString().slice(0,10);
+  };
+  const resetPaymentForm=()=>{
+    setPayStudentId('');setPayPlanKey('');setPayMethod('');
+    setPayStartDate(new Date().toISOString().slice(0,10));
+    setPayNote('');setPayReceiptFile(null);
+  };
+  const savePayment=async()=>{
+    if(!payStudentId){alert('Выберите ученика');return;}
+    if(!payPlanKey){alert('Выберите план');return;}
+    if(!payMethod){alert('Выберите способ оплаты');return;}
+    if(!payStartDate){alert('Укажите дату начала');return;}
+    if(!payReceiptFile){alert('Загрузите чек');return;}
+    setPaySaving(true);
+    try{
+      const plan=PLANS[payPlanKey];
+      const method=PAYMENT_METHODS.find(m=>m.value===payMethod);
+      const student=students.find(s=>s.id===payStudentId);
+      const endDate=addOneMonthIso(payStartDate);
+      const paymentId=`${Date.now()}_${payStudentId}`;
+      const ext=(payReceiptFile.name.split('.').pop()||'bin').toLowerCase();
+      const sref=storageRef(storage,`receipts/${paymentId}.${ext}`);
+      await uploadBytes(sref,payReceiptFile);
+      const receiptUrl=await getDownloadURL(sref);
+      const docData={
+        studentId:payStudentId,
+        studentName:`${student?.firstName||''} ${student?.lastName||''}`.trim(),
+        plan:payPlanKey,
+        planLabel:plan.label,
+        amount:plan.price,
+        paymentMethod:payMethod,
+        paymentMethodLabel:method?.label||payMethod,
+        startDate:payStartDate,
+        endDate,
+        receiptUrl,
+        receiptFileName:payReceiptFile.name,
+        note:payNote||'',
+        createdAt:new Date().toISOString(),
+      };
+      await setDoc(doc(db,'payments',paymentId),docData);
+      await updateDoc(doc(db,'users',payStudentId),{status:payPlanKey,statusExpiry:endDate});
+      setPayments(p=>[{id:paymentId,...docData},...p]);
+      setStudents(p=>p.map(s=>s.id===payStudentId?{...s,status:payPlanKey,statusExpiry:endDate}:s));
+      resetPaymentForm();
+      alert('✓ Платёж сохранён!');
+    }catch(e){console.error(e);alert('Ошибка сохранения: '+e.message);}
+    setPaySaving(false);
   };
 
   return(
@@ -4134,6 +4200,103 @@ SAT;Math Calculator;Статистика и вероятность;Интерп�
                 </div>
               </div>
             )}
+          </div>
+          );
+        })()}
+
+        {/* ── PAYMENTS ── */}
+        {!loading&&tab==="payments"&&(()=>{
+          const studentOptions=students.filter(s=>s.role==='student'||!s.role||s.role==='');
+          const selectedPlan=payPlanKey?PLANS[payPlanKey]:null;
+          const computedEnd=payStartDate?addOneMonthIso(payStartDate):'';
+          const filteredPayments=payments.filter(p=>payFilterStudent==='all'||p.studentId===payFilterStudent);
+          const fmtDate=(iso)=>{ try{return new Date(iso+"T00:00:00").toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'});}catch{return iso||'';} };
+          return(
+          <div>
+            <div className="admin-section-header"><div><h2 className="admin-section-title">Платежи</h2><p style={{color:THEME.textLight,fontSize:14}}>Регистрация платежей и история</p></div></div>
+
+            {/* Секция 1 — Добавить платёж */}
+            <div className="admin-form-card">
+              <h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:17,color:THEME.primary,marginBottom:18}}>➕ Добавить платёж</h3>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+                <div>
+                  <label style={{display:"block",fontWeight:700,fontSize:12,color:THEME.textLight,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Ученик *</label>
+                  <select value={payStudentId} onChange={e=>setPayStudentId(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,fontSize:14,outline:"none",background:"#fff"}}>
+                    <option value="">— Выберите ученика —</option>
+                    {studentOptions.map(s=><option key={s.id} value={s.id}>{s.lastName} {s.firstName} {s.phone?`(${s.phone})`:''}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:"block",fontWeight:700,fontSize:12,color:THEME.textLight,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>План *</label>
+                  <select value={payPlanKey} onChange={e=>setPayPlanKey(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,fontSize:14,outline:"none",background:"#fff"}}>
+                    <option value="">— Выберите план —</option>
+                    {Object.entries(PLANS).map(([key,p])=><option key={key} value={key}>{p.label} — {p.price.toLocaleString('ru-RU')} ₸</option>)}
+                  </select>
+                  {selectedPlan&&<div style={{marginTop:6,fontSize:13,color:THEME.accent,fontWeight:700}}>Сумма: {selectedPlan.price.toLocaleString('ru-RU')} ₸</div>}
+                </div>
+                <div>
+                  <label style={{display:"block",fontWeight:700,fontSize:12,color:THEME.textLight,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Способ оплаты *</label>
+                  <select value={payMethod} onChange={e=>setPayMethod(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,fontSize:14,outline:"none",background:"#fff"}}>
+                    <option value="">— Выберите способ —</option>
+                    {PAYMENT_METHODS.map(m=><option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:"block",fontWeight:700,fontSize:12,color:THEME.textLight,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Дата начала *</label>
+                  <input type="date" value={payStartDate} onChange={e=>setPayStartDate(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,fontSize:14,outline:"none",background:"#fff"}}/>
+                </div>
+                <div>
+                  <label style={{display:"block",fontWeight:700,fontSize:12,color:THEME.textLight,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Дата окончания</label>
+                  <input type="date" value={computedEnd} readOnly style={{width:"100%",padding:"10px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,fontSize:14,outline:"none",background:"#f1f5f9",color:THEME.textLight}}/>
+                  <div style={{marginTop:4,fontSize:11,color:THEME.textLight}}>+1 месяц от даты начала</div>
+                </div>
+                <div>
+                  <label style={{display:"block",fontWeight:700,fontSize:12,color:THEME.textLight,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Чек * (jpg/png/pdf)</label>
+                  <input type="file" accept="image/jpeg,image/png,application/pdf" onChange={e=>setPayReceiptFile(e.target.files?.[0]||null)} style={{width:"100%",padding:"8px",borderRadius:8,border:`1px solid ${THEME.border}`,fontSize:13,outline:"none",background:"#fff"}}/>
+                  {payReceiptFile&&<div style={{marginTop:4,fontSize:11,color:THEME.success,fontWeight:600}}>📎 {payReceiptFile.name}</div>}
+                </div>
+              </div>
+              <div style={{marginBottom:18}}>
+                <label style={{display:"block",fontWeight:700,fontSize:12,color:THEME.textLight,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Заметка</label>
+                <input type="text" value={payNote} onChange={e=>setPayNote(e.target.value)} placeholder="Опциональная заметка..." style={{width:"100%",padding:"10px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,fontSize:14,outline:"none",background:"#fff"}}/>
+              </div>
+              <button onClick={savePayment} disabled={paySaving} className="cta-button active" style={{width:"auto",padding:"12px 28px",fontSize:14}}>{paySaving?'Сохранение...':'💾 Сохранить'}</button>
+            </div>
+
+            {/* Секция 2 — История платежей */}
+            <div style={{marginTop:32}}>
+              <div className="admin-section-header" style={{marginBottom:14}}>
+                <div><h3 style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:17,color:THEME.primary}}>📜 История платежей</h3><p style={{color:THEME.textLight,fontSize:13,marginTop:4}}>Всего: {payments.length}</p></div>
+                <div>
+                  <select value={payFilterStudent} onChange={e=>setPayFilterStudent(e.target.value)} style={{padding:"8px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,fontSize:13,outline:"none",background:"#fff"}}>
+                    <option value="all">Все ученики</option>
+                    {studentOptions.map(s=><option key={s.id} value={s.id}>{s.lastName} {s.firstName}</option>)}
+                  </select>
+                </div>
+              </div>
+              {filteredPayments.length===0?<div className="empty-state">Платежей не найдено.</div>:(
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {filteredPayments.map(p=>(
+                    <div key={p.id} className="admin-card" style={{display:"grid",gridTemplateColumns:"1.4fr 1.4fr 0.9fr 1fr 1.2fr 0.4fr",gap:14,alignItems:"center"}}>
+                      <div>
+                        <div style={{fontWeight:700,color:THEME.primary,fontSize:14}}>{p.studentName||'—'}</div>
+                        <div style={{fontSize:11,color:THEME.textLight,marginTop:2}}>{p.createdAt?new Date(p.createdAt).toLocaleDateString('ru-RU'):''}</div>
+                      </div>
+                      <div>
+                        <div style={{fontWeight:600,color:THEME.text,fontSize:13}}>{p.planLabel||p.plan}</div>
+                        {p.note&&<div style={{fontSize:11,color:THEME.textLight,marginTop:2,fontStyle:"italic"}}>{p.note}</div>}
+                      </div>
+                      <div style={{fontWeight:700,color:THEME.accent,fontSize:14}}>{Number(p.amount||0).toLocaleString('ru-RU')} ₸</div>
+                      <div style={{fontSize:12,color:THEME.text,fontWeight:600}}>💳 {p.paymentMethodLabel||p.paymentMethod||'—'}</div>
+                      <div style={{fontSize:12,color:THEME.textLight}}>{fmtDate(p.startDate)} — {fmtDate(p.endDate)}</div>
+                      <div style={{textAlign:"right"}}>
+                        {p.receiptUrl?<a href={p.receiptUrl} target="_blank" rel="noopener noreferrer" title={p.receiptFileName||'Чек'} style={{textDecoration:"none",fontSize:22}}>📎</a>:<span style={{color:THEME.textLight,fontSize:18}}>—</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           );
         })()}
