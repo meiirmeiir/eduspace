@@ -178,6 +178,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                   <span style={{display:"inline-block",background:"transparent",color:THEME.textLight,fontWeight:600,fontSize:12,padding:"4px 12px",borderRadius:6,border:`1px solid ${THEME.border}`}}>{user?.goal}</span>
                 </div>
                 <div className="profile-detail">{user?.details}</div>
+                {user?.region&&<div className="profile-detail">📍 {user.region}</div>}
                 <div className="profile-date">Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
                 <button onClick={()=>setIsEditing(true)} style={{marginTop:10,background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"6px 16px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Редактировать профиль</button>
                 <ChangePasswordInline />
