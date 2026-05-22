@@ -110,14 +110,15 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   const frameStyle    = user?.equipped?.frame ? (FRAME_STYLES[user.equipped.frame] || null) : null;
 
   return(
-    <div className="profile-page" style={{position:'relative'}}>
-      {/* Фоновый layer для кастомного фона профиля (если надет equipped.background) */}
+    <div className={`profile-page${equippedBg ? ' has-bg' : ''}`} style={{position:'relative'}}>
+      {/* Фоновый layer для кастомного фона профиля (если надет equipped.background).
+          .has-bg делает карточки .dashboard-section полупрозрачными — см. index.css. */}
       {equippedBg && (
         <div aria-hidden="true" style={{
           position:'absolute', inset:0, zIndex:-1, pointerEvents:'none',
           backgroundImage:`url(${equippedBg.file})`,
           backgroundSize:'cover', backgroundPosition:'center',
-          opacity:0.35, borderRadius:16,
+          opacity:0.6, borderRadius:16,
         }}/>
       )}
       <div className="dashboard-header"><h1>Личный кабинет</h1></div>

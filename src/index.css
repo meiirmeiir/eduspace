@@ -886,3 +886,9 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-shop-theme="fire"] .sidebar-nav-item.active { background: rgba(249,115,22,0.18) !important; color: #f97316 !important; }
 [data-shop-theme="fire"] .stat-card { background: #2d1000 !important; border-color: #7c2d12 !important; }
 
+/* ── Профиль с экипированным фоном (.has-bg на .profile-page) ──
+   Делаем карточки полупрозрачными, чтобы фон-layer (под zIndex:-1)
+   проглядывал сквозь них и был визуально заметен. */
+.has-bg .dashboard-section { background: rgba(255,255,255,0.82) !important; }
+[data-theme="dark"] .has-bg .dashboard-section { background: rgba(20,20,30,0.82) !important; }
+

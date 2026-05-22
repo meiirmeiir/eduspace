@@ -49,6 +49,7 @@ import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
 import ShopScreen from "./screens/ShopScreen.jsx";
 import { addPoints } from "./lib/pointsUtils.js";
 import { addCrystals } from "./lib/crystalsUtils.js";
+import { getShopItem } from "./lib/shopItems.js";
 
 
 
@@ -180,7 +181,10 @@ export default function App() {
   // и потом при изменении dep — поэтому работает и на первом рендере тоже.
   useLayoutEffect(() => {
     const themeId = user?.equipped?.theme || '';
-    if (themeId) document.body.dataset.shopTheme = themeId;
+    // CSS селекторы в index.css ждут data-shop-theme="galaxy" (поле value),
+    // а в equipped.theme хранится itemId ("theme-galaxy") — резолвим через каталог.
+    const v = themeId ? getShopItem(themeId)?.value : null;
+    if (v) document.body.dataset.shopTheme = v;
     else delete document.body.dataset.shopTheme;
   }, [user?.equipped?.theme]);
   const [screen,setScreen]=useState(()=>{
