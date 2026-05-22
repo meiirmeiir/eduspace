@@ -117,7 +117,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
           position:'absolute', inset:0, zIndex:-1, pointerEvents:'none',
           backgroundImage:`url(${equippedBg.file})`,
           backgroundSize:'cover', backgroundPosition:'center',
-          opacity:0.15, borderRadius:16,
+          opacity:0.35, borderRadius:16,
         }}/>
       )}
       <div className="dashboard-header"><h1>Личный кабинет</h1></div>

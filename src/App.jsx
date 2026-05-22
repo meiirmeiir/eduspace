@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { InlineMath, BlockMath } from "react-katex";
 import "katex/dist/katex.min.css";
 import { ReactFlow, Background, Controls, Panel, useNodesState, useEdgesState, Handle, Position, getBezierPath } from '@xyflow/react';
@@ -173,9 +173,12 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[profile]);
 
-  // Shop theme: применяем data-атрибут на body, чтобы CSS-правила (когда появятся)
-  // могли стилизовать UI по equipped.theme. Сам CSS — отдельной задачей.
-  useEffect(() => {
+  // Shop theme: применяем data-атрибут на body синхронно после React-commit,
+  // до того как браузер нарисует первый кадр — иначе на первом рендере есть
+  // «вспышка» неоформленного UI пока useEffect отрабатывает асинхронно.
+  // useLayoutEffect, как и useEffect, ВСЕГДА запускается один раз на mount
+  // и потом при изменении dep — поэтому работает и на первом рендере тоже.
+  useLayoutEffect(() => {
     const themeId = user?.equipped?.theme || '';
     if (themeId) document.body.dataset.shopTheme = themeId;
     else delete document.body.dataset.shopTheme;
