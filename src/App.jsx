@@ -37,6 +37,8 @@ import FaqScreen from "./screens/FaqScreen.jsx";
 import DailyLockModal from "./components/DailyLockModal.jsx";
 import { getAlmatyDateStr } from "./lib/srsUtils.js";
 import { generateRoadmap, parseGrade } from "./lib/diagnosticUtils.js";
+import { DIFFICULTY_WEIGHTS, escHtml, tgSend } from "./lib/appConstants.js";
+import { updateTopicProgress } from "./lib/mathUtils.js";
 import IndividualPlanScreen from "./screens/IndividualPlanScreen.jsx";
 import SmartDiagRunner from "./components/SmartDiagRunner.jsx";
 import SkillMasteryScreen from "./screens/SkillMasteryScreen.jsx";
