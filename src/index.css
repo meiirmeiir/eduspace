@@ -846,3 +846,15 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   .confidence-label { display:inline; }
   .sidebar-backdrop { display:none !important; }
 }
+
+/* ──────────────────────────────────────────────────────────────
+   SHOP THEMES (equipped.theme → document.body.dataset.shopTheme).
+   Переопределяют общие CSS-переменные (--accent уже используется
+   многими компонентами; --bg и --surface зарезервированы под будущие
+   стили, сейчас не привязаны к существующим селекторам).
+   ────────────────────────────────────────────────────────────── */
+[data-shop-theme="galaxy"] { --accent: #a78bfa; --bg: #0f0a1e; --surface: #1e1b4b; }
+[data-shop-theme="sakura"] { --accent: #f472b6; --bg: #fff0f5; --surface: #fce7f3; }
+[data-shop-theme="matrix"] { --accent: #22c55e; --bg: #0a0f0a; --surface: #0d1f0d; }
+[data-shop-theme="fire"]   { --accent: #f97316; --bg: #1a0a00; --surface: #2d1000; }
+

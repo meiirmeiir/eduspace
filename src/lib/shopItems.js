@@ -14,7 +14,7 @@ export const SHOP_ITEMS = [
   { id: 'bg-anime-city',       type: 'background', name: 'Аниме город',       price: 350, file: '/shop/backgrounds/anime-city.jpg',      preview: '/shop/backgrounds/anime-city.jpg' },
   { id: 'bg-sakura',           type: 'background', name: 'Сакура',            price: 300, file: '/shop/backgrounds/sakura.jpg',          preview: '/shop/backgrounds/sakura.jpg' },
   { id: 'bg-cyberpunk',        type: 'background', name: 'Cyberpunk',         price: 450, file: '/shop/backgrounds/cyberpunk.jpg',       preview: '/shop/backgrounds/cyberpunk.jpg' },
-  { id: 'bg-lofi',             type: 'background', name: 'Lo-Fi',             price: 300, file: '/shop/backgrounds/lofi.jpg',            preview: '/shop/backgrounds/lofi.jpg' },
+  { id: 'bg-lofi',             type: 'background', name: 'Lo-Fi',             price: 300, file: '/shop/backgrounds/lofi.png',            preview: '/shop/backgrounds/lofi.png' },
   { id: 'bg-minecraft',        type: 'background', name: 'Minecraft',         price: 250, file: '/shop/backgrounds/minecraft.jpg',       preview: '/shop/backgrounds/minecraft.jpg' },
   { id: 'bg-aesthetic-black',  type: 'background', name: 'Aesthetic Black',   price: 350, file: '/shop/backgrounds/aesthetic-black.jpg', preview: '/shop/backgrounds/aesthetic-black.jpg' },
   { id: 'bg-neon-waves',       type: 'background', name: 'Неоновые волны',    price: 300, file: '/shop/backgrounds/neon-waves.jpg',      preview: '/shop/backgrounds/neon-waves.jpg' },
