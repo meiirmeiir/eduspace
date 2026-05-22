@@ -13,6 +13,7 @@ export default function SmartDiagRunner({ user, grade, onFinish, onStop, onSecti
   const [sectionNum, setSectionNum] = useState(initialSectionNum || 1); // номер текущего раздела
   const [accumulated, setAccumulated] = useState([]); // ответы текущего раздела
   const [transitionInfo, setTransitionInfo] = useState(null); // {engineState, stackSize}
+  const [isLastQuestion, setIsLastQuestion] = useState(false); // true когда текущий вопрос — последний в разделе
   const engineRef        = useRef(null);
   const finishedRef      = useRef(false);
   const allAnswersRef    = useRef([]);  // ответы всех разделов
@@ -29,22 +30,32 @@ export default function SmartDiagRunner({ user, grade, onFinish, onStop, onSecti
         const engine = new DiagnosticEngine(docs, grade);
         engineRef.current = engine;
 
-        // Проверяем — есть ли сохранённая пауза
+        // Проверяем — есть ли сохранённая пауза.
+        // Восстанавливаем только если paused-данные совпадают по grade И sectionNum с тем,
+        // что ожидает родитель (initialSectionNum). Если ученик прошёл следующий раздел
+        // и потом нажал «Начать раздел N» — устаревший snapshot из предыдущей сессии не
+        // должен подменять состояние и таскать прежний qNum (это и приводило к
+        // «33 вопроса в разделе»).
         try {
           const pausedStr = localStorage.getItem(DIAG_PAUSE_KEY);
           if (pausedStr) {
             const paused = JSON.parse(pausedStr);
-            if (paused.grade === grade) {
+            const expectedSection = initialSectionNum || 1;
+            const pausedSection   = paused.sectionNum || 1;
+            if (paused.grade === grade && pausedSection === expectedSection) {
               engine.applyExportedState(paused.engineState);
               allAnswersRef.current = paused.allAnswers || [];
               setAccumulated(paused.accumulated || []);
               setCurQ(paused.curQ);
               setQNum(paused.qNum);
-              setSectionNum(paused.sectionNum || 1);
+              setSectionNum(pausedSection);
+              setIsLastQuestion(engine.peekIsLastInSection?.() || false);
               localStorage.removeItem(DIAG_PAUSE_KEY);
               setPhase('question');
               return;
             }
+            console.warn('[diag] stale pause data, restarting section', { pausedSection, expectedSection, pausedGrade: paused.grade, currentGrade: grade });
+            localStorage.removeItem(DIAG_PAUSE_KEY);
           }
         } catch (_) {}
 
@@ -57,6 +68,7 @@ export default function SmartDiagRunner({ user, grade, onFinish, onStop, onSecti
         }
         if (!first) { setPhase('error'); return; }
         setCurQ(first);
+        setIsLastQuestion(engine.peekIsLastInSection?.() || false);
         setPhase('rules');
       } catch (e) { console.error(e); setPhase('error'); }
     })();
@@ -96,6 +108,8 @@ export default function SmartDiagRunner({ user, grade, onFinish, onStop, onSecti
 
     setQNum(n => n + 1);
     setCurQ(nextQ);
+    // Прогноз «следующий ответ закроет раздел» — заменяем хардкод qNum>=25.
+    setIsLastQuestion(engineRef.current.peekIsLastInSection?.() || false);
 
     // Autosave after every answer so a closed tab doesn't lose progress.
     try {
@@ -187,8 +201,8 @@ export default function SmartDiagRunner({ user, grade, onFinish, onStop, onSecti
       <QuestionScreen
         question={curQ}
         qNum={qNum + 1}
-        total={25}
         adaptiveMode
+        isLastQuestion={isLastQuestion}
         onComplete={handleAnswer}
         onPause={handlePause}
         canSkip={user?.status === 'tester'}

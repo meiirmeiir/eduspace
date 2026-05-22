@@ -281,6 +281,19 @@ export class DiagnosticEngine {
     return this._pickWithFallback(); // первый вопрос нового раздела
   }
 
+  /**
+   * Предсказывает, завершит ли раздел ответ на ТЕКУЩИЙ выданный вопрос.
+   * UI использует это, чтобы заменить надпись «Следующий вопрос» на
+   * «Завершить раздел» точно на последнем вопросе секции (не по хардкоду 25).
+   * Симулирует один шаг counter+1 и спрашивает у checkTestStatus.
+   */
+  peekIsLastInSection() {
+    const answered  = this.sectionQuestionCount + 1; // после ответа на текущий
+    const stackSize = this.prerequisiteStack.length; // приближение: стек может измениться по результату
+    const decision  = checkTestStatus({ answered, stackSize });
+    return decision === 'SECTION_DONE' || decision === 'PAUSE_SESSION';
+  }
+
   /** Экспортирует состояние движка для сохранения между разделами. */
   exportState() {
     const skillStatuses = {};

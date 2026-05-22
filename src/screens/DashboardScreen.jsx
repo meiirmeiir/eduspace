@@ -44,6 +44,23 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const [sidebarOpen,setSidebarOpen]=useState(false);
   const [rankInfo,setRankInfo]=useState(null); // {rank, total, myPoints} | null
   const [totalSkills,setTotalSkills]=useState(0); // общее количество навыков из skillHierarchies
+  const [diagPause,setDiagPause]=useState(null); // {sectionNum, qNum} из localStorage aapa_diag_pause
+
+  // Прогресс внутри раздела (пауза посреди диагностики) — живёт ТОЛЬКО в localStorage,
+  // в Firestore поднимается лишь по завершении раздела. Дашборд это умеет показать.
+  useEffect(()=>{
+    if(!user?.details){ setDiagPause(null); return; }
+    try{
+      const raw=localStorage.getItem('aapa_diag_pause');
+      if(!raw){ setDiagPause(null); return; }
+      const p=JSON.parse(raw);
+      if(p?.grade===user.details && typeof p.qNum==='number'){
+        setDiagPause({ sectionNum: p.sectionNum || 1, qNum: p.qNum });
+      } else {
+        setDiagPause(null);
+      }
+    }catch{ setDiagPause(null); }
+  },[user?.details]);
 
   useEffect(()=>{
     let cancelled=false;
@@ -524,17 +541,21 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
 
             {/* Блок 1: «Что делать сегодня» — умная карточка с CTA. Скрыта для teacher/admin. */}
             {!isTeacher && (() => {
-              // Если у ученика есть незавершённый раздел умной диагностики — продолжаем с него,
-              // а не стартуем с раздела 1. Передаём такой же флаг как и главная кнопка дашборда.
+              // Приоритет: пауза внутри раздела (localStorage) > раздел из Firestore > свежий старт.
               const hasPartialDiag = !!user?.smartDiagNextSection;
+              const hasInSection   = !!diagPause;
               let icon='🎯',
-                  text=hasPartialDiag
+                  text=hasInSection
+                       ? `Продолжи раздел ${diagPause.sectionNum} — ${diagPause.qNum} ${pluralize(diagPause.qNum, ['вопрос отвечен','вопроса отвечено','вопросов отвечено'])}`
+                       : hasPartialDiag
                        ? `Продолжи диагностику — раздел ${user.smartDiagNextSection}`
                        : 'Пройди диагностику — она определит твой уровень',
-                  ctaLabel=hasPartialDiag
+                  ctaLabel=hasInSection
+                       ? `Продолжить с вопроса ${diagPause.qNum + 1} →`
+                       : hasPartialDiag
                        ? `Продолжить раздел ${user.smartDiagNextSection} →`
                        : 'Начать диагностику →',
-                  onCta=()=>onStartSmartDiag?.(hasPartialDiag);
+                  onCta=()=>onStartSmartDiag?.(hasPartialDiag || hasInSection);
               if (user?.smartDiagDone && !masteryStatus.hasMastered) {
                 icon='📚'; text='Освой первый навык в индивидуальном плане'; ctaLabel='Перейти к плану →'; onCta=()=>onViewPlan?.();
               } else if (masteryStatus.hasDueToday) {

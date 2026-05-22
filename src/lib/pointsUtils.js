@@ -144,6 +144,7 @@ export async function addPoints(uid, action, userProfile) {
   }
 
   const url = `https://firestore.googleapis.com/v1/projects/${PROJECT()}/databases/(default)/documents:commit?key=${KEY()}`;
+  console.log('[points] attempting', action, uid, '(+'+delta+', weekId='+weekId+', reset='+needReset+')');
   try {
     const r = await fetch(url, {
       method: 'POST',
@@ -152,12 +153,13 @@ export async function addPoints(uid, action, userProfile) {
     });
     if (!r.ok) {
       const t = await r.text().catch(()=>'<no body>');
-      console.error('[points] commit failed', r.status, t.slice(0,200));
+      console.error('[points] FAILED', action, r.status, t.slice(0, 500));
       return false;
     }
+    console.log('[points] success', action, '+'+delta, 'uid='+uid);
     return true;
   } catch (e) {
-    console.error('[points] commit threw', e);
+    console.error('[points] FAILED', action, 'exception:', e?.message || e);
     return false;
   }
 }

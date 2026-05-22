@@ -290,7 +290,7 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
 }
 
 // ── ВОПРОС (MCQ + MULTIPLE + MATCHING) ───────────────────────────────────────
-function QuestionScreen({ question, qNum, total, adaptiveMode, onComplete, onStop, onPause, canSkip }) {
+function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, onComplete, onStop, onPause, canSkip }) {
   const [elapsed,setElapsed]=useState(0);
   // Resolve generated questions once per question change
   const resolvedQ = useMemo(()=>(question.type==="generated"||question.type==="model")?generateQuestion(question):question, [question.id||question.text]);
@@ -560,7 +560,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, onComplete, onSto
 
       <div style={{marginTop:qType==="matching"||qType==="compound"||qType==="open"?0:16,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
         <button className={`cta-button next-question-btn ${canProceed?"active":""}`} disabled={!canProceed} onClick={handleNext} style={{flex:1,minWidth:200}}>
-          {adaptiveMode&&qNum>=total?"Завершить раздел":!adaptiveMode&&qNum>=total?"Завершить диагностику":"Следующий вопрос →"}
+          {adaptiveMode&&isLastQuestion?"Завершить раздел":!adaptiveMode&&qNum>=total?"Завершить диагностику":"Следующий вопрос →"}
         </button>
         {canSkip&&(
           <button onClick={handleSkip} style={{padding:"14px 22px",borderRadius:12,border:`2px solid #8B5CF6`,background:"transparent",color:"#8B5CF6",fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",whiteSpace:"nowrap"}}>
