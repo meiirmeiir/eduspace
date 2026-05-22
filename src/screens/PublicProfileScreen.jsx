@@ -138,24 +138,28 @@ export default function PublicProfileScreen({ uid, onBack }) {
   }
 
   return (
-    <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
+    <div
+      className={`page-themed${equippedBg ? ' has-bg' : ''}`}
+      style={{
+        minHeight:'100vh', background:THEME.bg,
+        position:'relative',
+        ...(equippedBg ? { isolation:'isolate' } : {}),
+      }}
+    >
+      {/* Фоновый layer на уровне всего экрана, не только centered-контейнера */}
+      {equippedBg && (
+        <div aria-hidden="true" style={{
+          position:'absolute', inset:0, zIndex:-1, pointerEvents:'none',
+          backgroundImage:`url(${equippedBg.file})`,
+          backgroundSize:'cover', backgroundPosition:'center',
+          opacity:0.6,
+        }}/>
+      )}
       <AppTopbar title="Профиль" onBack={onBack}/>
 
       <div
-        className={`profile-page${equippedBg ? ' has-bg' : ''}`}
-        style={{
-          position:'relative', maxWidth:760, margin:'24px auto', padding:'0 16px 48px',
-          ...(equippedBg ? { isolation:'isolate' } : {}),
-        }}
+        style={{ maxWidth:760, margin:'24px auto', padding:'0 16px 48px' }}
       >
-        {equippedBg && (
-          <div aria-hidden="true" style={{
-            position:'absolute', inset:0, zIndex:-1, pointerEvents:'none',
-            backgroundImage:`url(${equippedBg.file})`,
-            backgroundSize:'cover', backgroundPosition:'center',
-            opacity:0.6, borderRadius:16,
-          }}/>
-        )}
 
         {/* Карточка профиля */}
         <div className="dashboard-section" style={{ display:'flex', alignItems:'center', gap:18, padding:'24px 22px', marginBottom:18 }}>
@@ -175,9 +179,20 @@ export default function PublicProfileScreen({ uid, onBack }) {
               }}>{initials}</div>
           }
           <div style={{ flex:1, minWidth:0 }}>
-            <h1 style={{ fontFamily:"'Montserrat',sans-serif", fontSize:24, fontWeight:800, color:THEME.primary, margin:'0 0 4px', overflow:'hidden', textOverflow:'ellipsis' }}>
-              {displayName || initials}
+            {/* Большой заголовок — инициалы «ИИ» */}
+            <h1 style={{
+              fontFamily:"'Montserrat',sans-serif", fontSize:32, fontWeight:800,
+              color:THEME.primary, margin:'0 0 2px', lineHeight:1.1, letterSpacing:'-0.5px',
+            }}>
+              {initials}
             </h1>
+            {/* Под ним меньше — «Иван И.» */}
+            {displayName && (
+              <div style={{
+                fontFamily:"'Inter',sans-serif", fontSize:14, fontWeight:600,
+                color:THEME.textLight, marginBottom:6,
+              }}>{displayName}</div>
+            )}
             {titleText && (
               <div style={{
                 display:'inline-block', marginBottom:8,

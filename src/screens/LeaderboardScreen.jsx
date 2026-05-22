@@ -9,15 +9,49 @@ import { FRAME_STYLES, getShopItem } from "../lib/shopItems.js";
 const PROJECT = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
 const KEY     = () => import.meta.env.VITE_FIREBASE_API_KEY;
 
-// ── Загрузка entries недельного рейтинга через REST ─────────────────────────
-async function fetchEntries(weekId) {
+async function _commonHeaders() {
   const token = await auth.currentUser?.getIdToken().catch(() => null);
   let appCheck = null;
   try { appCheck = (await getToken(app, false))?.token; } catch {}
-  const headers = {
+  return {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(appCheck ? { 'X-Firebase-AppCheck': appCheck } : {}),
   };
+}
+
+// Подтянуть publicProfiles для тех uid, чьи строки рейтинга были созданы до
+// денормализации firstName/avatarUrl/equipped в leaderboard entries. Один
+// :batchGet вместо N отдельных GET-ов. Возвращает Map<uid, publicProfile>.
+async function fetchPublicProfilesByUids(uids) {
+  if (!uids.length) return {};
+  const headers = { 'Content-Type': 'application/json', ...(await _commonHeaders()) };
+  const base = `https://firestore.googleapis.com/v1/projects/${PROJECT()}/databases/(default)/documents`;
+  const docs = uids.map(uid => `projects/${PROJECT()}/databases/(default)/documents/publicProfiles/${uid}`);
+  const body = JSON.stringify({ documents: docs });
+  const out = {};
+  try {
+    const r = await fetch(`${base}:batchGet?key=${KEY()}`, { method: 'POST', headers, body });
+    if (!r.ok) return out;
+    const arr = await r.json();
+    for (const item of arr) {
+      if (!item.found) continue;
+      const uid = item.found.name.split('/').pop();
+      const f = item.found.fields || {};
+      out[uid] = {
+        firstName:     f.firstName?.stringValue || '',
+        lastName:      f.lastName?.stringValue  || '',
+        avatarUrl:     f.avatarUrl?.stringValue || '',
+        equippedFrame: f.equipped?.mapValue?.fields?.frame?.stringValue || '',
+        equippedTitle: f.equipped?.mapValue?.fields?.title?.stringValue || '',
+      };
+    }
+  } catch (e) { console.warn('[leaderboard] batchGet publicProfiles failed', e); }
+  return out;
+}
+
+// ── Загрузка entries недельного рейтинга через REST ─────────────────────────
+async function fetchEntries(weekId) {
+  const headers = await _commonHeaders();
   const base = `https://firestore.googleapis.com/v1/projects/${PROJECT()}/databases/(default)/documents`;
   const url  = `${base}/leaderboard/${weekId}/entries?key=${KEY()}&pageSize=300`;
   let all = [];
@@ -64,9 +98,31 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setErr(null);
-    fetchEntries(weekId)
-      .then(list => { if (!cancelled) { setAllEntries(list); setLoading(false); } })
-      .catch(e => { if (!cancelled) { setErr(String(e)); setLoading(false); } });
+    (async () => {
+      try {
+        const list = await fetchEntries(weekId);
+        // Старые записи (до денормализации) не имеют firstName/lastName/avatarUrl/
+        // equipped*. Подтягиваем недостающее одним :batchGet из publicProfiles.
+        const need = list
+          .filter(e => !e.firstName && !e.lastName && !e.avatarUrl && !e.equippedFrame && !e.equippedTitle)
+          .map(e => e.uid);
+        if (need.length) {
+          const ppMap = await fetchPublicProfilesByUids(need);
+          for (const e of list) {
+            const pp = ppMap[e.uid];
+            if (!pp) continue;
+            e.firstName     = e.firstName     || pp.firstName;
+            e.lastName      = e.lastName      || pp.lastName;
+            e.avatarUrl     = e.avatarUrl     || pp.avatarUrl;
+            e.equippedFrame = e.equippedFrame || pp.equippedFrame;
+            e.equippedTitle = e.equippedTitle || pp.equippedTitle;
+          }
+        }
+        if (!cancelled) { setAllEntries(list); setLoading(false); }
+      } catch (e) {
+        if (!cancelled) { setErr(String(e)); setLoading(false); }
+      }
+    })();
     return () => { cancelled = true; };
   }, [weekId]);
 
