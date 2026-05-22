@@ -459,8 +459,10 @@ export default function App() {
   const closePublicProfile=React.useCallback(()=>{
     setPublicProfileUid(null);
     try { localStorage.removeItem('aapa_public_profile_uid'); } catch {}
-    // _setScreen — это replace-семантика (не push в customHistory),
-    // так что предыдущий leaderboard остаётся в стеке.
+    // Явно заменяем текущую запись браузерной истории (вместо push), чтобы
+    // public_profile не попадал в browser back-стек: следующее нажатие Back
+    // в leaderboard уведёт на dashboard, а не обратно в публичный профиль.
+    try { window.history.replaceState(null, '', '#leaderboard'); } catch {}
     _setScreen('leaderboard');
   },[_setScreen]);
 
