@@ -110,8 +110,13 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   const frameStyle    = user?.equipped?.frame ? (FRAME_STYLES[user.equipped.frame] || null) : null;
 
   return(
-    <div className={`profile-page${equippedBg ? ' has-bg' : ''}`} style={{position:'relative'}}>
+    <div
+      className={`profile-page${equippedBg ? ' has-bg' : ''}`}
+      style={{position:'relative', ...(equippedBg ? {isolation:'isolate'} : {})}}
+    >
       {/* Фоновый layer для кастомного фона профиля (если надет equipped.background).
+          isolation:isolate на .profile-page образует stacking context — иначе
+          layer с отрицательным z-index уходит за непрозрачный .dashboard-layout.
           .has-bg делает карточки .dashboard-section полупрозрачными — см. index.css. */}
       {equippedBg && (
         <div aria-hidden="true" style={{

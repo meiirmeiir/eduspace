@@ -886,6 +886,37 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-shop-theme="fire"] .sidebar-nav-item.active { background: rgba(249,115,22,0.18) !important; color: #f97316 !important; }
 [data-shop-theme="fire"] .stat-card { background: #2d1000 !important; border-color: #7c2d12 !important; }
 
+/* ── Цвет текста для кастомных тем магазина ──
+   Точечные селекторы для ключевых элементов (не * { color } — слишком
+   агрессивно: ломает явные цвета у chip-ов, кнопок и т.п.). */
+[data-shop-theme="galaxy"] .dashboard-section,
+[data-shop-theme="galaxy"] .stat-card,
+[data-shop-theme="galaxy"] .stat-value,
+[data-shop-theme="galaxy"] .stat-label,
+[data-shop-theme="galaxy"] .section-title,
+[data-shop-theme="galaxy"] .sidebar-nav-item { color: #e2e8f0 !important; }
+
+[data-shop-theme="matrix"] .dashboard-section,
+[data-shop-theme="matrix"] .stat-card,
+[data-shop-theme="matrix"] .stat-value,
+[data-shop-theme="matrix"] .stat-label,
+[data-shop-theme="matrix"] .section-title,
+[data-shop-theme="matrix"] .sidebar-nav-item { color: #22c55e !important; }
+
+[data-shop-theme="fire"] .dashboard-section,
+[data-shop-theme="fire"] .stat-card,
+[data-shop-theme="fire"] .stat-value,
+[data-shop-theme="fire"] .stat-label,
+[data-shop-theme="fire"] .section-title,
+[data-shop-theme="fire"] .sidebar-nav-item { color: #fed7aa !important; }
+
+[data-shop-theme="sakura"] .dashboard-section,
+[data-shop-theme="sakura"] .stat-card,
+[data-shop-theme="sakura"] .stat-value,
+[data-shop-theme="sakura"] .stat-label,
+[data-shop-theme="sakura"] .section-title,
+[data-shop-theme="sakura"] .sidebar-nav-item { color: #831843 !important; }
+
 /* ── Профиль с экипированным фоном (.has-bg на .profile-page) ──
    Делаем карточки полупрозрачными, чтобы фон-layer (под zIndex:-1)
    проглядывал сквозь них и был визуально заметен. */
