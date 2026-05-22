@@ -209,8 +209,17 @@ export default function App() {
   });
   const [questions,setQuestions]=useState([]);
   const [qIndex,setQIndex]=useState(0);
-  // uid открытого публичного профиля (через клик из LeaderboardScreen)
-  const [publicProfileUid,setPublicProfileUid]=useState(null);
+  // uid открытого публичного профиля. Восстанавливаем из localStorage при
+  // прямой загрузке #public_profile — иначе reload даёт белый экран
+  // (state потерян, hash не несёт uid).
+  const [publicProfileUid,setPublicProfileUid]=useState(()=>{
+    try {
+      if (window.location.hash === '#public_profile') {
+        return localStorage.getItem('aapa_public_profile_uid') || null;
+      }
+    } catch {}
+    return null;
+  });
   const [answers,setAnswers]=useState([]);
   const [report,setReport]=useState(null);
   const [lastResultId,setLastResultId]=useState(null);
@@ -436,6 +445,23 @@ export default function App() {
   const goBack=React.useCallback((fallback="dashboard")=>{
     const prev=customHistory.current.pop()||fallback;
     _setScreen(prev);
+  },[_setScreen]);
+
+  // Публичный профиль: открыть (с сохранением uid в localStorage для reload)
+  // и закрыть (с replace вместо push, чтобы публичный профиль не попадал в стек
+  // истории — иначе Back из leaderboard ведёт обратно в public_profile).
+  const openPublicProfile=React.useCallback((uid)=>{
+    if (!uid) return;
+    setPublicProfileUid(uid);
+    try { localStorage.setItem('aapa_public_profile_uid', uid); } catch {}
+    navigate('public_profile');
+  },[navigate]);
+  const closePublicProfile=React.useCallback(()=>{
+    setPublicProfileUid(null);
+    try { localStorage.removeItem('aapa_public_profile_uid'); } catch {}
+    // _setScreen — это replace-семантика (не push в customHistory),
+    // так что предыдущий leaderboard остаётся в стеке.
+    _setScreen('leaderboard');
   },[_setScreen]);
 
   // Перехват кнопки «Назад» браузера через sentinel-запись
@@ -1053,8 +1079,8 @@ export default function App() {
       {screen==="faq"&&<FaqScreen initialQuestion={faqInitial} onBack={()=>goBack()}/>}
       {screen==="intermediate_tests"&&<IntermediateTestsScreen user={user} onStartBoss={sec=>{setBossSection(sec);navigate("boss_fight");}} onBack={()=>goBack()}/>}
       {screen==="boss_fight"&&bossSection&&<BossFightScreen section={bossSection} user={user} onBack={()=>goBack("intermediate_tests")}/>}
-      {screen==="leaderboard"&&<LeaderboardScreen user={user} onBack={()=>goBack()} onOpenPublicProfile={(uid)=>{setPublicProfileUid(uid);navigate("public_profile");}}/>}
-      {screen==="public_profile"&&publicProfileUid&&<PublicProfileScreen uid={publicProfileUid} onBack={()=>{navigate("leaderboard");}}/>}
+      {screen==="leaderboard"&&<LeaderboardScreen user={user} onBack={()=>goBack()} onOpenPublicProfile={openPublicProfile}/>}
+      {screen==="public_profile"&&publicProfileUid&&<PublicProfileScreen uid={publicProfileUid} onBack={closePublicProfile}/>}
       {screen==="shop"&&<ShopScreen user={user} onBack={()=>goBack()} onUpdateUser={handleUpdateUser}/>}
       {/* Bottom-nav: only on screens where the user is browsing,
           not while taking a test or onboarding. */}
