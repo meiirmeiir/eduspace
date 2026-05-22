@@ -536,16 +536,21 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                     <div style={{fontSize:11,fontWeight:800,letterSpacing:1.8,textTransform:'uppercase',color:accent}}>
                       ⭐ ESR Рейтинг
                     </div>
-                    {wkCh !== 0 && (
-                      <div style={{
-                        fontSize:13,fontWeight:700,
-                        color: wkCh > 0 ? '#10b981' : '#ef4444',
-                        background: wkCh > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-                        padding:'4px 10px',borderRadius:99,
-                      }}>
-                        {wkCh > 0 ? '+' : ''}{wkCh} за неделю {wkCh > 0 ? '↑' : '↓'}
+                    <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                      {wkCh !== 0 && (
+                        <div style={{
+                          fontSize:13,fontWeight:700,
+                          color: wkCh > 0 ? '#10b981' : '#ef4444',
+                          background: wkCh > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                          padding:'4px 10px',borderRadius:99,
+                        }}>
+                          {wkCh > 0 ? '+' : ''}{wkCh} за неделю {wkCh > 0 ? '↑' : '↓'}
+                        </div>
+                      )}
+                      <div style={{fontFamily:"'Montserrat',sans-serif",fontSize:24,fontWeight:800,color:'#a78bfa',whiteSpace:'nowrap',lineHeight:1}}>
+                        💎 {(user?.crystals ?? 0).toLocaleString('ru-RU')}
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   {/* Big number */}

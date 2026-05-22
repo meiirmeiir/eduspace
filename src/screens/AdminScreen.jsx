@@ -4160,6 +4160,25 @@ SAT;Math Calculator;Статистика и вероятность;Интерп�
                           {daysLeft!==null&&daysLeft>0?`⏳ Осталось ${daysLeft} дн. (до ${new Date(periodEnd).toLocaleDateString("ru-RU")})`:daysLeft!==null&&daysLeft<=0?`⛔ Период истёк ${new Date(periodEnd).toLocaleDateString("ru-RU")}`:""}
                         </div>
                       )}
+                      <div style={{marginTop:10,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                        <span style={{fontSize:11,color:"#a78bfa",fontWeight:700}}>💎 {(s.crystals??0).toLocaleString("ru-RU")}</span>
+                        <button
+                          onClick={async e=>{
+                            e.stopPropagation();
+                            const raw=window.prompt(`Сколько кристаллов выдать ${s.firstName} ${s.lastName}? (текущий баланс: ${s.crystals??0})`);
+                            if(raw==null)return;
+                            const amount=parseInt(raw,10);
+                            if(!Number.isInteger(amount)||amount===0){alert("Введите целое число (положительное — выдать, отрицательное — забрать).");return;}
+                            const current=Number(s.crystals||0);
+                            const next=Math.max(0,current+amount);
+                            try{
+                              await updateDoc(doc(db,"users",s.id),{crystals:next});
+                              setStudents(prev=>prev.map(x=>x.id===s.id?{...x,crystals:next}:x));
+                            }catch(err){alert("Ошибка: "+err.message);}
+                          }}
+                          style={{background:"rgba(167,139,250,0.12)",color:"#a78bfa",border:"1px solid rgba(167,139,250,0.4)",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}
+                        >💎 Выдать</button>
+                      </div>
                     </div>
                   );
                 })}
