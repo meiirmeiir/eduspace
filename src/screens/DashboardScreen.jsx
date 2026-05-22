@@ -395,7 +395,16 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             ? <img src={user.avatarUrl} alt="avatar" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(255,255,255,0.2)",flexShrink:0}}/>
             : <div className="sidebar-user-avatar">{user?.firstName?.[0]}{user?.lastName?.[0]}</div>
           }
-          <div style={{flex:1,minWidth:0}}><div className="sidebar-user-name">{user?.firstName} {user?.lastName}</div><div className="sidebar-user-role" style={{color:statusObj.color+"cc"}}>{isAdmin?"Администратор":isTeacher?"Преподаватель":statusObj.label}</div></div>
+          <div style={{flex:1,minWidth:0}}>
+            <div className="sidebar-user-name">{user?.firstName} {user?.lastName}</div>
+            <div className="sidebar-user-role" style={{color:statusObj.color+"cc"}}>{isAdmin?"Администратор":isTeacher?"Преподаватель":statusObj.label}</div>
+            {/* Кристаллы — видны всем ролям, в том числе admin/teacher (ESR-виджет от них скрыт). */}
+            {(user?.crystals ?? 0) > 0 && (
+              <div style={{fontSize:13, color:'#a78bfa', fontWeight:700, marginTop:4}}>
+                💎 {(user?.crystals ?? 0).toLocaleString('ru-RU')}
+              </div>
+            )}
+          </div>
           <button onClick={onLogout} title="Выйти" style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",color:"rgba(255,255,255,0.45)",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:13,flexShrink:0,transition:"all 0.15s"}}
             onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.15)";e.currentTarget.style.color="#ef4444";e.currentTarget.style.borderColor="rgba(239,68,68,0.3)";}}
             onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color="rgba(255,255,255,0.45)";e.currentTarget.style.borderColor="rgba(255,255,255,0.12)";}}>

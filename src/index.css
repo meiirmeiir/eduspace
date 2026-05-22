@@ -934,3 +934,12 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 .has-bg .dashboard-section { background: rgba(255,255,255,0.82) !important; }
 [data-theme="dark"] .has-bg .dashboard-section { background: rgba(20,20,30,0.82) !important; }
 
+/* Растягиваем .profile-page за пределы padding-а .dashboard-main (40/48),
+   чтобы фоновый layer покрывал весь main-блок, а не оставлял белую рамку.
+   Возвращаем padding обратно, чтобы контент не «прилип» к краям. */
+.profile-page.has-bg {
+  margin: -40px -48px;
+  padding: 40px 48px;
+  min-height: calc(100vh + 80px);
+}
+
