@@ -7,7 +7,7 @@ import ChangePasswordInline from "./ChangePasswordInline.jsx";
 import ExpertReportView from "../screens/ExpertReportView.jsx";
 import ErrorCard from "./ui/ErrorCard.jsx";
 import Medal from "./Medal.jsx";
-import { getShopItem } from "../lib/shopItems.js";
+import { getShopItem, FRAME_STYLES } from "../lib/shopItems.js";
 
 export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser }) {
   const { firebaseUser } = useAuth();
@@ -107,7 +107,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   const fmtTime=sec=>{const m=Math.floor(sec/60),s=sec%60;return m>0?`${m} мин ${s} с`:`${s} с`;};
 
   const equippedBg    = user?.equipped?.background ? getShopItem(user.equipped.background) : null;
-  const equippedFrame = user?.equipped?.frame      ? getShopItem(user.equipped.frame)      : null;
+  const frameStyle    = user?.equipped?.frame ? (FRAME_STYLES[user.equipped.frame] || null) : null;
 
   return(
     <div className="profile-page" style={{position:'relative'}}>
@@ -124,21 +124,19 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
       {/* Profile card */}
       <div className="dashboard-section">
         <div className="profile-card">
-          {/* Avatar */}
+          {/* Avatar (CSS-frame применяется inline, перекрывая дефолтный gold-border) */}
           <div style={{position:"relative",flexShrink:0}}>
             {(isEditing?editForm.avatarUrl:user?.avatarUrl)
-              ? <img src={isEditing?editForm.avatarUrl:user.avatarUrl} alt="avatar" style={{width:72,height:72,borderRadius:"50%",objectFit:"cover",border:`3px solid ${THEME.accent}`}}/>
-              : <div className="profile-avatar">{(isEditing?editForm.firstName:user?.firstName)?.[0]}{(isEditing?editForm.lastName:user?.lastName)?.[0]}</div>
+              ? <img src={isEditing?editForm.avatarUrl:user.avatarUrl} alt="avatar"
+                  style={{
+                    width:72, height:72, borderRadius:"50%", objectFit:"cover",
+                    border: `3px solid ${THEME.accent}`,
+                    ...(frameStyle || {}),
+                  }}/>
+              : <div className="profile-avatar" style={frameStyle || undefined}>
+                  {(isEditing?editForm.firstName:user?.firstName)?.[0]}{(isEditing?editForm.lastName:user?.lastName)?.[0]}
+                </div>
             }
-            {/* Frame-overlay поверх аватара. Только если файл рамки реально загружен (onError скрывает). */}
-            {equippedFrame && (
-              <img
-                src={equippedFrame.file} alt=""
-                aria-hidden="true"
-                onError={(e)=>{ e.currentTarget.style.display='none'; }}
-                style={{position:'absolute', inset:-6, width:84, height:84, pointerEvents:'none', userSelect:'none'}}
-              />
-            )}
             {isEditing&&(
               <>
                 <button onClick={()=>avatarInputRef.current?.click()} disabled={avatarUploading}

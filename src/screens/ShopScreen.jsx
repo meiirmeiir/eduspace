@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { THEME } from "../lib/appConstants.js";
-import { SHOP_ITEMS, SHOP_TYPES } from "../lib/shopItems.js";
+import { SHOP_ITEMS, SHOP_TYPES, FRAME_STYLES } from "../lib/shopItems.js";
 import { purchaseItem, equipItem } from "../lib/shopUtils.js";
 import { getLeague } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
@@ -13,7 +13,26 @@ const THEME_SWATCHES = {
 };
 
 function Preview({ item }) {
-  if (item.type === 'background' || item.type === 'frame') {
+  if (item.type === 'frame') {
+    // Круглый аватар-плейсхолдер 64×64 с применённым CSS-стилем рамки.
+    const style = FRAME_STYLES[item.id] || null;
+    return (
+      <div style={{
+        width:'100%', aspectRatio:'16/9', borderRadius:10,
+        background:'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        display:'flex', alignItems:'center', justifyContent:'center',
+      }}>
+        <div style={{
+          width:64, height:64, borderRadius:'50%',
+          background:'linear-gradient(135deg, #6366f1, #a78bfa)',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          color:'#fff', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:18,
+          ...(style || {}),
+        }}>МБ</div>
+      </div>
+    );
+  }
+  if (item.type === 'background') {
     return (
       <div style={{
         width:'100%', aspectRatio:'16/9', borderRadius:10, overflow:'hidden',

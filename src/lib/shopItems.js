@@ -19,12 +19,13 @@ export const SHOP_ITEMS = [
   { id: 'bg-aesthetic-black',  type: 'background', name: 'Aesthetic Black',   price: 350, file: '/shop/backgrounds/aesthetic-black.jpg', preview: '/shop/backgrounds/aesthetic-black.jpg' },
   { id: 'bg-neon-waves',       type: 'background', name: 'Неоновые волны',    price: 300, file: '/shop/backgrounds/neon-waves.jpg',      preview: '/shop/backgrounds/neon-waves.jpg' },
 
-  // ── Рамки (SVG, файлы загружаются вручную в public/shop/frames/) ──
-  { id: 'frame-fire',     type: 'frame', name: 'Огненная рамка',    price: 300, file: '/shop/frames/fire.svg',    preview: '/shop/frames/fire.svg' },
-  { id: 'frame-neon',     type: 'frame', name: 'Неоновая рамка',    price: 400, file: '/shop/frames/neon.svg',    preview: '/shop/frames/neon.svg' },
-  { id: 'frame-pixel',    type: 'frame', name: 'Пиксельная рамка',  price: 200, file: '/shop/frames/pixel.svg',   preview: '/shop/frames/pixel.svg' },
-  { id: 'frame-rainbow',  type: 'frame', name: 'Радужная рамка',    price: 350, file: '/shop/frames/rainbow.svg', preview: '/shop/frames/rainbow.svg' },
-  { id: 'frame-diamond',  type: 'frame', name: 'Алмазная рамка 💎', price: 800, file: '/shop/frames/diamond.svg', preview: '/shop/frames/diamond.svg', isExclusive: true, requiredLeague: 'diamond' },
+  // ── Рамки (чистый CSS: border + boxShadow вокруг круглого аватара) ──
+  // Стили живут в FRAME_STYLES ниже; здесь храним только метаданные предмета.
+  { id: 'frame-fire',     type: 'frame', name: 'Огненная рамка',    price: 300, cssFrame: true },
+  { id: 'frame-neon',     type: 'frame', name: 'Неоновая рамка',    price: 400, cssFrame: true },
+  { id: 'frame-pixel',    type: 'frame', name: 'Пиксельная рамка',  price: 200, cssFrame: true },
+  { id: 'frame-rainbow',  type: 'frame', name: 'Радужная рамка',    price: 350, cssFrame: true },
+  { id: 'frame-diamond',  type: 'frame', name: 'Алмазная рамка 💎', price: 800, cssFrame: true, isExclusive: true, requiredLeague: 'diamond' },
 
   // ── Титулы (отображаются под именем в профиле) ──
   { id: 'title-math-mafia',    type: 'title', name: 'Math Mafia',                       price: 350, value: 'Math Mafia' },
@@ -50,3 +51,15 @@ export const SHOP_TYPES = [
 export function getShopItem(id) {
   return SHOP_ITEMS.find(i => i.id === id) || null;
 }
+
+// CSS-стили для рамок аватара. Применяются как inline style к
+// круглому элементу (img/div). Ключ — itemId предмета типа 'frame'.
+// border перекрывает дефолтную обводку аватара; boxShadow добавляет
+// glow/orbs/rings снаружи.
+export const FRAME_STYLES = {
+  'frame-fire':    { border: '3px solid #f97316', boxShadow: '0 0 8px #f97316, 0 0 16px #ef4444, 0 0 24px #dc2626' },
+  'frame-neon':    { border: '3px solid #22d3ee', boxShadow: '0 0 8px #22d3ee, 0 0 16px #818cf8, 0 0 24px #c084fc' },
+  'frame-pixel':   { border: '4px solid #22c55e', boxShadow: '4px 4px 0 #15803d, -4px -4px 0 #15803d, 4px -4px 0 #15803d, -4px 4px 0 #15803d' },
+  'frame-rainbow': { boxShadow: '0 0 0 3px #f43f5e, 0 0 0 5px #f97316, 0 0 0 7px #eab308, 0 0 0 9px #22c55e, 0 0 0 11px #3b82f6, 0 0 0 13px #a855f7' },
+  'frame-diamond': { border: '3px solid #bae6fd', boxShadow: '0 0 8px #bae6fd, 0 0 16px #7dd3fc, inset 0 0 8px rgba(186,230,253,0.3)' },
+};
