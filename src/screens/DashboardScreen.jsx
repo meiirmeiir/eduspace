@@ -6,6 +6,7 @@ import { compressImage } from "../lib/mathUtils.js";
 import { getAlmatyDateStr } from "../lib/srsUtils.js";
 import { tgPhoto, THEME, STUDENT_STATUSES, DAY_NAMES_SHORT, PLANS } from "../lib/appConstants.js";
 import { getMyWeeklyRank } from "../lib/pointsUtils.js";
+import { getContent } from "../lib/contentCache.js";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
@@ -42,6 +43,18 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const [schedForm,setSchedForm]=useState({studentId:'',subject:'Математика',mode:'weekly',date:'',startTime:'10:00',endTime:'11:00',weekDays:[],startFrom:new Date().toISOString().slice(0,10),weeks:8});
   const [sidebarOpen,setSidebarOpen]=useState(false);
   const [rankInfo,setRankInfo]=useState(null); // {rank, total, myPoints} | null
+  const [totalSkills,setTotalSkills]=useState(0); // общее количество навыков из skillHierarchies
+
+  useEffect(()=>{
+    let cancelled=false;
+    getContent('skillHierarchies').then(docs=>{
+      if(cancelled) return;
+      const ids=new Set();
+      (docs||[]).forEach(d=>(d.clusters||[]).forEach(cl=>(cl.pivot_skills||[]).forEach(ps=>{ if(ps.skill_id) ids.add(ps.skill_id); })));
+      setTotalSkills(ids.size);
+    }).catch(()=>{});
+    return ()=>{ cancelled=true; };
+  },[]);
 
   useEffect(()=>{
     let cancelled=false;
@@ -270,6 +283,11 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const isTrial=user?.status==="trial";
   const isTester=user?.status==="tester";
   const isInactive=user?.status==="inactive";
+
+  // Прогресс по плану
+  const masteredCount=masteryStatus.masteredCount||0;
+  const progressPct=totalSkills>0?Math.round((masteredCount/totalSkills)*100):0;
+  const topicsGreen=Object.values(progressData?.topics||{}).filter(t=>t?.zone==='green').length;
   const showDiagNav=isTeacher||isTester||(user?.goalKey==="exam");
   const navItems=isInactive?[
     {id:"plan",icon:"🗺️",label:"Индивидуальный план обучения"},
@@ -500,7 +518,60 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                   </div>
                 );
               })()}
+              <div className="stat-card"><div className="stat-icon">📖</div><div><div className="stat-value">{topicsGreen}</div><div className="stat-label">{pluralize(topicsGreen, ['тема изучена','темы изучено','тем изучено'])}</div></div></div>
+              <div className="stat-card"><div className="stat-icon">🎯</div><div><div className="stat-value">{progressPct}%</div><div className="stat-label">прогресс</div></div></div>
             </div>
+
+            {/* Блок 1: «Что делать сегодня» — умная карточка с CTA. Скрыта для teacher/admin. */}
+            {!isTeacher && (() => {
+              let icon='🎯', text='Пройди диагностику — она определит твой уровень', ctaLabel='Начать диагностику →', onCta=()=>onStartSmartDiag?.(false);
+              if (user?.smartDiagDone && !masteryStatus.hasMastered) {
+                icon='📚'; text='Освой первый навык в индивидуальном плане'; ctaLabel='Перейти к плану →'; onCta=()=>onViewPlan?.();
+              } else if (masteryStatus.hasDueToday) {
+                icon='📝'; text='Есть задачи для повторения сегодня!'; ctaLabel='Начать разминку →'; onCta=()=>onOpenDaily?.();
+              } else if (masteryStatus.hasMastered && !masteryStatus.hasDueToday) {
+                icon='✨'; text='Отлично! Продолжай осваивать новые навыки'; ctaLabel='К плану →'; onCta=()=>onViewPlan?.();
+              }
+              return (
+                <div className="dashboard-section" style={{
+                  marginBottom:24, padding:'22px 26px',
+                  background:`linear-gradient(135deg, ${THEME.primary} 0%, #1e1b4b 100%)`,
+                  border:'1px solid rgba(212,175,55,0.25)',
+                  color:'#fff',
+                  display:'flex', alignItems:'center', gap:20, flexWrap:'wrap',
+                }}>
+                  <div style={{fontSize:44, lineHeight:1, flexShrink:0}}>{icon}</div>
+                  <div style={{flex:'1 1 220px', minWidth:0}}>
+                    <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:THEME.accent, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:6}}>Что делать сегодня</div>
+                    <div style={{fontSize:16, lineHeight:1.4, color:'#fff', fontWeight:600}}>{text}</div>
+                  </div>
+                  <button onClick={onCta} style={{
+                    background:THEME.accent, color:THEME.primary, border:'none', borderRadius:10,
+                    padding:'12px 22px', fontFamily:"'Montserrat',sans-serif", fontSize:14, fontWeight:800,
+                    cursor:'pointer', whiteSpace:'nowrap', flexShrink:0,
+                    boxShadow:'0 6px 18px -4px rgba(212,175,55,0.5)',
+                  }}>{ctaLabel}</button>
+                </div>
+              );
+            })()}
+
+            {/* Блок 2: прогресс по плану — только после диагностики и не для teacher/admin. */}
+            {user?.smartDiagDone && !isTeacher && totalSkills > 0 && (
+              <div className="dashboard-section" style={{marginBottom:24, padding:'20px 22px'}}>
+                <div style={{display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:12, marginBottom:10, flexWrap:'wrap'}}>
+                  <h2 className="section-title" style={{margin:0}}>📊 Прогресс обучения</h2>
+                  <div style={{fontSize:13, color:THEME.textLight, fontWeight:600}}>Освоено: <span style={{color:THEME.primary, fontWeight:800}}>{masteredCount}</span> из {totalSkills} навыков</div>
+                </div>
+                <div style={{height:10, borderRadius:99, background:'rgba(15,23,42,0.08)', overflow:'hidden'}}>
+                  <div style={{
+                    height:'100%', width:`${progressPct}%`,
+                    background:`linear-gradient(90deg, ${THEME.accent}, #f59e0b)`,
+                    borderRadius:99, transition:'width 0.4s ease',
+                  }}/>
+                </div>
+                <div style={{marginTop:6, fontSize:12, color:THEME.textLight, textAlign:'right'}}>{progressPct}%</div>
+              </div>
+            )}
 
             {/* Weekly rank widget — для всех учеников, включая solo */}
             <div className="dashboard-section" style={{padding:"18px 22px", marginBottom:24, display:"flex", alignItems:"center", justifyContent:"space-between", gap:16, flexWrap:"wrap"}}>
