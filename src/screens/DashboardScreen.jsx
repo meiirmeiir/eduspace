@@ -450,8 +450,8 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             )}
 
             <div className="stats-row">
-              {!isSolo&&<div className="stat-card"><div className="stat-icon">📅</div><div><div className="stat-value">{schedule.length}</div><div className="stat-label">занятий в неделю</div></div></div>}
-              {!isSolo&&<div className="stat-card"><div className="stat-icon">📚</div><div><div className="stat-value">{homework.filter(h=>new Date(h.dueDate+"T23:59:59")>=today).length}</div><div className="stat-label">активных ДЗ</div></div></div>}
+              {!isSolo&&!isInactive&&<div className="stat-card"><div className="stat-icon">📅</div><div><div className="stat-value">{schedule.length}</div><div className="stat-label">занятий в неделю</div></div></div>}
+              {!isSolo&&!isInactive&&<div className="stat-card"><div className="stat-icon">📚</div><div><div className="stat-value">{homework.filter(h=>new Date(h.dueDate+"T23:59:59")>=today).length}</div><div className="stat-label">активных ДЗ</div></div></div>}
               {/* Освоено навыков — SVG-галочка «рисуется» при загрузке */}
               <div className="stat-card">
                 <span className="stat-icon-svg" aria-hidden="true">
@@ -490,7 +490,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             </div>
 
             {/* Schedule */}
-            {!isSolo&&(
+            {!isSolo&&!isInactive&&(
             <div data-tour="next-lesson" className="dashboard-section">
               <div className="section-title-row">
                 <h2 className="section-title">📅 Расписание занятий</h2>
@@ -545,7 +545,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             </div>
             )}
             {/* Homework */}
-            {!isSolo&&(
+            {!isSolo&&!isInactive&&(
             <div data-tour="homework" className="dashboard-section">
               <div className="section-title-row"><h2 className="section-title">📚 Домашние задания</h2>{isTeacher&&<button className="add-btn" onClick={()=>setShowHwForm(true)}>+ Добавить ДЗ</button>}</div>
               {loadingData?<div className="empty-state">Загрузка...</div>:dataError?<ErrorCard onRetry={loadDashData}/>:homework.length===0?<div className="empty-state">{isTeacher?"Нажмите «+ Добавить ДЗ».":"Домашних заданий пока нет."}</div>:(
