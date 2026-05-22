@@ -524,7 +524,17 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
 
             {/* Блок 1: «Что делать сегодня» — умная карточка с CTA. Скрыта для teacher/admin. */}
             {!isTeacher && (() => {
-              let icon='🎯', text='Пройди диагностику — она определит твой уровень', ctaLabel='Начать диагностику →', onCta=()=>onStartSmartDiag?.(false);
+              // Если у ученика есть незавершённый раздел умной диагностики — продолжаем с него,
+              // а не стартуем с раздела 1. Передаём такой же флаг как и главная кнопка дашборда.
+              const hasPartialDiag = !!user?.smartDiagNextSection;
+              let icon='🎯',
+                  text=hasPartialDiag
+                       ? `Продолжи диагностику — раздел ${user.smartDiagNextSection}`
+                       : 'Пройди диагностику — она определит твой уровень',
+                  ctaLabel=hasPartialDiag
+                       ? `Продолжить раздел ${user.smartDiagNextSection} →`
+                       : 'Начать диагностику →',
+                  onCta=()=>onStartSmartDiag?.(hasPartialDiag);
               if (user?.smartDiagDone && !masteryStatus.hasMastered) {
                 icon='📚'; text='Освой первый навык в индивидуальном плане'; ctaLabel='Перейти к плану →'; onCta=()=>onViewPlan?.();
               } else if (masteryStatus.hasDueToday) {

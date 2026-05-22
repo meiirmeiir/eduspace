@@ -551,7 +551,15 @@ export default function App() {
       savingDiagRef.current=true;
       clearQuizProgress();
       setReport({answers:next});
-      showNpcMessage("success", 6000);
+      // Переход на следующий экран — СРАЗУ, до медленных операций (Firestore +
+      // autoGeneratePlan + Telegram могут занимать 10-30 сек). Раньше setScreen
+      // стоял в конце, и пользователь видел зависший question-фон после исчезновения NPC.
+      // RoadmapScreen толерантен к пустому roadmap (`roadmap || {}`);
+      // UploadAnalysisScreen от плана вообще не зависит.
+      const isSmartDiagFinal=next.some(a=>a.verticalId)||!!pendingSection?._smartDiag;
+      setScreen(isSmartDiagFinal?"roadmap":"upload");
+      // Сохранение в Firestore, autoGeneratePlan, Telegram-логи и начисление очков — в фон.
+      void (async()=>{
       try{
         const correct=next.filter(a=>a.correct).length;
         const totalTime=next.reduce((s,a)=>s+(a.timeSpent||0),0);
@@ -575,7 +583,10 @@ export default function App() {
           answers: next.map(a=>({topic:a.topic,section:a.section,_grade:a._grade,skillId:a.skillId,verticalId:a.verticalId,correct:a.correct,difficulty:a.difficulty||"A",confidence:a.confidence,timeSpent:a.timeSpent}))
         });
         setLastResultId(ref.id);
-        if(user?.uid) addPoints(user.uid,'diagnostic_done',user);
+        // diagnostic_done: для умной диагностики очки уже начисляются за каждый
+        // раздел в finishDiagnosticSection — здесь начисляем только для обычной,
+        // чтобы не двойного-начислять финальный раздел умной.
+        if(user?.uid && !pendingSection?._smartDiag) addPoints(user.uid,'diagnostic_done',user);
         // Если умная диагностика — генерируем дорожную карту и помечаем как пройденную
         if((next.some(a=>a.verticalId)||pendingSection?._smartDiag) && user?.uid){
           try{
@@ -702,9 +713,7 @@ export default function App() {
         } // end else (regular diag)
       }catch(e){console.error("Ошибка сохранения:",e);}
       savingDiagRef.current=false;
-      // Умная диагностика → Дорожная карта; обычная → экран загрузки черновика
-      const isSmartDiagFinal=next.some(a=>a.verticalId)||!!pendingSection?._smartDiag;
-      setScreen(isSmartDiagFinal?"roadmap":"upload");
+      })();
   };
 
   const handleAnswer=async data=>{
@@ -999,7 +1008,7 @@ export default function App() {
           onSkip={()=>navigate("dashboard")}
         />
       )}
-      {screen==="roadmap"&&roadmap&&<RoadmapScreen roadmap={roadmap} user={user} onBack={()=>goBack()} onViewPlan={viewPlan}/>}
+      {screen==="roadmap"&&<RoadmapScreen roadmap={roadmap} user={user} onBack={()=>goBack()} onViewPlan={viewPlan}/>}
 
       {screen==="plan"&&<IndividualPlanScreen user={user} onBack={()=>goBack()} onStartTraining={(skillId,skillName)=>{setMasterySkillId(skillId);setMasterySkillName(skillName||skillId);navigate("mastery");}}/>}
       {screen==="mastery"&&masterySkillId&&<SkillMasteryScreen user={user} skillId={masterySkillId} skillName={masterySkillName} onBack={()=>{setMasterySkillId(null);setMasterySkillName('');goBack("plan");}}/>}
