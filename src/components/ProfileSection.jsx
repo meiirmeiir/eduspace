@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import ChangePasswordInline from "./ChangePasswordInline.jsx";
 import ExpertReportView from "../screens/ExpertReportView.jsx";
 import ErrorCard from "./ui/ErrorCard.jsx";
+import Medal from "./Medal.jsx";
 
 export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser }) {
   const { firebaseUser } = useAuth();
@@ -17,6 +18,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   const [viewingExpert,setViewingExpert]=useState(null);
   const [viewingPhotos,setViewingPhotos]=useState([]);
   const [medals,setMedals]=useState([]);
+  const [rankMedals,setRankMedals]=useState([]);
   const [isEditing,setIsEditing]=useState(false);
   const [editForm,setEditForm]=useState({
     firstName:user?.firstName||"",
@@ -74,10 +76,11 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
     const _uid=user?.uid||user?.id; if (!_uid) return;
     setLoading(true); setFetchError(false);
     try{
-      const [resSnap,repSnap,medalSnap]=await Promise.all([
+      const [resSnap,repSnap,medalSnap,rankMedalSnap]=await Promise.all([
         getDocs(query(collection(db,"diagnosticResults"),where("userId","==",_uid))),
         getDocs(query(collection(db,"expertReports"),where("userId","==",_uid))),
         getDocs(query(collection(db,"medals"),where("userId","==",_uid))),
+        getDocs(collection(db,`users/${_uid}/medals`)),
       ]);
       const mine=resSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.completedAt?.localeCompare(a.completedAt));
       setResults(mine);
@@ -85,6 +88,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
       repSnap.docs.forEach(d=>{const r={id:d.id,...d.data()};if(r.resultId)map[r.resultId]=r;});
       setExpertMap(map);
       setMedals(medalSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.earnedAt?.localeCompare(a.earnedAt)));
+      setRankMedals(rankMedalSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.awardedAt||'').localeCompare(a.awardedAt||'')));
     }catch(e){console.error(e);setFetchError(true);}
     setLoading(false);
   };
@@ -213,6 +217,22 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
           </div>
         </div>
       )}
+
+      {/* Rank medals (weekly leaderboard awards) */}
+      <div className="dashboard-section" style={{marginBottom:24}}>
+        <h2 className="section-title" style={{marginBottom:16}}>🏆 Мои награды</h2>
+        {rankMedals.length===0 ? (
+          <div className="empty-state" style={{padding:"20px 0"}}>Попади в топ-10 рейтинга чтобы получить медаль</div>
+        ) : (
+          <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:16}}>
+            {rankMedals.map(m=>(
+              <div key={m.id} style={{display:"flex", justifyContent:"center"}}>
+                <Medal type={m.type} category={m.category} weekId={m.weekId} size={72} position={m.position}/>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* History — full width */}
       <div data-tour="diag-history" className="dashboard-section" style={{marginBottom:24}}>

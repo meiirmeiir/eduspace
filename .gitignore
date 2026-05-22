@@ -24,3 +24,8 @@ test-results/
 
 # CORS config (local infra setup, not source)
 cors.json
+
+# Cloud Functions
+functions/node_modules/
+functions/firebase-debug.log
+functions/.firebase/

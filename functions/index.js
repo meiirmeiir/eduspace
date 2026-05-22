@@ -1,0 +1,148 @@
+// Cloud Function (Gen 2): начисление недельных медалей.
+//
+// Запускается каждый понедельник в 00:05 UTC. Берёт прошлую завершённую
+// ISO-неделю, читает leaderboard/{prevWeekId}/entries, формирует три рейтинга:
+//   - global: все участники
+//   - grade:  группировка по полю grade (пустые скипаем)
+//   - region: группировка по полю region (пустые скипаем)
+//
+// Распределение наград (top-10 на категорию):
+//   #1     → gold
+//   #2-3   → silver
+//   #4-10  → bronze
+//
+// Медаль пишется в users/{uid}/medals/{stableId}, где
+//   stableId = `${weekId}_${category}_${type}` — детерминирован, повторный
+// запуск перезаписывает то же самое (никаких дубликатов).
+
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { logger }     = require('firebase-functions/v2');
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
+
+initializeApp();
+const db = getFirestore();
+
+// ── ISO-неделя (год + неделя четверга) ──────────────────────────────────────
+function getWeekId(date) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+function getPrevWeekId(now = new Date()) {
+  const seven = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  return getWeekId(seven);
+}
+
+function tierForPosition(pos) {
+  if (pos === 1) return 'gold';
+  if (pos <= 3)  return 'silver';
+  if (pos <= 10) return 'bronze';
+  return null;
+}
+
+// Из weekId «2026-W21» делаем {year, week} для записи в документ медали.
+function parseWeek(weekId) {
+  const m = /^(\d{4})-W(\d{1,2})$/.exec(weekId || '');
+  return m ? { year: Number(m[1]), week: Number(m[2]) } : { year: 0, week: 0 };
+}
+
+async function loadEntries(weekId) {
+  const snap = await db.collection('leaderboard').doc(weekId).collection('entries').get();
+  return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+}
+
+// Группируем по ключу (grade или region), пропуская пустые.
+function groupByNonEmpty(entries, key) {
+  const groups = new Map();
+  for (const e of entries) {
+    const v = (e[key] || '').trim();
+    if (!v) continue;
+    if (!groups.has(v)) groups.set(v, []);
+    groups.get(v).push(e);
+  }
+  return groups;
+}
+
+function rankEntries(entries) {
+  return [...entries].sort((a, b) => (b.points || 0) - (a.points || 0));
+}
+
+exports.awardWeeklyMedals = onSchedule(
+  {
+    schedule: '5 0 * * 1',
+    timeZone: 'UTC',
+    region: 'us-central1',
+    memory: '256MiB',
+    timeoutSeconds: 540,
+    retryCount: 0, // повторный запуск не нужен — стабильный medalId дедуплицирует
+  },
+  async (event) => {
+    const now = new Date();
+    const weekId = getPrevWeekId(now);
+    const { year, week } = parseWeek(weekId);
+    const awardedAt = now.toISOString();
+
+    logger.info('awardWeeklyMedals start', { weekId, year, week });
+
+    const entries = await loadEntries(weekId);
+    if (entries.length === 0) {
+      logger.warn('No leaderboard entries for week — nothing to award', { weekId });
+      return;
+    }
+
+    // Helper: записать медаль одному пользователю.
+    const writes = [];
+    const award = (uid, type, category, position) => {
+      const medalId = `${weekId}_${category}_${type}`;
+      const ref = db.collection('users').doc(uid).collection('medals').doc(medalId);
+      writes.push(ref.set({
+        type, category, weekId, year, week, position, awardedAt,
+      }, { merge: true }));
+    };
+
+    let granted = { global: 0, grade: 0, region: 0 };
+
+    // 1. Global
+    const globalRanked = rankEntries(entries);
+    globalRanked.slice(0, 10).forEach((e, i) => {
+      const t = tierForPosition(i + 1);
+      if (t) { award(e.uid, t, 'global', i + 1); granted.global++; }
+    });
+
+    // 2. Grade groups
+    const gradeGroups = groupByNonEmpty(entries, 'grade');
+    for (const list of gradeGroups.values()) {
+      rankEntries(list).slice(0, 10).forEach((e, i) => {
+        const t = tierForPosition(i + 1);
+        if (t) { award(e.uid, t, 'grade', i + 1); granted.grade++; }
+      });
+    }
+
+    // 3. Region groups
+    const regionGroups = groupByNonEmpty(entries, 'region');
+    for (const list of regionGroups.values()) {
+      rankEntries(list).slice(0, 10).forEach((e, i) => {
+        const t = tierForPosition(i + 1);
+        if (t) { award(e.uid, t, 'region', i + 1); granted.region++; }
+      });
+    }
+
+    // Параллельная запись. Cloud Functions держит ~500 одновременных Firestore writes
+    // без проблем; для AAPA-объёмов хватит с запасом.
+    await Promise.all(writes);
+
+    logger.info('awardWeeklyMedals done', {
+      weekId,
+      entries: entries.length,
+      grades:  gradeGroups.size,
+      regions: regionGroups.size,
+      granted,
+      totalWrites: writes.length,
+    });
+  }
+);
