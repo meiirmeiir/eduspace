@@ -139,8 +139,10 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
           try{
             const ipSnap=await getDoc(doc(db,"individualPlans",uid));
             if(ipSnap.exists()){
-              const roadmap=ipSnap.data()?.roadmap||[];
-              const ids=roadmap.flatMap(s=>Array.isArray(s?.skills_list)?s.skills_list:[]);
+              // individualPlans хранит массив в поле `modules` (не `roadmap`).
+              // Fallback на `.roadmap` — для legacy-документов и совместимости.
+              const modules=ipSnap.data()?.modules||ipSnap.data()?.roadmap||[];
+              const ids=modules.flatMap(s=>Array.isArray(s?.skills_list)?s.skills_list:[]);
               setPlanSkills(ids);
             } else {
               setPlanSkills(null);
@@ -595,7 +597,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             {!isTeacher && (
               <div className="dashboard-section" style={{marginBottom:24, padding:'20px 22px'}}>
                 <h2 className="section-title" style={{margin:'0 0 12px'}}>📊 Прогресс обучения</h2>
-                {(!user?.smartDiagDone || !planSkills) ? (
+                {(!user?.smartDiagDone || !planSkills?.length) ? (
                   <div className="empty-state" style={{padding:'12px 0', fontSize:14}}>
                     Пройди диагностику чтобы увидеть свой прогресс
                   </div>
