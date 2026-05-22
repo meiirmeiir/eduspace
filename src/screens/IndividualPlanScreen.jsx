@@ -131,7 +131,7 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
               </div>
 
               {/* Статистика */}
-              <div style={{ background:THEME.surface, border:`1px solid ${THEME.border}`, borderRadius:10, padding:'14px 16px' }}>
+              <div className="theme-card" style={{ background:THEME.surface, border:`1px solid ${THEME.border}`, borderRadius:10, padding:'14px 16px' }}>
                 <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:THEME.primary, marginBottom:8 }}>📈 Прогресс</div>
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                   {[

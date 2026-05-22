@@ -470,7 +470,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         )}
 
         {/* Task card */}
-        <div style={{ background:THEME.surface, border:`1px solid ${THEME.border}`, borderRadius:16, padding:'22px 24px', boxShadow:'0 4px 20px rgba(0,0,0,0.06)' }}>
+        <div className="theme-card" style={{ background:THEME.surface, border:`1px solid ${THEME.border}`, borderRadius:16, padding:'22px 24px', boxShadow:'0 4px 20px rgba(0,0,0,0.06)' }}>
           {/* Skill label */}
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
             <div style={{ background:'rgba(99,102,241,0.08)', borderRadius:20, padding:'4px 12px', fontFamily:"'Inter',sans-serif", fontSize:12, color:'#6366f1', fontWeight:600 }}>

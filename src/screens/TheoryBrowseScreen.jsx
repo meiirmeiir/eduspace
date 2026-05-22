@@ -72,7 +72,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
 
           {/* Theory concept */}
           {e.theory?.concept && (
-            <div style={{ background:'#fff', borderRadius:18, border:`1px solid ${THEME.border}`, padding:'28px 32px', marginBottom:20, boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
+            <div className="theme-card" style={{ background:'#fff', borderRadius:18, border:`1px solid ${THEME.border}`, padding:'28px 32px', marginBottom:20, boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
               <div style={{ fontSize:12, fontWeight:700, color:THEME.textLight, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:14 }}>Теория</div>
               <div style={{ fontSize:16, lineHeight:1.85, color:THEME.text, fontFamily:"'Inter',sans-serif" }}>
                 <LatexText text={e.theory.concept}/>
@@ -82,7 +82,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
 
           {/* Micro-hints */}
           {(e.theory?.micro_hints||[]).length > 0 && (
-            <div style={{ background:'#fff', borderRadius:18, border:`1px solid ${THEME.border}`, padding:'28px 32px', marginBottom:20, boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
+            <div className="theme-card" style={{ background:'#fff', borderRadius:18, border:`1px solid ${THEME.border}`, padding:'28px 32px', marginBottom:20, boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
               <div style={{ fontSize:12, fontWeight:700, color:THEME.textLight, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:16 }}>💡 Микро-подсказки</div>
               <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
                 {e.theory.micro_hints.map((hint, i) => {
@@ -111,7 +111,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
 
           {/* Inline practice tasks */}
           {tasks.length > 0 && (
-            <div style={{ background:'#fff', borderRadius:18, border:`1px solid ${THEME.border}`, padding:'28px 32px', boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
+            <div className="theme-card" style={{ background:'#fff', borderRadius:18, border:`1px solid ${THEME.border}`, padding:'28px 32px', boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
               <div style={{ fontSize:12, fontWeight:700, color:THEME.textLight, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:20 }}>🏋️ Тренировка</div>
               <div style={{ display:'flex', flexDirection:'column', gap:28 }}>
                 {tasks.map((task, ti) => {
@@ -206,6 +206,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
             <div data-tour="theory-search" style={{ position:'relative', marginBottom:18 }}>
               <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', fontSize:16, color:THEME.textLight, pointerEvents:'none' }}>🔍</span>
               <input
+                className="theme-input"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Поиск по теме, навыку, содержанию..."
@@ -220,18 +221,18 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
             <div data-tour="theory-filters">
               {verticals.length > 0 && (
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
-                  <button onClick={() => setFilterSec('all')} style={{ padding:'6px 16px', borderRadius:20, border:`2px solid ${filterSec==='all'?THEME.primary:THEME.border}`, background:filterSec==='all'?THEME.primary:'transparent', color:filterSec==='all'?THEME.accent:THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>Все разделы</button>
+                  <button className={`theme-tab${filterSec==='all'?' active':''}`} onClick={() => setFilterSec('all')} style={{ padding:'6px 16px', borderRadius:20, border:`2px solid ${filterSec==='all'?THEME.primary:THEME.border}`, background:filterSec==='all'?THEME.primary:'transparent', color:filterSec==='all'?THEME.accent:THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>Все разделы</button>
                   {verticals.map(v => (
-                    <button key={v} onClick={() => setFilterSec(v)} style={{ padding:'6px 16px', borderRadius:20, border:`2px solid ${filterSec===v?THEME.primary:THEME.border}`, background:filterSec===v?THEME.primary:'transparent', color:filterSec===v?THEME.accent:THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>{v}</button>
+                    <button key={v} className={`theme-tab${filterSec===v?' active':''}`} onClick={() => setFilterSec(v)} style={{ padding:'6px 16px', borderRadius:20, border:`2px solid ${filterSec===v?THEME.primary:THEME.border}`, background:filterSec===v?THEME.primary:'transparent', color:filterSec===v?THEME.accent:THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>{v}</button>
                   ))}
                 </div>
               )}
 
               {grades.length > 0 && (
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:24 }}>
-                  <button onClick={() => setFilterGrade('all')} style={{ padding:'5px 14px', borderRadius:20, border:`2px solid ${filterGrade==='all'?'#6366f1':THEME.border}`, background:filterGrade==='all'?'#6366f1':'transparent', color:filterGrade==='all'?'#fff':THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>Все классы</button>
+                  <button className={`theme-tab${filterGrade==='all'?' active':''}`} onClick={() => setFilterGrade('all')} style={{ padding:'5px 14px', borderRadius:20, border:`2px solid ${filterGrade==='all'?'#6366f1':THEME.border}`, background:filterGrade==='all'?'#6366f1':'transparent', color:filterGrade==='all'?'#fff':THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>Все классы</button>
                   {grades.map(g => (
-                    <button key={g} onClick={() => setFilterGrade(String(g))} style={{ padding:'5px 14px', borderRadius:20, border:`2px solid ${filterGrade===String(g)?'#6366f1':THEME.border}`, background:filterGrade===String(g)?'#6366f1':'transparent', color:filterGrade===String(g)?'#fff':THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>{g} класс</button>
+                    <button key={g} className={`theme-tab${filterGrade===String(g)?' active':''}`} onClick={() => setFilterGrade(String(g))} style={{ padding:'5px 14px', borderRadius:20, border:`2px solid ${filterGrade===String(g)?'#6366f1':THEME.border}`, background:filterGrade===String(g)?'#6366f1':'transparent', color:filterGrade===String(g)?'#fff':THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>{g} класс</button>
                   ))}
                 </div>
               )}
@@ -250,7 +251,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
                   const ruName = namesMap[t.id] || namesMap[t.skill_id] || t.skill_id;
                   const concept = (t.theory?.concept||'').slice(0,70) + ((t.theory?.concept||'').length>70?'…':'');
                   return (
-                    <div key={t.id} onClick={() => openEntry(t)}
+                    <div key={t.id} className="theme-card" onClick={() => openEntry(t)}
                       style={{ background:'#fff', border:`1px solid ${THEME.border}`, borderRadius:14, padding:'20px 22px', cursor:'pointer', transition:'all 0.2s' }}
                       onMouseEnter={e => { e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'; e.currentTarget.style.borderColor=THEME.primary; }}
                       onMouseLeave={e => { e.currentTarget.style.boxShadow=''; e.currentTarget.style.borderColor=THEME.border; }}>

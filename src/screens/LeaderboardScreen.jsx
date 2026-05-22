@@ -82,7 +82,7 @@ export default function LeaderboardScreen({ user, onBack }) {
     const mine = e.uid === user?.uid;
     const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
     return (
-      <div key={`${e.uid}_${rank}`} style={{
+      <div key={`${e.uid}_${rank}`} className="theme-row" style={{
         display:'flex', alignItems:'center', gap:12,
         padding:'12px 16px', borderRadius:12,
         background: mine ? 'rgba(212,175,55,0.12)' : '#fff',
@@ -112,7 +112,7 @@ export default function LeaderboardScreen({ user, onBack }) {
   };
 
   return (
-    <div style={{minHeight:'100vh', background:THEME.bg, paddingBottom:80}}>
+    <div className="page-themed" style={{minHeight:'100vh', background:THEME.bg, paddingBottom:80}}>
       <div style={{background:THEME.primary, padding:'0 24px', display:'flex', alignItems:'center', justifyContent:'space-between', height:64}}>
         <Logo size={32} light/>
         <button onClick={onBack} style={{background:'transparent', border:'1px solid rgba(255,255,255,0.2)', color:'rgba(255,255,255,0.7)', borderRadius:8, padding:'8px 16px', cursor:'pointer', fontSize:13, fontFamily:"'Inter',sans-serif"}}>← Назад</button>
@@ -124,7 +124,7 @@ export default function LeaderboardScreen({ user, onBack }) {
 
         <div style={{display:'flex', gap:6, marginBottom:18, flexWrap:'wrap'}}>
           {TABS.map(t => (
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{
+            <button key={t.id} className={`theme-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)} style={{
               padding:'8px 14px', borderRadius:99, fontSize:13, fontWeight:700,
               cursor:'pointer', fontFamily:"'Inter',sans-serif",
               background: tab===t.id ? THEME.primary : '#fff',

@@ -125,7 +125,7 @@ export default function FaqScreen({ onBack, initialQuestion }) {
           {QUESTIONS.map(q => {
             const isOpen = openKey === q.key;
             return (
-              <div key={q.key} style={{
+              <div key={q.key} className="theme-card" style={{
                 background:'#fff',
                 border:`1px solid ${isOpen ? THEME.primary : THEME.border}`,
                 borderRadius:12,

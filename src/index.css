@@ -943,3 +943,42 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   min-height: calc(100vh + 80px);
 }
 
+/* ── Сквозная тематизация магазинных тем для прочих экранов ──
+   Утилитарные классы расставлены поверх inline-style: .page-themed (root),
+   .theme-card (карточки), .theme-row (строки списка), .theme-tab[/.active]
+   (вкладки), .theme-input (поле ввода). CSS перебивает inline через !important. */
+
+/* Page background */
+[data-shop-theme="galaxy"] .page-themed { background: #0f0a1e !important; color: #e2e8f0 !important; }
+[data-shop-theme="matrix"] .page-themed { background: #0a0f0a !important; color: #22c55e !important; }
+[data-shop-theme="fire"]   .page-themed { background: #1a0a00 !important; color: #fed7aa !important; }
+[data-shop-theme="sakura"] .page-themed { background: #fff0f5 !important; color: #831843 !important; }
+
+/* Cards */
+[data-shop-theme="galaxy"] .theme-card { background: #1e1b4b !important; color: #e2e8f0 !important; border-color: #312e81 !important; }
+[data-shop-theme="matrix"] .theme-card { background: #0d1f0d !important; color: #22c55e !important; border-color: #14532d !important; }
+[data-shop-theme="fire"]   .theme-card { background: #2d1000 !important; color: #fed7aa !important; border-color: #7c2d12 !important; }
+[data-shop-theme="sakura"] .theme-card { background: #fce7f3 !important; color: #831843 !important; border-color: #fbcfe8 !important; }
+
+/* Rows */
+[data-shop-theme="galaxy"] .theme-row { background: #1e1b4b !important; color: #e2e8f0 !important; }
+[data-shop-theme="matrix"] .theme-row { background: #0d1f0d !important; color: #22c55e !important; }
+[data-shop-theme="fire"]   .theme-row { background: #2d1000 !important; color: #fed7aa !important; }
+[data-shop-theme="sakura"] .theme-row { background: #fce7f3 !important; color: #831843 !important; }
+
+/* Tabs */
+[data-shop-theme="galaxy"] .theme-tab { color: rgba(226,232,240,0.7) !important; }
+[data-shop-theme="galaxy"] .theme-tab.active { background: #a78bfa !important; color: #0f0a1e !important; }
+[data-shop-theme="matrix"] .theme-tab { color: rgba(34,197,94,0.7) !important; }
+[data-shop-theme="matrix"] .theme-tab.active { background: #22c55e !important; color: #0a0f0a !important; }
+[data-shop-theme="fire"]   .theme-tab { color: rgba(253,211,170,0.7) !important; }
+[data-shop-theme="fire"]   .theme-tab.active { background: #f97316 !important; color: #1a0a00 !important; }
+[data-shop-theme="sakura"] .theme-tab { color: rgba(131,24,67,0.7) !important; }
+[data-shop-theme="sakura"] .theme-tab.active { background: #f472b6 !important; color: #fff !important; }
+
+/* Inputs */
+[data-shop-theme="galaxy"] .theme-input { background: #1e1b4b !important; color: #e2e8f0 !important; border-color: #312e81 !important; }
+[data-shop-theme="matrix"] .theme-input { background: #0d1f0d !important; color: #22c55e !important; border-color: #14532d !important; }
+[data-shop-theme="fire"]   .theme-input { background: #2d1000 !important; color: #fed7aa !important; border-color: #7c2d12 !important; }
+[data-shop-theme="sakura"] .theme-input { background: #fce7f3 !important; color: #831843 !important; border-color: #fbcfe8 !important; }
+

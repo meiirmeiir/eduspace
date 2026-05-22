@@ -169,7 +169,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
   };
 
   return (
-    <div style={{minHeight:'100vh', background:THEME.bg, paddingBottom:80}}>
+    <div className="page-themed" style={{minHeight:'100vh', background:THEME.bg, paddingBottom:80}}>
       <div style={{background:THEME.primary, padding:'0 24px', display:'flex', alignItems:'center', justifyContent:'space-between', height:64}}>
         <Logo size={32} light/>
         <button onClick={onBack} style={{background:'transparent', border:'1px solid rgba(255,255,255,0.2)', color:'rgba(255,255,255,0.7)', borderRadius:8, padding:'8px 16px', cursor:'pointer', fontSize:13, fontFamily:"'Inter',sans-serif"}}>← Назад</button>
@@ -191,7 +191,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
 
         <div style={{display:'flex', gap:8, marginBottom:20, flexWrap:'wrap'}}>
           {SHOP_TYPES.map(t => (
-            <button key={t.id} onClick={() => setActiveType(t.id)} style={{
+            <button key={t.id} className={`theme-tab${activeType===t.id?' active':''}`} onClick={() => setActiveType(t.id)} style={{
               padding:'10px 16px', borderRadius:99, fontSize:13, fontWeight:700, fontFamily:"'Inter',sans-serif",
               cursor:'pointer',
               background: activeType === t.id ? THEME.primary : '#fff',
