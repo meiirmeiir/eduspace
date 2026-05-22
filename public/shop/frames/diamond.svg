@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+  <defs>
+    <!-- Алмазные градиенты: бело-голубые тона + сапфировые акценты -->
+    <linearGradient id="d-light" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="60%"  stop-color="#dbeafe"/>
+      <stop offset="100%" stop-color="#93c5fd"/>
+    </linearGradient>
+    <linearGradient id="d-mid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#dbeafe"/>
+      <stop offset="50%"  stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="d-deep" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <radialGradient id="d-shine" cx="35%" cy="35%" r="50%">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 16-гранный «брильянтовый» ободок: чередование светлых/тёмных треугольных
+       сегментов по периметру, имитация огранки. Каждая грань — треугольник
+       от центра (r 36) к внешней точке (r 48). -->
+  <g>
+    <!-- Радиальные треугольные грани (16 штук, шаг 22.5°) -->
+    <!-- Чтобы не плодить вручную 16 path'ей, используем pattern: для каждой грани
+         пишем треугольник, чередуя fill. -->
+    <!-- Грань 0° (top) -->
+    <polygon points="48,0 56.8,2.4 48,36" fill="url(#d-light)"/>
+    <polygon points="56.8,2.4 64.9,7 48,36" fill="url(#d-mid)"/>
+    <!-- 45° -->
+    <polygon points="64.9,7 72.2,13.2 48,36" fill="url(#d-light)"/>
+    <polygon points="72.2,13.2 78.2,20.4 48,36" fill="url(#d-mid)"/>
+    <!-- 90° (right) -->
+    <polygon points="78.2,20.4 84,28 48,36" fill="url(#d-light)"/>
+    <polygon points="84,28 88.6,36.8 48,36" fill="url(#d-mid)"/>
+    <!-- 135° -->
+    <polygon points="88.6,36.8 91.6,46.2 48,36" fill="url(#d-deep)"/>
+    <polygon points="91.6,46.2 93.6,55.6 48,36" fill="url(#d-mid)"/>
+    <!-- 180° (bottom-right going around) -->
+    <polygon points="93.6,55.6 91.6,64.5 48,36" fill="url(#d-deep)"/>
+    <polygon points="91.6,64.5 87.4,72.8 48,36" fill="url(#d-mid)"/>
+    <!-- 225° -->
+    <polygon points="87.4,72.8 81.7,80.4 48,36" fill="url(#d-deep)"/>
+    <polygon points="81.7,80.4 74.6,86.5 48,36" fill="url(#d-mid)"/>
+    <!-- 270° (bottom) -->
+    <polygon points="74.6,86.5 66.2,91.1 48,36" fill="url(#d-deep)"/>
+    <polygon points="66.2,91.1 57.2,93.6 48,36" fill="url(#d-mid)"/>
+    <polygon points="57.2,93.6 48,96 48,36"     fill="url(#d-light)"/>
+    <polygon points="48,96 38.8,93.6 48,36"     fill="url(#d-light)"/>
+    <!-- 315° (bottom-left) -->
+    <polygon points="38.8,93.6 29.8,91.1 48,36" fill="url(#d-mid)"/>
+    <polygon points="29.8,91.1 21.4,86.5 48,36" fill="url(#d-deep)"/>
+    <polygon points="21.4,86.5 14.3,80.4 48,36" fill="url(#d-mid)"/>
+    <polygon points="14.3,80.4 8.6,72.8 48,36"  fill="url(#d-deep)"/>
+    <!-- 360°-45° (left) -->
+    <polygon points="8.6,72.8 4.4,64.5 48,36"   fill="url(#d-mid)"/>
+    <polygon points="4.4,64.5 2.4,55.6 48,36"   fill="url(#d-deep)"/>
+    <polygon points="2.4,55.6 4.4,46.2 48,36"   fill="url(#d-mid)"/>
+    <polygon points="4.4,46.2 7.4,36.8 48,36"   fill="url(#d-deep)"/>
+    <!-- 45° from top going back up (top-left) -->
+    <polygon points="7.4,36.8 12,28 48,36"      fill="url(#d-mid)"/>
+    <polygon points="12,28 17.8,20.4 48,36"     fill="url(#d-light)"/>
+    <polygon points="17.8,20.4 23.8,13.2 48,36" fill="url(#d-mid)"/>
+    <polygon points="23.8,13.2 31.1,7 48,36"    fill="url(#d-light)"/>
+    <polygon points="31.1,7 39.2,2.4 48,36"     fill="url(#d-mid)"/>
+    <polygon points="39.2,2.4 48,0 48,36"       fill="url(#d-light)"/>
+  </g>
+
+  <!-- Внутренняя обводка между гранями и аватаром -->
+  <circle cx="48" cy="48" r="36" fill="none" stroke="#1e3a8a" stroke-width="0.8"/>
+  <circle cx="48" cy="48" r="36" fill="none" stroke="#ffffff" stroke-width="0.4"/>
+
+  <!-- Угловой блик-glare (highlight) — в верхней левой четверти, как на бриллианте -->
+  <ellipse cx="30" cy="22" rx="14" ry="6" fill="url(#d-shine)" transform="rotate(-30 30 22)"/>
+</svg>

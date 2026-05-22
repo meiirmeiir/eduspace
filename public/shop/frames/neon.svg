@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+  <defs>
+    <!-- Многослойный glow через SVG filter -->
+    <filter id="neon-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b2"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b3"/>
+      <feMerge>
+        <feMergeNode in="b3"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="neon-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#22d3ee"/>
+      <stop offset="50%"  stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Размытый сине-фиолетовый «свечной» слой -->
+  <g filter="url(#neon-glow)">
+    <circle cx="48" cy="48" r="44" fill="none" stroke="url(#neon-grad)" stroke-width="2.5"/>
+  </g>
+
+  <!-- Тонкий яркий контур поверх свечения — «трубка неона» -->
+  <circle cx="48" cy="48" r="44" fill="none" stroke="#e0e7ff" stroke-width="1.4"/>
+  <circle cx="48" cy="48" r="44" fill="none" stroke="#22d3ee" stroke-width="0.7" opacity="0.9"/>
+
+  <!-- Внутренний glow — мягкий fade к прозрачному, чтобы аватар «утопал» в свете -->
+  <circle cx="48" cy="48" r="38" fill="none" stroke="#a78bfa" stroke-width="0.8" opacity="0.5" filter="url(#neon-glow)"/>
+
+  <!-- 4 акцентных «диода» на 12/3/6/9 часов -->
+  <g filter="url(#neon-glow)">
+    <circle cx="48" cy="4"  r="2" fill="#22d3ee"/>
+    <circle cx="92" cy="48" r="2" fill="#c084fc"/>
+    <circle cx="48" cy="92" r="2" fill="#22d3ee"/>
+    <circle cx="4"  cy="48" r="2" fill="#c084fc"/>
+  </g>
+</svg>
