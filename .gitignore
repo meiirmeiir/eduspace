@@ -21,3 +21,6 @@ migration/backups/
 playwright/.auth/
 playwright-report/
 test-results/
+
+# CORS config (local infra setup, not source)
+cors.json
