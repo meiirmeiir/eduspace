@@ -25,6 +25,28 @@ export const DIFFICULTY_WEIGHTS = {A:1, B:1.5, C:2.5}; // A=20%, B=30%, C=50% wh
 export const DIFFICULTY_COLORS = {A:{bg:"#dcfce7",color:"#15803d",border:"#bbf7d0"},B:{bg:"#fef9c3",color:"#92400e",border:"#fde68a"},C:{bg:"#fee2e2",color:"#b91c1c",border:"#fecaca"}};
 export const EXAMS_LIST = ["ЕНТ","SAT","NUET","Further Pure Math","IGCSE","Mechanics 1","Mechanics 2","Mechanics 3","Calculus"];
 export const GRADES_LIST = ["5 класс","6 класс","7 класс","8 класс","9 класс","10 класс","11 класс","12 класс"];
+export const KZ_REGIONS = [
+  "Алматы (город)",
+  "Астана (город)",
+  "Шымкент (город)",
+  "Алматинская область",
+  "Акмолинская область",
+  "Актюбинская область",
+  "Атырауская область",
+  "Восточно-Казахстанская область",
+  "Жамбылская область",
+  "Западно-Казахстанская область",
+  "Карагандинская область",
+  "Костанайская область",
+  "Кызылординская область",
+  "Мангистауская область",
+  "Павлодарская область",
+  "Северо-Казахстанская область",
+  "Туркестанская область",
+  "Жетісу область",
+  "Улытау область",
+  "Абай область",
+];
 export const STUDENT_STATUSES = [
   { value:"active",    label:"Активный",       color:"#10B981" },
   { value:"trial",     label:"Пробный",         color:"#F59E0B" },

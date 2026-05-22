@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { collection, doc, getDocs, query, updateDoc, where, db } from "../firestore-rest.js";
-import { THEME, REG_GOALS, getSpecificList } from "../lib/appConstants.js";
+import { THEME, REG_GOALS, getSpecificList, KZ_REGIONS } from "../lib/appConstants.js";
 import { isNpcEnabled, setNpcEnabled } from "../NpcContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import ChangePasswordInline from "./ChangePasswordInline.jsx";
@@ -23,6 +23,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
     lastName:user?.lastName||"",
     goalKey:user?.goalKey||"",
     details:user?.details||"",
+    region:user?.region||"",
     avatarUrl:user?.avatarUrl||"",
   });
   const [editSaving,setEditSaving]=useState(false);
@@ -50,6 +51,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
     if(!editForm.firstName.trim()){alert("Введите имя.");return;}
     if(!editForm.goalKey){alert("Выберите цель.");return;}
     if(!editForm.details){alert("Выберите класс или экзамен.");return;}
+    if(!editForm.region){alert("Выберите область.");return;}
     setEditSaving(true);
     try{
       const updates={
@@ -58,6 +60,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
         goalKey:editForm.goalKey,
         goal:REG_GOALS[editForm.goalKey],
         details:editForm.details,
+        region:editForm.region,
         ...(editForm.avatarUrl?{avatarUrl:editForm.avatarUrl}:{}),
       };
       await updateDoc(doc(db,"users",user.uid),updates);
@@ -153,9 +156,17 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                     </select>
                   </div>
                 )}
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:4}}>Область</div>
+                  <select className="input-field" style={{marginBottom:0,padding:"8px 12px"}} value={editForm.region}
+                    onChange={e=>setEditForm(p=>({...p,region:e.target.value}))}>
+                    <option value="">— Выберите —</option>
+                    {KZ_REGIONS.map(r=><option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
                 <div style={{display:"flex",gap:8,marginTop:4}}>
                   <button onClick={saveProfile} disabled={editSaving} style={{background:THEME.primary,color:THEME.accent,border:"none",borderRadius:8,padding:"8px 20px",fontWeight:700,fontSize:13,cursor:editSaving?"not-allowed":"pointer",opacity:editSaving?0.7:1}}>{editSaving?"Сохраняю...":"Сохранить"}</button>
-                  <button onClick={()=>{setIsEditing(false);setEditForm({firstName:user?.firstName||"",lastName:user?.lastName||"",goalKey:user?.goalKey||"",details:user?.details||"",avatarUrl:user?.avatarUrl||""});}} style={{background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"8px 16px",fontWeight:600,fontSize:13,cursor:"pointer"}}>Отмена</button>
+                  <button onClick={()=>{setIsEditing(false);setEditForm({firstName:user?.firstName||"",lastName:user?.lastName||"",goalKey:user?.goalKey||"",details:user?.details||"",region:user?.region||"",avatarUrl:user?.avatarUrl||""});}} style={{background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"8px 16px",fontWeight:600,fontSize:13,cursor:"pointer"}}>Отмена</button>
                 </div>
               </div>
             ):(

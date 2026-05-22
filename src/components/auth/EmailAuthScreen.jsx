@@ -19,6 +19,14 @@ const REG_GOALS = {
 };
 const EXAMS_LIST  = ['ЕНТ','SAT','NUET','Further Pure Math','IGCSE','Mechanics 1','Mechanics 2','Mechanics 3','Calculus'];
 const GRADES_LIST = ['5 класс','6 класс','7 класс','8 класс','9 класс','10 класс','11 класс','12 класс'];
+const KZ_REGIONS = [
+  'Алматы (город)','Астана (город)','Шымкент (город)',
+  'Алматинская область','Акмолинская область','Актюбинская область','Атырауская область',
+  'Восточно-Казахстанская область','Жамбылская область','Западно-Казахстанская область',
+  'Карагандинская область','Костанайская область','Кызылординская область',
+  'Мангистауская область','Павлодарская область','Северо-Казахстанская область',
+  'Туркестанская область','Жетісу область','Улытау область','Абай область',
+];
 const getSpecificList = (goalKey) =>
   goalKey === 'exam' ? EXAMS_LIST :
   (goalKey === 'gaps' || goalKey === 'future') ? GRADES_LIST : [];
@@ -93,6 +101,7 @@ export default function EmailAuthScreen({ onSuccess }) {
   const [regPhone,      setRegPhone]      = useState('+7 ');
   const [regGoal,       setRegGoal]       = useState('');
   const [regDetails,    setRegDetails]    = useState('');
+  const [regRegion,     setRegRegion]     = useState('');
   const [regEmail,      setRegEmail]      = useState('');
   const [regPassword,   setRegPassword]   = useState('');
   const [regConfirm,    setRegConfirm]    = useState('');
@@ -139,6 +148,7 @@ export default function EmailAuthScreen({ onSuccess }) {
     if (!phoneOk)                      { setError('Введите корректный номер телефона.'); return; }
     if (!regGoal)                      { setError('Выберите цель обучения.');     return; }
     if (!regDetails)                   { setError('Выберите класс или экзамен.'); return; }
+    if (!regRegion)                    { setError('Выберите область.');           return; }
     if (!emailRe.test(regEmail))       { setError('Некорректный email.');         return; }
     if (!pwdRe.test(regPassword))      { setError('Пароль должен содержать минимум 8 символов, хотя бы одну букву и одну цифру.'); return; }
     if (regPassword !== regConfirm)    { setError('Пароли не совпадают.');        return; }
@@ -161,6 +171,7 @@ export default function EmailAuthScreen({ onSuccess }) {
           goalKey:     regGoal,
           goal:        REG_GOALS[regGoal],
           details:     regDetails,
+          region:      regRegion,
           role:        'student',
           status:      'trial',
           registeredAt: new Date().toISOString(),
@@ -374,6 +385,14 @@ export default function EmailAuthScreen({ onSuccess }) {
                 </div>
               )}
               <div className="input-group">
+                <label className="input-label">Область</label>
+                <select className="input-field" value={regRegion}
+                  onChange={e=>setRegRegion(e.target.value)} required>
+                  <option value="" disabled>Выберите...</option>
+                  {KZ_REGIONS.map(r=><option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div className="input-group">
                 <label className="input-label">Email</label>
                 <input type="email" className="input-field"
                   value={regEmail} onChange={e=>setRegEmail(e.target.value)}
@@ -392,7 +411,7 @@ export default function EmailAuthScreen({ onSuccess }) {
                   placeholder="Повторите пароль..." autoComplete="new-password" required/>
               </div>
               <button type="submit"
-                className={`cta-button ${regFirstName&&regLastName&&phoneOk&&regGoal&&regDetails&&regEmail&&regPassword&&regConfirm?'active':''}`}
+                className={`cta-button ${regFirstName&&regLastName&&phoneOk&&regGoal&&regDetails&&regRegion&&regEmail&&regPassword&&regConfirm?'active':''}`}
                 disabled={loading}>
                 {loading ? 'Создаю аккаунт...' : 'Зарегистрироваться →'}
               </button>
