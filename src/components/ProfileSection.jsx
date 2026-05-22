@@ -112,7 +112,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   return(
     <div
       className={`profile-page${equippedBg ? ' has-bg' : ''}`}
-      style={{position:'relative', ...(equippedBg ? {isolation:'isolate'} : {})}}
+      style={{position:'relative', minHeight:'100vh', ...(equippedBg ? {isolation:'isolate'} : {})}}
     >
       {/* Фоновый layer для кастомного фона профиля (если надет equipped.background).
           isolation:isolate на .profile-page образует stacking context — иначе

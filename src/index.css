@@ -917,6 +917,17 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-shop-theme="sakura"] .section-title,
 [data-shop-theme="sakura"] .sidebar-nav-item { color: #831843 !important; }
 
+/* ── Sakura sidebar — сайдбар имеет фон #fff0f5 (светло-розовый),
+   дефолтный белый/полупрозрачный текст на нём не читается. Делаем
+   текст глубоким бордовым для контраста. */
+[data-shop-theme="sakura"] .sidebar-brand,
+[data-shop-theme="sakura"] .sidebar-logo,
+[data-shop-theme="sakura"] .logo-title,
+[data-shop-theme="sakura"] .sidebar-user-name,
+[data-shop-theme="sakura"] .sidebar-user-role,
+[data-shop-theme="sakura"] .sidebar-nav-item,
+[data-shop-theme="sakura"] .sidebar-nav-item span { color: #4a0020 !important; }
+
 /* ── Профиль с экипированным фоном (.has-bg на .profile-page) ──
    Делаем карточки полупрозрачными, чтобы фон-layer (под zIndex:-1)
    проглядывал сквозь них и был визуально заметен. */
