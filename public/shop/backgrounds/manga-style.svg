@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <!-- Off-white paper background -->
+  <rect width="1920" height="1080" fill="#f7f5ee"/>
+
+  <!-- ─────────────────────────────────────────────────────────
+       SPEED LINES (集中線): radial ink lines from centre.
+       Group origin at centre; each line drawn along +X then rotated.
+       Inner gap r=120 keeps the centre clear (focal "punch zone").
+       Mixed lengths/widths for hand-drawn feel.
+       ─────────────────────────────────────────────────────────── -->
+  <g transform="translate(960 540)" stroke="#0a0a0a" stroke-linecap="butt">
+    <line x1="160"  y1="0" x2="1100" y2="0" stroke-width="1.6" transform="rotate(0)"/>
+    <line x1="180"  y1="0" x2="900"  y2="0" stroke-width="2.2" transform="rotate(7)"/>
+    <line x1="140"  y1="0" x2="1180" y2="0" stroke-width="1.2" transform="rotate(13)"/>
+    <line x1="170"  y1="0" x2="980"  y2="0" stroke-width="2.6" transform="rotate(21)"/>
+    <line x1="155"  y1="0" x2="1080" y2="0" stroke-width="1.4" transform="rotate(28)"/>
+    <line x1="190"  y1="0" x2="860"  y2="0" stroke-width="1.8" transform="rotate(36)"/>
+    <line x1="160"  y1="0" x2="1140" y2="0" stroke-width="2.8" transform="rotate(43)"/>
+    <line x1="170"  y1="0" x2="940"  y2="0" stroke-width="1.2" transform="rotate(51)"/>
+    <line x1="150"  y1="0" x2="1100" y2="0" stroke-width="2.0" transform="rotate(59)"/>
+    <line x1="180"  y1="0" x2="980"  y2="0" stroke-width="1.6" transform="rotate(66)"/>
+    <line x1="160"  y1="0" x2="1180" y2="0" stroke-width="3.0" transform="rotate(74)"/>
+    <line x1="155"  y1="0" x2="900"  y2="0" stroke-width="1.4" transform="rotate(82)"/>
+    <line x1="190"  y1="0" x2="1080" y2="0" stroke-width="2.4" transform="rotate(90)"/>
+    <line x1="170"  y1="0" x2="960"  y2="0" stroke-width="1.6" transform="rotate(98)"/>
+    <line x1="145"  y1="0" x2="1140" y2="0" stroke-width="2.0" transform="rotate(105)"/>
+    <line x1="165"  y1="0" x2="1000" y2="0" stroke-width="1.2" transform="rotate(112)"/>
+    <line x1="185"  y1="0" x2="1100" y2="0" stroke-width="2.6" transform="rotate(119)"/>
+    <line x1="150"  y1="0" x2="920"  y2="0" stroke-width="1.4" transform="rotate(127)"/>
+    <line x1="175"  y1="0" x2="1160" y2="0" stroke-width="2.0" transform="rotate(134)"/>
+    <line x1="160"  y1="0" x2="980"  y2="0" stroke-width="1.8" transform="rotate(142)"/>
+    <line x1="155"  y1="0" x2="1120" y2="0" stroke-width="2.8" transform="rotate(150)"/>
+    <line x1="190"  y1="0" x2="860"  y2="0" stroke-width="1.2" transform="rotate(157)"/>
+    <line x1="170"  y1="0" x2="1060" y2="0" stroke-width="2.2" transform="rotate(164)"/>
+    <line x1="160"  y1="0" x2="1140" y2="0" stroke-width="1.6" transform="rotate(172)"/>
+    <line x1="170"  y1="0" x2="900"  y2="0" stroke-width="2.4" transform="rotate(180)"/>
+    <line x1="155"  y1="0" x2="1100" y2="0" stroke-width="1.4" transform="rotate(187)"/>
+    <line x1="180"  y1="0" x2="980"  y2="0" stroke-width="2.0" transform="rotate(195)"/>
+    <line x1="150"  y1="0" x2="1180" y2="0" stroke-width="3.0" transform="rotate(202)"/>
+    <line x1="160"  y1="0" x2="860"  y2="0" stroke-width="1.2" transform="rotate(210)"/>
+    <line x1="185"  y1="0" x2="1040" y2="0" stroke-width="2.6" transform="rotate(217)"/>
+    <line x1="170"  y1="0" x2="1160" y2="0" stroke-width="1.6" transform="rotate(225)"/>
+    <line x1="155"  y1="0" x2="940"  y2="0" stroke-width="1.4" transform="rotate(233)"/>
+    <line x1="160"  y1="0" x2="1080" y2="0" stroke-width="2.2" transform="rotate(240)"/>
+    <line x1="190"  y1="0" x2="1140" y2="0" stroke-width="1.8" transform="rotate(247)"/>
+    <line x1="150"  y1="0" x2="960"  y2="0" stroke-width="2.8" transform="rotate(255)"/>
+    <line x1="170"  y1="0" x2="1100" y2="0" stroke-width="1.2" transform="rotate(262)"/>
+    <line x1="160"  y1="0" x2="900"  y2="0" stroke-width="2.0" transform="rotate(270)"/>
+    <line x1="180"  y1="0" x2="1060" y2="0" stroke-width="1.6" transform="rotate(278)"/>
+    <line x1="155"  y1="0" x2="1180" y2="0" stroke-width="2.4" transform="rotate(285)"/>
+    <line x1="160"  y1="0" x2="940"  y2="0" stroke-width="1.4" transform="rotate(293)"/>
+    <line x1="170"  y1="0" x2="1100" y2="0" stroke-width="3.0" transform="rotate(300)"/>
+    <line x1="190"  y1="0" x2="1000" y2="0" stroke-width="1.2" transform="rotate(308)"/>
+    <line x1="150"  y1="0" x2="1140" y2="0" stroke-width="2.2" transform="rotate(316)"/>
+    <line x1="160"  y1="0" x2="860"  y2="0" stroke-width="1.6" transform="rotate(323)"/>
+    <line x1="180"  y1="0" x2="1080" y2="0" stroke-width="2.6" transform="rotate(330)"/>
+    <line x1="155"  y1="0" x2="980"  y2="0" stroke-width="1.4" transform="rotate(338)"/>
+    <line x1="170"  y1="0" x2="1160" y2="0" stroke-width="2.0" transform="rotate(345)"/>
+    <line x1="160"  y1="0" x2="900"  y2="0" stroke-width="1.8" transform="rotate(353)"/>
+  </g>
+
+  <!-- ─────────────────────────────────────────────────────────
+       HALFTONE CORNERS: dot grid, biggest at corner, fading inward.
+       Pattern: 7×7 grid, radius scales by Chebyshev distance from corner.
+       ─────────────────────────────────────────────────────────── -->
+  <!-- TOP-LEFT -->
+  <g fill="#0a0a0a">
+    <circle cx="36"  cy="36"  r="14"/>
+    <circle cx="92"  cy="36"  r="12"/>
+    <circle cx="148" cy="36"  r="10"/>
+    <circle cx="204" cy="36"  r="7"/>
+    <circle cx="260" cy="36"  r="5"/>
+    <circle cx="316" cy="36"  r="3"/>
+    <circle cx="372" cy="36"  r="1.5"/>
+    <circle cx="36"  cy="92"  r="12"/>
+    <circle cx="92"  cy="92"  r="11"/>
+    <circle cx="148" cy="92"  r="8"/>
+    <circle cx="204" cy="92"  r="6"/>
+    <circle cx="260" cy="92"  r="4"/>
+    <circle cx="316" cy="92"  r="2.5"/>
+    <circle cx="36"  cy="148" r="10"/>
+    <circle cx="92"  cy="148" r="8"/>
+    <circle cx="148" cy="148" r="6"/>
+    <circle cx="204" cy="148" r="4.5"/>
+    <circle cx="260" cy="148" r="3"/>
+    <circle cx="36"  cy="204" r="7"/>
+    <circle cx="92"  cy="204" r="6"/>
+    <circle cx="148" cy="204" r="4.5"/>
+    <circle cx="204" cy="204" r="3"/>
+    <circle cx="36"  cy="260" r="5"/>
+    <circle cx="92"  cy="260" r="4"/>
+    <circle cx="148" cy="260" r="3"/>
+    <circle cx="36"  cy="316" r="3"/>
+    <circle cx="92"  cy="316" r="2.5"/>
+    <circle cx="36"  cy="372" r="1.5"/>
+  </g>
+
+  <!-- TOP-RIGHT (mirror x around 1920) -->
+  <g fill="#0a0a0a" transform="translate(1920 0) scale(-1 1)">
+    <circle cx="36"  cy="36"  r="14"/>
+    <circle cx="92"  cy="36"  r="12"/>
+    <circle cx="148" cy="36"  r="10"/>
+    <circle cx="204" cy="36"  r="7"/>
+    <circle cx="260" cy="36"  r="5"/>
+    <circle cx="316" cy="36"  r="3"/>
+    <circle cx="372" cy="36"  r="1.5"/>
+    <circle cx="36"  cy="92"  r="12"/>
+    <circle cx="92"  cy="92"  r="11"/>
+    <circle cx="148" cy="92"  r="8"/>
+    <circle cx="204" cy="92"  r="6"/>
+    <circle cx="260" cy="92"  r="4"/>
+    <circle cx="316" cy="92"  r="2.5"/>
+    <circle cx="36"  cy="148" r="10"/>
+    <circle cx="92"  cy="148" r="8"/>
+    <circle cx="148" cy="148" r="6"/>
+    <circle cx="204" cy="148" r="4.5"/>
+    <circle cx="260" cy="148" r="3"/>
+    <circle cx="36"  cy="204" r="7"/>
+    <circle cx="92"  cy="204" r="6"/>
+    <circle cx="148" cy="204" r="4.5"/>
+    <circle cx="204" cy="204" r="3"/>
+    <circle cx="36"  cy="260" r="5"/>
+    <circle cx="92"  cy="260" r="4"/>
+    <circle cx="148" cy="260" r="3"/>
+    <circle cx="36"  cy="316" r="3"/>
+    <circle cx="92"  cy="316" r="2.5"/>
+    <circle cx="36"  cy="372" r="1.5"/>
+  </g>
+
+  <!-- BOTTOM-LEFT (mirror y around 1080) -->
+  <g fill="#0a0a0a" transform="translate(0 1080) scale(1 -1)">
+    <circle cx="36"  cy="36"  r="14"/>
+    <circle cx="92"  cy="36"  r="12"/>
+    <circle cx="148" cy="36"  r="10"/>
+    <circle cx="204" cy="36"  r="7"/>
+    <circle cx="260" cy="36"  r="5"/>
+    <circle cx="316" cy="36"  r="3"/>
+    <circle cx="372" cy="36"  r="1.5"/>
+    <circle cx="36"  cy="92"  r="12"/>
+    <circle cx="92"  cy="92"  r="11"/>
+    <circle cx="148" cy="92"  r="8"/>
+    <circle cx="204" cy="92"  r="6"/>
+    <circle cx="260" cy="92"  r="4"/>
+    <circle cx="316" cy="92"  r="2.5"/>
+    <circle cx="36"  cy="148" r="10"/>
+    <circle cx="92"  cy="148" r="8"/>
+    <circle cx="148" cy="148" r="6"/>
+    <circle cx="204" cy="148" r="4.5"/>
+    <circle cx="260" cy="148" r="3"/>
+    <circle cx="36"  cy="204" r="7"/>
+    <circle cx="92"  cy="204" r="6"/>
+    <circle cx="148" cy="204" r="4.5"/>
+    <circle cx="204" cy="204" r="3"/>
+    <circle cx="36"  cy="260" r="5"/>
+    <circle cx="92"  cy="260" r="4"/>
+    <circle cx="148" cy="260" r="3"/>
+    <circle cx="36"  cy="316" r="3"/>
+    <circle cx="92"  cy="316" r="2.5"/>
+    <circle cx="36"  cy="372" r="1.5"/>
+  </g>
+
+  <!-- BOTTOM-RIGHT (mirror both axes) -->
+  <g fill="#0a0a0a" transform="translate(1920 1080) scale(-1 -1)">
+    <circle cx="36"  cy="36"  r="14"/>
+    <circle cx="92"  cy="36"  r="12"/>
+    <circle cx="148" cy="36"  r="10"/>
+    <circle cx="204" cy="36"  r="7"/>
+    <circle cx="260" cy="36"  r="5"/>
+    <circle cx="316" cy="36"  r="3"/>
+    <circle cx="372" cy="36"  r="1.5"/>
+    <circle cx="36"  cy="92"  r="12"/>
+    <circle cx="92"  cy="92"  r="11"/>
+    <circle cx="148" cy="92"  r="8"/>
+    <circle cx="204" cy="92"  r="6"/>
+    <circle cx="260" cy="92"  r="4"/>
+    <circle cx="316" cy="92"  r="2.5"/>
+    <circle cx="36"  cy="148" r="10"/>
+    <circle cx="92"  cy="148" r="8"/>
+    <circle cx="148" cy="148" r="6"/>
+    <circle cx="204" cy="148" r="4.5"/>
+    <circle cx="260" cy="148" r="3"/>
+    <circle cx="36"  cy="204" r="7"/>
+    <circle cx="92"  cy="204" r="6"/>
+    <circle cx="148" cy="204" r="4.5"/>
+    <circle cx="204" cy="204" r="3"/>
+    <circle cx="36"  cy="260" r="5"/>
+    <circle cx="92"  cy="260" r="4"/>
+    <circle cx="148" cy="260" r="3"/>
+    <circle cx="36"  cy="316" r="3"/>
+    <circle cx="92"  cy="316" r="2.5"/>
+    <circle cx="36"  cy="372" r="1.5"/>
+  </g>
+
+  <!-- ─────────────────────────────────────────────────────────
+       SHARP GEOMETRY: ink-bar slashes at TL/BR corners.
+       Sharp angular shapes that read as "ink stroke" overlays.
+       ─────────────────────────────────────────────────────────── -->
+  <!-- Top-left corner ink wedge -->
+  <polygon points="0,0 520,0 0,160" fill="#0a0a0a"/>
+  <polygon points="0,180 320,0 380,0 0,260" fill="#0a0a0a"/>
+
+  <!-- Bottom-right corner ink wedge -->
+  <polygon points="1920,1080 1400,1080 1920,920" fill="#0a0a0a"/>
+  <polygon points="1920,900 1600,1080 1540,1080 1920,820" fill="#0a0a0a"/>
+
+  <!-- Diagonal accent bar across mid-frame, top-right to centre -->
+  <polygon points="1500,40 1700,40 1140,540 1080,540" fill="#0a0a0a" opacity="0.85"/>
+
+  <!-- Central focal "boom" ring — thin ink circle for action emphasis -->
+  <circle cx="960" cy="540" r="105" fill="none" stroke="#0a0a0a" stroke-width="3"/>
+  <circle cx="960" cy="540" r="118" fill="none" stroke="#0a0a0a" stroke-width="1"/>
+</svg>
