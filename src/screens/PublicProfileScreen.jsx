@@ -115,7 +115,6 @@ export default function PublicProfileScreen({ uid, onBack }) {
   const titleItem    = equipped.title ? getShopItem(equipped.title) : null;
   const titleText    = titleItem?.value || '';
   const initials     = useMemo(() => ((profile?.firstName?.[0] || '') + (profile?.lastName?.[0] || '')).toUpperCase() || '?', [profile]);
-  const displayName  = profile ? `${profile.firstName || ''} ${(profile.lastName || '').charAt(0)}${(profile.lastName || '').charAt(0) ? '.' : ''}`.trim() : '';
   const weekPts      = Number(profile?.weekPoints || 0);
   const league       = getLeague(weekPts);
   const accent       = league.current.color;
@@ -179,20 +178,13 @@ export default function PublicProfileScreen({ uid, onBack }) {
               }}>{initials}</div>
           }
           <div style={{ flex:1, minWidth:0 }}>
-            {/* Большой заголовок — инициалы «ИИ» */}
+            {/* Заголовок — только инициалы «ИИ»; полное имя в публичном профиле не показываем */}
             <h1 style={{
               fontFamily:"'Montserrat',sans-serif", fontSize:32, fontWeight:800,
-              color:THEME.primary, margin:'0 0 2px', lineHeight:1.1, letterSpacing:'-0.5px',
+              color:THEME.primary, margin:'0 0 6px', lineHeight:1.1, letterSpacing:'-0.5px',
             }}>
               {initials}
             </h1>
-            {/* Под ним меньше — «Иван И.» */}
-            {displayName && (
-              <div style={{
-                fontFamily:"'Inter',sans-serif", fontSize:14, fontWeight:600,
-                color:THEME.textLight, marginBottom:6,
-              }}>{displayName}</div>
-            )}
             {titleText && (
               <div style={{
                 display:'inline-block', marginBottom:8,
