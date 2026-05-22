@@ -7,6 +7,7 @@ import ChangePasswordInline from "./ChangePasswordInline.jsx";
 import ExpertReportView from "../screens/ExpertReportView.jsx";
 import ErrorCard from "./ui/ErrorCard.jsx";
 import Medal from "./Medal.jsx";
+import { getShopItem } from "../lib/shopItems.js";
 
 export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser }) {
   const { firebaseUser } = useAuth();
@@ -105,8 +106,20 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   const timeLabel=totalHr>0?`${totalHr} ч ${totalMin%60} мин`:`${totalMin} мин ${totalSec%60} сек`;
   const fmtTime=sec=>{const m=Math.floor(sec/60),s=sec%60;return m>0?`${m} мин ${s} с`:`${s} с`;};
 
+  const equippedBg    = user?.equipped?.background ? getShopItem(user.equipped.background) : null;
+  const equippedFrame = user?.equipped?.frame      ? getShopItem(user.equipped.frame)      : null;
+
   return(
-    <div className="profile-page">
+    <div className="profile-page" style={{position:'relative'}}>
+      {/* Фоновый layer для кастомного фона профиля (если надет equipped.background) */}
+      {equippedBg && (
+        <div aria-hidden="true" style={{
+          position:'absolute', inset:0, zIndex:-1, pointerEvents:'none',
+          backgroundImage:`url(${equippedBg.file})`,
+          backgroundSize:'cover', backgroundPosition:'center',
+          opacity:0.15, borderRadius:16,
+        }}/>
+      )}
       <div className="dashboard-header"><h1>Личный кабинет</h1></div>
       {/* Profile card */}
       <div className="dashboard-section">
@@ -117,6 +130,15 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
               ? <img src={isEditing?editForm.avatarUrl:user.avatarUrl} alt="avatar" style={{width:72,height:72,borderRadius:"50%",objectFit:"cover",border:`3px solid ${THEME.accent}`}}/>
               : <div className="profile-avatar">{(isEditing?editForm.firstName:user?.firstName)?.[0]}{(isEditing?editForm.lastName:user?.lastName)?.[0]}</div>
             }
+            {/* Frame-overlay поверх аватара. Только если файл рамки реально загружен (onError скрывает). */}
+            {equippedFrame && (
+              <img
+                src={equippedFrame.file} alt=""
+                aria-hidden="true"
+                onError={(e)=>{ e.currentTarget.style.display='none'; }}
+                style={{position:'absolute', inset:-6, width:84, height:84, pointerEvents:'none', userSelect:'none'}}
+              />
+            )}
             {isEditing&&(
               <>
                 <button onClick={()=>avatarInputRef.current?.click()} disabled={avatarUploading}
@@ -176,6 +198,19 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
             ):(
               <>
                 <div className="profile-name">{user?.firstName} {user?.lastName}</div>
+                {(() => {
+                  const t = user?.equipped?.title ? getShopItem(user.equipped.title) : null;
+                  if (!t) return null;
+                  return (
+                    <div style={{
+                      display:'inline-block', marginBottom:6,
+                      background:'linear-gradient(135deg, #1e1b4b, #312e81)',
+                      color:'#d4af37', fontFamily:"'Montserrat',sans-serif", fontWeight:700,
+                      fontSize:12, padding:'4px 12px', borderRadius:99,
+                      border:'1px solid rgba(212,175,55,0.3)',
+                    }}>🏆 {t.value}</div>
+                  );
+                })()}
                 <div className="profile-phone">{user?.phone}</div>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:10}}>
                   <span style={{display:"inline-block",background:statusObj.color,color:"#fff",fontWeight:700,fontSize:12,padding:"4px 14px",borderRadius:99,border:`1px solid ${statusObj.color}`}}>{statusObj.label}</span>

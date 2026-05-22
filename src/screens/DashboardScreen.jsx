@@ -23,7 +23,7 @@ function pluralize(n, [one, few, many]) {
   return many;
 }
 
-export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
+export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onOpenShop, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
   const { startTourIfNew, showNpcMessage } = useNpc();
   const { profile } = useAuth();
   /* If App passes activeSection/setActiveSection — use them (allows
@@ -317,6 +317,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const navItems=isInactive?[
     {id:"plan",icon:"🗺️",label:"Индивидуальный план обучения"},
     {id:"leaderboard",icon:"🏆",label:"Рейтинг"},
+    {id:"shop",icon:"🛍️",label:"Магазин"},
     {id:"profile",icon:"👤",label:"Личный кабинет ученика"},
     {id:"faq",icon:"❓",label:"Частые вопросы"},
     ...(isAdmin?[{id:"admin",icon:"⚙️",label:"Администрирование"}]:[]),
@@ -329,6 +330,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     {id:"theory",icon:"📖",label:"Теория"},
     {id:"daily",icon:"📝",label:"Ежедневные задачи"},
     {id:"leaderboard",icon:"🏆",label:"Рейтинг"},
+    {id:"shop",icon:"🛍️",label:"Магазин"},
     {id:"profile",icon:"👤",label:"Личный кабинет ученика"},
     {id:"faq",icon:"❓",label:"Частые вопросы"},
     ...(isAdmin?[{id:"admin",icon:"⚙️",label:"Администрирование"}]:[]),
@@ -350,6 +352,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     }
     if(id==="faq"){onOpenFaq?.();return;}
     if(id==="leaderboard"){onOpenLeaderboard?.();return;}
+    if(id==="shop"){onOpenShop?.();return;}
     if(id==="admin"){onOpenAdmin();return;}
     setActiveSection(id);
   };

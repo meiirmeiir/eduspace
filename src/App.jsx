@@ -46,6 +46,7 @@ import PracticeScreen from "./screens/PracticeScreen.jsx";
 import DashboardScreen from "./screens/DashboardScreen.jsx";
 import AdminScreen from "./screens/AdminScreen.jsx";
 import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
+import ShopScreen from "./screens/ShopScreen.jsx";
 import { addPoints } from "./lib/pointsUtils.js";
 import { addCrystals } from "./lib/crystalsUtils.js";
 
@@ -171,6 +172,14 @@ export default function App() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[profile]);
+
+  // Shop theme: применяем data-атрибут на body, чтобы CSS-правила (когда появятся)
+  // могли стилизовать UI по equipped.theme. Сам CSS — отдельной задачей.
+  useEffect(() => {
+    const themeId = user?.equipped?.theme || '';
+    if (themeId) document.body.dataset.shopTheme = themeId;
+    else delete document.body.dataset.shopTheme;
+  }, [user?.equipped?.theme]);
   const [screen,setScreen]=useState(()=>{
     const hash=window.location.hash.slice(1);
     if(hash){
@@ -990,7 +999,7 @@ export default function App() {
 
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);setProfile(p=>p?{...p,onboardingDone:true}:p);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
-      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={tryOpenDaily} onOpenAdmin={openAdmin} onOpenLeaderboard={()=>navigate("leaderboard")} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser} masteryStatus={masteryStatus} onOpenDailyLockModal={()=>setLockModalOpen(true)} rankRefreshKey={rankRefreshKey}/>}
+      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={tryOpenDaily} onOpenAdmin={openAdmin} onOpenLeaderboard={()=>navigate("leaderboard")} onOpenShop={()=>navigate("shop")} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser} masteryStatus={masteryStatus} onOpenDailyLockModal={()=>setLockModalOpen(true)} rankRefreshKey={rankRefreshKey}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
       {screen==="admin"&&<AdminScreen onBack={()=>goBack()} firebaseUser={firebaseUser}/>}
       {screen==="diagnostics"&&(
@@ -1032,6 +1041,7 @@ export default function App() {
       {screen==="intermediate_tests"&&<IntermediateTestsScreen user={user} onStartBoss={sec=>{setBossSection(sec);navigate("boss_fight");}} onBack={()=>goBack()}/>}
       {screen==="boss_fight"&&bossSection&&<BossFightScreen section={bossSection} user={user} onBack={()=>goBack("intermediate_tests")}/>}
       {screen==="leaderboard"&&<LeaderboardScreen user={user} onBack={()=>goBack()}/>}
+      {screen==="shop"&&<ShopScreen user={user} onBack={()=>goBack()} onUpdateUser={handleUpdateUser}/>}
       {/* Bottom-nav: only on screens where the user is browsing,
           not while taking a test or onboarding. */}
       {["dashboard","theory","daily","plan","practice","diagnostics","leaderboard"].includes(screen) && (
