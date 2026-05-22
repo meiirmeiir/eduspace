@@ -5,7 +5,7 @@ import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, query, updateD
 import { compressImage } from "../lib/mathUtils.js";
 import { getAlmatyDateStr } from "../lib/srsUtils.js";
 import { tgPhoto, THEME, STUDENT_STATUSES, DAY_NAMES_SHORT, PLANS } from "../lib/appConstants.js";
-import { getMyWeeklyRank } from "../lib/pointsUtils.js";
+import { getMyWeeklyRank, getLeague } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
@@ -65,12 +65,12 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     let cancelled=false;
     const uid=user?.uid||user?.id;
     if(!uid){ setRankInfo(null); return; }
-    getMyWeeklyRank(uid).then(r=>{ if(!cancelled) setRankInfo(r); }).catch(()=>{});
+    getMyWeeklyRank(uid, user?.details, user?.region).then(r=>{ if(!cancelled) setRankInfo(r); }).catch(()=>{});
     return ()=>{ cancelled=true; };
     // user.weekPoints из локального state stale (addPoints не зовёт setUser).
-    // Перезапрос триггерится через смену uid или через rankRefreshKey, который
-    // App.jsx инкрементирует после Daily/Mastery сессий.
-  },[user?.uid||user?.id, rankRefreshKey]);
+    // Перезапрос триггерится через смену uid, заполнение grade/region или
+    // через rankRefreshKey, который App.jsx инкрементирует после Daily/Mastery сессий.
+  },[user?.uid||user?.id, user?.details, user?.region, rankRefreshKey]);
 
   const isTeacher=user?.role==="teacher"||user?.role==="admin";
   const isAdmin=user?.role==="admin";
@@ -505,6 +505,94 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               </div>
             )}
 
+            {/* ── ESR Rating: большой FACEIT-style виджет с лигой и тремя рангами. Скрыт для teacher/admin. ── */}
+            {!isTeacher && (() => {
+              const myPts  = rankInfo?.myPoints ?? 0;
+              const league = getLeague(myPts);
+              const wkCh   = rankInfo?.weekChange ?? 0;
+              const accent = league.current.color;
+              return (
+                <div data-tour="esr-widget" style={{
+                  background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)',
+                  color: '#fff',
+                  padding: '24px 28px',
+                  marginBottom: 24,
+                  border: `1px solid ${accent}55`,
+                  borderRadius: 18,
+                  boxShadow: `0 10px 32px -8px ${accent}40, inset 0 1px 0 rgba(255,255,255,0.05)`,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}>
+                  {/* Декоративная иконка в углу */}
+                  <div style={{position:'absolute',right:-20,top:-20,fontSize:140,opacity:0.05,lineHeight:1,pointerEvents:'none'}}>
+                    {league.current.icon}
+                  </div>
+
+                  {/* Header */}
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,gap:12,flexWrap:'wrap'}}>
+                    <div style={{fontSize:11,fontWeight:800,letterSpacing:1.8,textTransform:'uppercase',color:accent}}>
+                      ⭐ ESR Рейтинг
+                    </div>
+                    {wkCh !== 0 && (
+                      <div style={{
+                        fontSize:13,fontWeight:700,
+                        color: wkCh > 0 ? '#10b981' : '#ef4444',
+                        background: wkCh > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                        padding:'4px 10px',borderRadius:99,
+                      }}>
+                        {wkCh > 0 ? '+' : ''}{wkCh} за неделю {wkCh > 0 ? '↑' : '↓'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Big number */}
+                  <div style={{fontFamily:"'Montserrat',sans-serif",fontSize:48,fontWeight:800,lineHeight:1,marginBottom:14,letterSpacing:'-1px'}}>
+                    {myPts.toLocaleString('ru-RU')}
+                  </div>
+
+                  {/* Progress bar */}
+                  <div style={{height:8,borderRadius:99,background:'rgba(255,255,255,0.08)',overflow:'hidden',marginBottom:8}}>
+                    <div style={{
+                      height:'100%',
+                      width: `${Math.round(league.progress * 100)}%`,
+                      background: `linear-gradient(90deg, ${accent}, ${accent}cc)`,
+                      boxShadow: `0 0 12px ${accent}80`,
+                      borderRadius: 99,
+                      transition: 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
+                    }}/>
+                  </div>
+
+                  {/* Current league + pts to next */}
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18,fontSize:13,flexWrap:'wrap',gap:8}}>
+                    <div style={{color:accent,fontWeight:800,display:'flex',alignItems:'center',gap:6}}>
+                      <span style={{fontSize:18}}>{league.current.icon}</span> {league.current.name}
+                    </div>
+                    {league.pointsToNext != null
+                      ? <div style={{color:'rgba(255,255,255,0.7)',fontWeight:600}}>до {league.nextName}: {league.pointsToNext}</div>
+                      : <div style={{color:'rgba(255,255,255,0.7)',fontWeight:600}}>максимальная лига</div>}
+                  </div>
+
+                  {/* Three ranks */}
+                  <div style={{display:'flex',gap:18,flexWrap:'wrap',fontSize:13,color:'rgba(255,255,255,0.85)',marginBottom:16}}>
+                    <span style={{whiteSpace:'nowrap'}}>🌍 #{rankInfo?.globalRank ?? '—'}{rankInfo?.globalTotal ? ` из ${rankInfo.globalTotal}` : ''}</span>
+                    <span style={{whiteSpace:'nowrap'}}>🏫 #{rankInfo?.gradeRank ?? '—'} в классе</span>
+                    <span style={{whiteSpace:'nowrap'}}>📍 #{rankInfo?.regionRank ?? '—'} в области</span>
+                  </div>
+
+                  {/* CTA */}
+                  <button onClick={()=>onOpenLeaderboard?.()} style={{
+                    background:'transparent',color:accent,
+                    border:`1px solid ${accent}66`,borderRadius:10,
+                    padding:'9px 18px',fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,cursor:'pointer',
+                    transition:'all 0.2s',
+                  }}
+                    onMouseEnter={e=>{ e.currentTarget.style.background = `${accent}1a`; e.currentTarget.style.borderColor = accent; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = `${accent}66`; }}
+                  >Посмотреть рейтинг →</button>
+                </div>
+              );
+            })()}
+
             <div className="stats-row">
               {!isSolo&&!isInactive&&<div className="stat-card"><div className="stat-icon">📅</div><div><div className="stat-value">{schedule.length}</div><div className="stat-label">занятий в неделю</div></div></div>}
               {!isSolo&&!isInactive&&<div className="stat-card"><div className="stat-icon">📚</div><div><div className="stat-value">{homework.filter(h=>new Date(h.dueDate+"T23:59:59")>=today).length}</div><div className="stat-label">активных ДЗ</div></div></div>}
@@ -618,18 +706,6 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                 )}
               </div>
             )}
-
-            {/* Weekly rank widget — для всех учеников, включая solo */}
-            <div className="dashboard-section" style={{padding:"18px 22px", marginBottom:24, display:"flex", alignItems:"center", justifyContent:"space-between", gap:16, flexWrap:"wrap"}}>
-              <div style={{flex:"1 1 220px", minWidth:0}}>
-                <div style={{fontSize:13, fontWeight:700, color:THEME.textLight, marginBottom:4}}>🏆 Твой рейтинг этой недели</div>
-                <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary}}>
-                  {(rankInfo?.myPoints ?? 0).toLocaleString('ru-RU')} <span style={{fontSize:14, color:THEME.textLight, fontWeight:600}}>очков</span>
-                  {rankInfo?.rank && <span style={{fontSize:14, color:THEME.textLight, fontWeight:600, marginLeft:10}}>· #{rankInfo.rank} среди всех</span>}
-                </div>
-              </div>
-              <button onClick={()=>onOpenLeaderboard?.()} className="cta-button active" style={{width:"auto", padding:"10px 18px", fontSize:13}}>Посмотреть рейтинг →</button>
-            </div>
 
             {/* Schedule */}
             {!isSolo&&!isInactive&&(

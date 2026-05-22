@@ -14,6 +14,29 @@ export const POINTS = {
   fast_answer:    5,
 };
 
+// ── Лиги (по недельным очкам) ────────────────────────────────────────────────
+export const LEAGUES = [
+  { name: 'Бронза',  icon: '🥉', color: '#cd7f32', min: 0,    max: 299,      next: 300  },
+  { name: 'Серебро', icon: '🥈', color: '#94a3b8', min: 300,  max: 699,      next: 700  },
+  { name: 'Золото',  icon: '🥇', color: '#fbbf24', min: 700,  max: 1199,     next: 1200 },
+  { name: 'Алмаз',   icon: '💎', color: '#a78bfa', min: 1200, max: Infinity, next: null },
+];
+
+/**
+ * По очкам возвращает текущую лигу, следующую (если есть), и прогресс
+ * заполнения бара 0..1 от начала текущей до начала следующей.
+ */
+export function getLeague(points) {
+  const p = Number(points) || 0;
+  const current = LEAGUES.find(l => p >= l.min && p <= l.max) || LEAGUES[LEAGUES.length - 1];
+  const idx = LEAGUES.indexOf(current);
+  const nextLeague = current.next != null ? LEAGUES[idx + 1] : null;
+  const span = (current.next ?? current.max) - current.min;
+  const progress = current.next == null ? 1 : Math.min(1, Math.max(0, (p - current.min) / Math.max(1, span)));
+  const pointsToNext = current.next != null ? Math.max(0, current.next - p) : null;
+  return { current, nextLeague, nextName: nextLeague?.name || null, progress, pointsToNext };
+}
+
 const PROJECT = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
 const KEY     = () => import.meta.env.VITE_FIREBASE_API_KEY;
 const BASE    = () => `https://firestore.googleapis.com/v1/projects/${PROJECT()}/databases/(default)/documents`;
@@ -167,7 +190,17 @@ export async function addPoints(uid, action, userProfile) {
 // ── Позиция пользователя в текущем недельном рейтинге ─────────────────────────
 // Возвращает { rank, total, myPoints } или null при ошибке.
 // Глобальный rank (без фильтра по grade/region) — для виджета на дашборде.
-export async function getMyWeeklyRank(uid) {
+/**
+ * Загружает leaderboard текущей недели и считает 3 ранга для текущего пользователя:
+ * глобальный, в своём классе (по `grade`) и в своей области (по `region`).
+ * Также делает 1 дополнительный get-doc на прошлую неделю чтобы посчитать weekChange.
+ *
+ * @param {string} uid
+ * @param {string?} grade   — user.details (например "10 класс"); пустой пропускает gradeRank
+ * @param {string?} region  — user.region; пустой пропускает regionRank
+ * @returns {{ globalRank, globalTotal, gradeRank, gradeTotal, regionRank, regionTotal, myPoints, weekChange }|null}
+ */
+export async function getMyWeeklyRank(uid, grade, region) {
   if (!uid) return null;
   try {
     const weekId = getWeekId();
@@ -182,16 +215,71 @@ export async function getMyWeeklyRank(uid) {
       if (j.documents) allDocs = allDocs.concat(j.documents);
       pageToken = j.nextPageToken || null;
     } while (pageToken);
+
+    // Парсим все entries недели с тремя полями для фильтров.
     const entries = allDocs.map(d => {
       const id = d.name.split('/').pop();
-      const points = Number(d.fields?.points?.integerValue || 0);
-      return { id, points };
+      const f  = d.fields || {};
+      return {
+        id,
+        points: Number(f.points?.integerValue || 0),
+        grade:  f.grade?.stringValue  || '',
+        region: f.region?.stringValue || '',
+      };
     }).sort((a, b) => b.points - a.points);
-    const myIdx = entries.findIndex(e => e.id === uid);
-    const myPoints = myIdx >= 0 ? entries[myIdx].points : 0;
-    return { rank: myIdx >= 0 ? myIdx + 1 : null, total: entries.length, myPoints };
+
+    // Глобальный ранг — индекс пользователя в полном списке.
+    const globalIdx = entries.findIndex(e => e.id === uid);
+    const myPoints  = globalIdx >= 0 ? entries[globalIdx].points : 0;
+    const globalRank  = globalIdx >= 0 ? globalIdx + 1 : null;
+    const globalTotal = entries.length;
+
+    // Ранги по группам — клиентский фильтр (низкие N, нормально).
+    let gradeRank = null, gradeTotal = 0;
+    if (grade) {
+      const groupG = entries.filter(e => e.grade === grade);
+      gradeTotal = groupG.length;
+      const i = groupG.findIndex(e => e.id === uid);
+      gradeRank = i >= 0 ? i + 1 : null;
+    }
+    let regionRank = null, regionTotal = 0;
+    if (region) {
+      const groupR = entries.filter(e => e.region === region);
+      regionTotal = groupR.length;
+      const i = groupR.findIndex(e => e.id === uid);
+      regionRank = i >= 0 ? i + 1 : null;
+    }
+
+    // weekChange — points текущей недели минус прошлой (если запись прошлой есть).
+    // Один лишний get-doc; ошибку глотаем как 0.
+    let weekChange = 0;
+    try {
+      const prevWeekId = getPrevWeekId();
+      const prevUrl = `${BASE()}/leaderboard/${prevWeekId}/entries/${encodeURIComponent(uid)}?key=${KEY()}`;
+      const r = await fetch(prevUrl, { headers: { ...(await _authHeader()), ...(await _appCheckHeader()) } });
+      if (r.ok) {
+        const j = await r.json();
+        const prevPoints = Number(j?.fields?.points?.integerValue || 0);
+        weekChange = myPoints - prevPoints;
+      }
+      // 404 = нет записи прошлой недели → weekChange остаётся 0 (нечего сравнивать)
+    } catch (_) {}
+
+    return {
+      globalRank, globalTotal,
+      gradeRank,  gradeTotal,
+      regionRank, regionTotal,
+      myPoints,
+      weekChange,
+    };
   } catch (e) {
     console.warn('[points] getMyWeeklyRank failed', e);
     return null;
   }
+}
+
+// weekId прошлой недели (для weekChange)
+function getPrevWeekId(now = new Date()) {
+  const seven = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  return getWeekId(seven);
 }
