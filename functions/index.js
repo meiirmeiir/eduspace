@@ -16,6 +16,7 @@
 // запуск перезаписывает то же самое (никаких дубликатов).
 
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { logger }     = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
@@ -96,6 +97,37 @@ function groupByNonEmpty(entries, key) {
 function rankEntries(entries) {
   return [...entries].sort((a, b) => (b.points || 0) - (a.points || 0));
 }
+
+// ── Cloud Function: зеркало публичных полей профиля ────────────────────────
+// users/{uid} → publicProfiles/{uid}. Только публичные поля, чтобы клиент
+// мог открыть чужой профиль с разрешением `read: if isSignedIn()` без утечки
+// phone/email/status/smartDiag*. Запускается на любой write users/{uid}.
+exports.mirrorUserToPublicProfile = onDocumentWritten(
+  { document: 'users/{uid}', region: 'us-central1', memory: '256MiB' },
+  async (event) => {
+    const uid = event.params.uid;
+    const ref = db.collection('publicProfiles').doc(uid);
+    if (!event.data?.after?.exists) {
+      // user удалён — зеркало тоже снести (на будущее; сейчас delete users запрещён)
+      try { await ref.delete(); } catch (e) { logger.warn('mirror delete failed', { uid, err: String(e) }); }
+      return;
+    }
+    const d = event.data.after.data() || {};
+    const publicData = {
+      uid,
+      firstName:   d.firstName   || '',
+      lastName:    d.lastName    || '',
+      avatarUrl:   d.avatarUrl   || '',
+      equipped:    d.equipped    || {},
+      totalPoints: Number(d.totalPoints || 0),
+      weekPoints:  Number(d.weekPoints  || 0),
+      details:     d.details     || '',
+      region:      d.region      || '',
+      updatedAt:   new Date().toISOString(),
+    };
+    await ref.set(publicData, { merge: true });
+  }
+);
 
 exports.awardWeeklyMedals = onSchedule(
   {

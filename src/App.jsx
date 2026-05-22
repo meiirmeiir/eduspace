@@ -46,6 +46,7 @@ import PracticeScreen from "./screens/PracticeScreen.jsx";
 import DashboardScreen from "./screens/DashboardScreen.jsx";
 import AdminScreen from "./screens/AdminScreen.jsx";
 import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
+import PublicProfileScreen from "./screens/PublicProfileScreen.jsx";
 import ShopScreen from "./screens/ShopScreen.jsx";
 import { addPoints } from "./lib/pointsUtils.js";
 import { addCrystals } from "./lib/crystalsUtils.js";
@@ -194,7 +195,7 @@ export default function App() {
     const hash=window.location.hash.slice(1);
     if(hash){
       // экраны, требующие авторизации
-      const authRequired=["dashboard","plan","practice","admin","diagnostics","theory","daily","intermediate_tests","mastery","boss_fight","report","report_view","smart_diag","quiz_rules","question","upload","roadmap","onboarding","faq"];
+      const authRequired=["dashboard","plan","practice","admin","diagnostics","theory","daily","intermediate_tests","mastery","boss_fight","report","report_view","smart_diag","quiz_rules","question","upload","roadmap","onboarding","faq","leaderboard","shop","public_profile"];
       try{
         const raw=localStorage.getItem("aapa_user");
         const hasUser=!!raw;
@@ -208,6 +209,8 @@ export default function App() {
   });
   const [questions,setQuestions]=useState([]);
   const [qIndex,setQIndex]=useState(0);
+  // uid открытого публичного профиля (через клик из LeaderboardScreen)
+  const [publicProfileUid,setPublicProfileUid]=useState(null);
   const [answers,setAnswers]=useState([]);
   const [report,setReport]=useState(null);
   const [lastResultId,setLastResultId]=useState(null);
@@ -1050,7 +1053,8 @@ export default function App() {
       {screen==="faq"&&<FaqScreen initialQuestion={faqInitial} onBack={()=>goBack()}/>}
       {screen==="intermediate_tests"&&<IntermediateTestsScreen user={user} onStartBoss={sec=>{setBossSection(sec);navigate("boss_fight");}} onBack={()=>goBack()}/>}
       {screen==="boss_fight"&&bossSection&&<BossFightScreen section={bossSection} user={user} onBack={()=>goBack("intermediate_tests")}/>}
-      {screen==="leaderboard"&&<LeaderboardScreen user={user} onBack={()=>goBack()}/>}
+      {screen==="leaderboard"&&<LeaderboardScreen user={user} onBack={()=>goBack()} onOpenPublicProfile={(uid)=>{setPublicProfileUid(uid);navigate("public_profile");}}/>}
+      {screen==="public_profile"&&publicProfileUid&&<PublicProfileScreen uid={publicProfileUid} onBack={()=>{navigate("leaderboard");}}/>}
       {screen==="shop"&&<ShopScreen user={user} onBack={()=>goBack()} onUpdateUser={handleUpdateUser}/>}
       {/* Bottom-nav: only on screens where the user is browsing,
           not while taking a test or onboarding. */}

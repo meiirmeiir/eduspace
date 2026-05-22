@@ -125,15 +125,23 @@ export async function addPoints(uid, action, userProfile) {
     userTransforms.push({ fieldPath: 'weekPoints', increment: { integerValue: String(delta) } });
   }
 
+  // Денормализуем публичные кастомизации в entry, чтобы LeaderboardScreen
+  // рендерил аватар + рамку + титул одним запросом, без N+1 чтения users/{uid}.
+  const equipped = userProfile?.equipped || {};
   const leaderboardPath = `leaderboard/${weekId}/entries/${uid}`;
   const lbTransforms = [];
   const lbUpdateFields = {
-    uid:         { stringValue: uid },
-    displayName: { stringValue: displayName },
-    grade:       { stringValue: grade },
-    region:      { stringValue: region },
+    uid:           { stringValue: uid },
+    displayName:   { stringValue: displayName },
+    firstName:     { stringValue: userProfile?.firstName || '' },
+    lastName:      { stringValue: userProfile?.lastName  || '' },
+    avatarUrl:     { stringValue: userProfile?.avatarUrl || '' },
+    equippedFrame: { stringValue: equipped.frame || '' },
+    equippedTitle: { stringValue: equipped.title || '' },
+    grade:         { stringValue: grade },
+    region:        { stringValue: region },
   };
-  const lbUpdateMask = ['uid', 'displayName', 'grade', 'region'];
+  const lbUpdateMask = ['uid', 'displayName', 'firstName', 'lastName', 'avatarUrl', 'equippedFrame', 'equippedTitle', 'grade', 'region'];
 
   if (needReset) {
     lbUpdateFields.points = { integerValue: String(delta) };

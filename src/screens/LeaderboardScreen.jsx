@@ -4,6 +4,7 @@ import { getWeekId } from "../lib/pointsUtils.js";
 import { getToken } from 'firebase/app-check';
 import { auth, app } from "../lib/firebase.js";
 import Logo from "../components/ui/Logo.jsx";
+import { FRAME_STYLES, getShopItem } from "../lib/shopItems.js";
 
 const PROJECT = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
 const KEY     = () => import.meta.env.VITE_FIREBASE_API_KEY;
@@ -33,11 +34,16 @@ async function fetchEntries(weekId) {
     const id = d.name.split('/').pop();
     const f  = d.fields || {};
     return {
-      uid:         id,
-      points:      Number(f.points?.integerValue || 0),
-      displayName: f.displayName?.stringValue || 'Аноним',
-      grade:       f.grade?.stringValue || '',
-      region:      f.region?.stringValue || '',
+      uid:           id,
+      points:        Number(f.points?.integerValue || 0),
+      displayName:   f.displayName?.stringValue || 'Аноним',
+      firstName:     f.firstName?.stringValue || '',
+      lastName:      f.lastName?.stringValue  || '',
+      avatarUrl:     f.avatarUrl?.stringValue || '',
+      equippedFrame: f.equippedFrame?.stringValue || '',
+      equippedTitle: f.equippedTitle?.stringValue || '',
+      grade:         f.grade?.stringValue  || '',
+      region:        f.region?.stringValue || '',
     };
   });
 }
@@ -48,7 +54,7 @@ const TABS = [
   { id: 'region', icon: '📍', label: 'Моя область' },
 ];
 
-export default function LeaderboardScreen({ user, onBack }) {
+export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile }) {
   const [tab, setTab] = useState('all');
   const [allEntries, setAllEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,24 +87,68 @@ export default function LeaderboardScreen({ user, onBack }) {
     const rank = opts.rank ?? (idx + 1);
     const mine = e.uid === user?.uid;
     const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
+    const initials = ((e.firstName?.[0] || '') + (e.lastName?.[0] || '')).toUpperCase() || '?';
+    const frameStyle = e.equippedFrame ? (FRAME_STYLES[e.equippedFrame] || null) : null;
+    const titleItem = e.equippedTitle ? getShopItem(e.equippedTitle) : null;
+    const titleText = titleItem?.value || '';
+    const clickable = !!onOpenPublicProfile;
+    const handleOpen = () => clickable && onOpenPublicProfile(e.uid);
     return (
-      <div key={`${e.uid}_${rank}`} className="theme-row" style={{
-        display:'flex', alignItems:'center', gap:12,
-        padding:'12px 16px', borderRadius:12,
-        background: mine ? 'rgba(212,175,55,0.12)' : '#fff',
-        border: `1px solid ${mine ? THEME.accent : THEME.border}`,
-        marginBottom:8,
-      }}>
+      <div
+        key={`${e.uid}_${rank}`}
+        className="theme-row"
+        onClick={handleOpen}
+        role={clickable ? 'button' : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        onKeyDown={clickable ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleOpen(); } } : undefined}
+        style={{
+          display:'flex', alignItems:'center', gap:12,
+          padding:'10px 14px', borderRadius:12,
+          background: mine ? 'rgba(212,175,55,0.12)' : '#fff',
+          border: `1px solid ${mine ? THEME.accent : THEME.border}`,
+          marginBottom:8,
+          cursor: clickable ? 'pointer' : 'default',
+          transition: 'transform 0.1s, box-shadow 0.15s',
+        }}
+        onMouseEnter={clickable ? (ev) => { ev.currentTarget.style.boxShadow = '0 4px 14px rgba(15,23,42,0.08)'; } : undefined}
+        onMouseLeave={clickable ? (ev) => { ev.currentTarget.style.boxShadow = ''; } : undefined}
+      >
         <div style={{
-          minWidth:38, textAlign:'center', fontWeight:800, fontSize:medal?22:14,
+          minWidth:36, textAlign:'center', fontWeight:800, fontSize:medal?22:14,
           color: rank<=3 ? THEME.primary : THEME.textLight,
           fontFamily:"'Montserrat',sans-serif",
         }}>{medal || `#${rank}`}</div>
+
+        {/* Аватар 32×32 — фото или круглый chip с инициалами «АК», с CSS-рамкой */}
+        {e.avatarUrl
+          ? <img src={e.avatarUrl} alt="" style={{
+              width:32, height:32, borderRadius:'50%', objectFit:'cover',
+              border: `2px solid ${THEME.accent}`, flexShrink:0,
+              ...(frameStyle || {}),
+            }}/>
+          : <div style={{
+              width:32, height:32, borderRadius:'50%', flexShrink:0,
+              background:'linear-gradient(135deg, #6366f1, #a78bfa)',
+              color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+              fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12,
+              border: `2px solid ${THEME.accent}`,
+              ...(frameStyle || {}),
+            }}>{initials}</div>
+        }
+
         <div style={{flex:1, minWidth:0}}>
           <div style={{fontWeight:700, fontSize:14, color:THEME.primary, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-            {e.displayName}{mine ? ' (вы)' : ''}
+            {initials}{mine ? ' (вы)' : ''}
           </div>
-          {(e.grade || e.region) && (
+          {titleText && (
+            <div style={{
+              display:'inline-block', marginTop:2,
+              fontSize:11, fontWeight:600, color:'#d4af37',
+              background:'rgba(212,175,55,0.12)', borderRadius:6, padding:'1px 6px',
+              maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+            }}>{titleText}</div>
+          )}
+          {!titleText && (e.grade || e.region) && (
             <div style={{fontSize:12, color:THEME.textLight, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
               {[e.grade, e.region].filter(Boolean).join(' · ')}
             </div>

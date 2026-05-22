@@ -15,6 +15,14 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    // ── Публичные профили (denorm-зеркало users/{uid}) ───────────────────────
+    // Пишет только Cloud Function mirrorUserToPublicProfile через Admin SDK
+    // (обходит rules). Клиенты только читают.
+    match /publicProfiles/{userId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
     // ── Пользователи ─────────────────────────────────────────────────────────
     match /users/{userId} {
       allow get:    if isOwner(userId) || isAdmin();
@@ -36,6 +44,14 @@ service cloud.firestore {
                       )
                     );
       allow delete: if false;
+    }
+
+    // ── Медали (субколлекция users/{uid}/medals/{medalId}) ──────────────────
+    // Пишет только Cloud Function awardWeeklyMedals (Admin SDK обходит rules).
+    // Читают — все залогиненные (медали отображаются в публичном профиле).
+    match /users/{userId}/medals/{medalId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
     }
 
     // ── Настройки — только admin ──────────────────────────────────────────────
