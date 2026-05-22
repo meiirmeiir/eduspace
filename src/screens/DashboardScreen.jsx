@@ -6,7 +6,6 @@ import { compressImage } from "../lib/mathUtils.js";
 import { getAlmatyDateStr } from "../lib/srsUtils.js";
 import { tgPhoto, THEME, STUDENT_STATUSES, DAY_NAMES_SHORT, PLANS } from "../lib/appConstants.js";
 import { getMyWeeklyRank } from "../lib/pointsUtils.js";
-import { getContent } from "../lib/contentCache.js";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
@@ -43,7 +42,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const [schedForm,setSchedForm]=useState({studentId:'',subject:'Математика',mode:'weekly',date:'',startTime:'10:00',endTime:'11:00',weekDays:[],startFrom:new Date().toISOString().slice(0,10),weeks:8});
   const [sidebarOpen,setSidebarOpen]=useState(false);
   const [rankInfo,setRankInfo]=useState(null); // {rank, total, myPoints} | null
-  const [totalSkills,setTotalSkills]=useState(0); // общее количество навыков из skillHierarchies
+  const [planSkills,setPlanSkills]=useState(null); // массив skill_id из individualPlans/{uid} или null если плана нет
   const [diagPause,setDiagPause]=useState(null); // {sectionNum, qNum} из localStorage aapa_diag_pause
 
   // Прогресс внутри раздела (пауза посреди диагностики) — живёт ТОЛЬКО в localStorage,
@@ -61,17 +60,6 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
       }
     }catch{ setDiagPause(null); }
   },[user?.details]);
-
-  useEffect(()=>{
-    let cancelled=false;
-    getContent('skillHierarchies').then(docs=>{
-      if(cancelled) return;
-      const ids=new Set();
-      (docs||[]).forEach(d=>(d.clusters||[]).forEach(cl=>(cl.pivot_skills||[]).forEach(ps=>{ if(ps.skill_id) ids.add(ps.skill_id); })));
-      setTotalSkills(ids.size);
-    }).catch(()=>{});
-    return ()=>{ cancelled=true; };
-  },[]);
 
   useEffect(()=>{
     let cancelled=false;
@@ -147,6 +135,17 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
           const topics=upSnap.exists()?(upSnap.data().topics||{}):{};
           const skills=spSnap.exists()?(spSnap.data().skills||{}):{};
           setProgressData({topics,skills});
+          // Загрузка индивидуального плана — для прогресс-бара «Освоено: N из M навыков из плана»
+          try{
+            const ipSnap=await getDoc(doc(db,"individualPlans",uid));
+            if(ipSnap.exists()){
+              const roadmap=ipSnap.data()?.roadmap||[];
+              const ids=roadmap.flatMap(s=>Array.isArray(s?.skills_list)?s.skills_list:[]);
+              setPlanSkills(ids);
+            } else {
+              setPlanSkills(null);
+            }
+          }catch(_){ setPlanSkills(null); }
         }catch(_){}
       }
     }catch(e){console.error(e);setDataError(true);}
@@ -304,9 +303,13 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const isTester=user?.status==="tester";
   const isInactive=user?.status==="inactive";
 
-  // Прогресс по плану
-  const masteredCount=masteryStatus.masteredCount||0;
-  const progressPct=totalSkills>0?Math.round((masteredCount/totalSkills)*100):0;
+  // Прогресс по плану: знаменатель — все навыки из individualPlans/{uid}.roadmap[].skills_list[]
+  const planSkillsTotal=planSkills?.length||0;
+  const masteredCountRaw=masteryStatus.masteredCount||0;
+  // masteryStatus считает ВСЕ освоенные навыки, не только те что в плане. Cap'ируем визуально,
+  // чтобы не было «12 из 8 навыков», если ученик переучил план.
+  const masteredCount=Math.min(masteredCountRaw, planSkillsTotal||masteredCountRaw);
+  const progressPct=planSkillsTotal>0?Math.round((masteredCount/planSkillsTotal)*100):0;
   const topicsGreen=Object.values(progressData?.topics||{}).filter(t=>t?.zone==='green').length;
   const showDiagNav=isTeacher||isTester||(user?.goalKey==="exam");
   const navItems=isInactive?[
@@ -539,7 +542,6 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                 );
               })()}
               <div className="stat-card"><div className="stat-icon">📖</div><div><div className="stat-value">{topicsGreen}</div><div className="stat-label">{pluralize(topicsGreen, ['тема изучена','темы изучено','тем изучено'])}</div></div></div>
-              <div className="stat-card"><div className="stat-icon">🎯</div><div><div className="stat-value">{progressPct}%</div><div className="stat-label">прогресс</div></div></div>
             </div>
 
             {/* Блок 1: «Что делать сегодня» — умная карточка с CTA. Скрыта для teacher/admin. */}
@@ -589,21 +591,29 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               );
             })()}
 
-            {/* Блок 2: прогресс по плану — только после диагностики и не для teacher/admin. */}
-            {user?.smartDiagDone && !isTeacher && totalSkills > 0 && (
+            {/* Блок 2: прогресс по индивидуальному плану. Скрыт для teacher/admin. */}
+            {!isTeacher && (
               <div className="dashboard-section" style={{marginBottom:24, padding:'20px 22px'}}>
-                <div style={{display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:12, marginBottom:10, flexWrap:'wrap'}}>
-                  <h2 className="section-title" style={{margin:0}}>📊 Прогресс обучения</h2>
-                  <div style={{fontSize:13, color:THEME.textLight, fontWeight:600}}>Освоено: <span style={{color:THEME.primary, fontWeight:800}}>{masteredCount}</span> из {totalSkills} навыков</div>
-                </div>
-                <div style={{height:10, borderRadius:99, background:'rgba(15,23,42,0.08)', overflow:'hidden'}}>
-                  <div style={{
-                    height:'100%', width:`${progressPct}%`,
-                    background:`linear-gradient(90deg, ${THEME.accent}, #f59e0b)`,
-                    borderRadius:99, transition:'width 0.4s ease',
-                  }}/>
-                </div>
-                <div style={{marginTop:6, fontSize:12, color:THEME.textLight, textAlign:'right'}}>{progressPct}%</div>
+                <h2 className="section-title" style={{margin:'0 0 12px'}}>📊 Прогресс обучения</h2>
+                {(!user?.smartDiagDone || !planSkills) ? (
+                  <div className="empty-state" style={{padding:'12px 0', fontSize:14}}>
+                    Пройди диагностику чтобы увидеть свой прогресс
+                  </div>
+                ) : (
+                  <>
+                    <div style={{fontSize:13, color:THEME.textLight, fontWeight:600, marginBottom:10}}>
+                      Освоено: <span style={{color:THEME.primary, fontWeight:800}}>{masteredCount}</span> из {planSkillsTotal} навыков из твоего плана
+                    </div>
+                    <div style={{height:10, borderRadius:99, background:'rgba(15,23,42,0.08)', overflow:'hidden'}}>
+                      <div style={{
+                        height:'100%', width:`${progressPct}%`,
+                        background:`linear-gradient(90deg, ${THEME.accent}, #f59e0b)`,
+                        borderRadius:99, transition:'width 0.4s ease',
+                      }}/>
+                    </div>
+                    <div style={{marginTop:6, fontSize:12, color:THEME.textLight, textAlign:'right'}}>{progressPct}%</div>
+                  </>
+                )}
               </div>
             )}
 
