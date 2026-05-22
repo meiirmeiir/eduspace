@@ -155,6 +155,26 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // ── Недельный рейтинг: leaderboard/{weekId}/entries/{uid} ─────────────────
+    // Защита от читерства (вариант B): пишет только владелец, points может
+    // только расти и не больше чем на +200 за одну запись (потолок одной
+    // действие = day_streak_7). Это не блокирует упорного читера, но обрезает
+    // тривиальный DevTools-абюз.
+    match /leaderboard/{weekId}/entries/{userId} {
+      allow read:   if isSignedIn();
+      allow create: if isOwner(userId)
+                    && request.resource.data.uid == userId
+                    && request.resource.data.points is int
+                    && request.resource.data.points >= 0
+                    && request.resource.data.points <= 200;
+      allow update: if isOwner(userId)
+                    && request.resource.data.uid == userId
+                    && request.resource.data.points is int
+                    && request.resource.data.points >= resource.data.points
+                    && request.resource.data.points <= resource.data.points + 200;
+      allow delete: if false;
+    }
+
     // ── Доска (whiteboard): участники урока — оба залогинены ─────────────────
     match /wbImages/{docId}    { allow read, write: if isSignedIn(); }
     match /wbStrokes/{docId}   { allow read, write: if isSignedIn(); }

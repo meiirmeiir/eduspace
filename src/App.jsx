@@ -42,6 +42,8 @@ import SkillMasteryScreen from "./screens/SkillMasteryScreen.jsx";
 import PracticeScreen from "./screens/PracticeScreen.jsx";
 import DashboardScreen from "./screens/DashboardScreen.jsx";
 import AdminScreen from "./screens/AdminScreen.jsx";
+import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
+import { addPoints } from "./lib/pointsUtils.js";
 
 
 
@@ -506,6 +508,7 @@ export default function App() {
         totalTime,
         answers:sectionAnswers.map(a=>({topic:a.topic,section:a.section,_grade:a._grade,skillId:a.skillId,verticalId:a.verticalId,correct:a.correct,difficulty:a.difficulty||"A",confidence:a.confidence,timeSpent:a.timeSpent}))
       });
+      if(user?.uid) addPoints(user.uid,'diagnostic_done',user);
     }catch(e){console.error("section results save:",e);}
 
     // 2. Сохраняем состояние движка и прогресс разделов в Firestore
@@ -572,6 +575,7 @@ export default function App() {
           answers: next.map(a=>({topic:a.topic,section:a.section,_grade:a._grade,skillId:a.skillId,verticalId:a.verticalId,correct:a.correct,difficulty:a.difficulty||"A",confidence:a.confidence,timeSpent:a.timeSpent}))
         });
         setLastResultId(ref.id);
+        if(user?.uid) addPoints(user.uid,'diagnostic_done',user);
         // Если умная диагностика — генерируем дорожную карту и помечаем как пройденную
         if((next.some(a=>a.verticalId)||pendingSection?._smartDiag) && user?.uid){
           try{
@@ -963,7 +967,7 @@ export default function App() {
 
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);setProfile(p=>p?{...p,onboardingDone:true}:p);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
-      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={tryOpenDaily} onOpenAdmin={openAdmin} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser} masteryStatus={masteryStatus} onOpenDailyLockModal={()=>setLockModalOpen(true)}/>}
+      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={tryOpenDaily} onOpenAdmin={openAdmin} onOpenLeaderboard={()=>navigate("leaderboard")} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser} masteryStatus={masteryStatus} onOpenDailyLockModal={()=>setLockModalOpen(true)}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
       {screen==="admin"&&<AdminScreen onBack={()=>goBack()} firebaseUser={firebaseUser}/>}
       {screen==="diagnostics"&&(
@@ -1004,9 +1008,10 @@ export default function App() {
       {screen==="faq"&&<FaqScreen initialQuestion={faqInitial} onBack={()=>goBack()}/>}
       {screen==="intermediate_tests"&&<IntermediateTestsScreen user={user} onStartBoss={sec=>{setBossSection(sec);navigate("boss_fight");}} onBack={()=>goBack()}/>}
       {screen==="boss_fight"&&bossSection&&<BossFightScreen section={bossSection} user={user} onBack={()=>goBack("intermediate_tests")}/>}
+      {screen==="leaderboard"&&<LeaderboardScreen user={user} onBack={()=>goBack()}/>}
       {/* Bottom-nav: only on screens where the user is browsing,
           not while taking a test or onboarding. */}
-      {["dashboard","theory","daily","plan","practice","diagnostics"].includes(screen) && (
+      {["dashboard","theory","daily","plan","practice","diagnostics","leaderboard"].includes(screen) && (
         <MobileBottomNav
           active={screen==="dashboard" ? (dashSection==="profile" ? "profile" : "dashboard") : screen}
           dailyStatus={!masteryStatus.hasMastered ? 'locked' : (masteryStatus.hasDueToday ? 'due' : (masteryStatus.completedToday ? 'done' : null))}
@@ -1016,6 +1021,7 @@ export default function App() {
             if(id==="plan"){ viewPlan(); return; }
             if(id==="daily"){ tryOpenDaily(); return; }
             if(id==="theory"){ navigate("theory"); return; }
+            if(id==="leaderboard"){ navigate("leaderboard"); return; }
           }}
         />
       )}

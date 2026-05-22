@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { doc, getDoc, setDoc, db } from "../firestore-rest.js";
 import { THEME } from "../lib/appConstants.js";
 import { isStageUnlocked, getAlmatyDateStr, SRS_INTERVALS, getAlmatyNextMidnightAfter, fmtCountdown } from "../lib/srsUtils.js";
+import { addPoints } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import { useNpc } from "../NpcContext.jsx";
@@ -12,7 +13,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
   const [loading,      setLoading]      = useState(true);
   const [taskData,     setTaskData]     = useState(null);   // { a:[...], b:[...], c:[...] }
   const [theory,       setTheory]       = useState(null);   // skillTheory entry
-  const [mastery,      setMastery]      = useState({ stagesCompleted:0, currentStage:1, lastStageCompletedAt:null });
+  const [mastery,      setMastery]      = useState({ stagesCompleted:0, currentStage:1, lastStageCompletedAt:null, pointsAwarded:false });
   const [phase,        setPhase]        = useState('load'); // load|theory|tasks|locked|result
   const [now,          setNow]          = useState(Date.now());
   // Practice tasks state (from skillTheory.tasks)
@@ -46,7 +47,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
       const ms = mSnap.exists() ? (mSnap.data()?.skills?.[skillId] || {}) : {};
       const completed = ms.stagesCompleted || 0;
       const lastAt = ms.lastStageCompletedAt || null;
-      setMastery({ stagesCompleted: completed, currentStage: Math.min(completed + 1, 3), lastStageCompletedAt: lastAt });
+      setMastery({ stagesCompleted: completed, currentStage: Math.min(completed + 1, 3), lastStageCompletedAt: lastAt, pointsAwarded: ms.pointsAwarded === true });
       setStage(Math.min(completed + 1, 3));
       setLoading(false);
       if (completed >= 3) {
@@ -83,12 +84,17 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
       const now_ = new Date().toISOString();
       const skillUpdate = { stagesCompleted: newCompleted, currentStage: Math.min(newCompleted+1,3), lastStageCompletedAt: now_, updatedAt: now_ };
       // When fully mastered, schedule first SRS review (tomorrow Almaty)
+      const firstMastery = newCompleted === 3 && !mastery.pointsAwarded;
       if (newCompleted === 3) {
         skillUpdate.next_review_date = getAlmatyDateStr(SRS_INTERVALS[0]);
         skillUpdate.review_stage = 1;
+        if (firstMastery) skillUpdate.pointsAwarded = true;
       }
       await setDoc(doc(db,'skillMastery',user.uid), { skills: { [skillId]: skillUpdate } }, { merge: true });
-      setMastery({ stagesCompleted: newCompleted, currentStage: Math.min(newCompleted+1,3), lastStageCompletedAt: now_ });
+      setMastery({ stagesCompleted: newCompleted, currentStage: Math.min(newCompleted+1,3), lastStageCompletedAt: now_, pointsAwarded: mastery.pointsAwarded || firstMastery });
+      if (firstMastery) {
+        addPoints(user.uid, 'skill_mastered', user);
+      }
     } catch(e) { console.error(e); }
     setSaving(false);
   };

@@ -5,6 +5,7 @@ import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, query, updateD
 import { compressImage } from "../lib/mathUtils.js";
 import { getAlmatyDateStr } from "../lib/srsUtils.js";
 import { tgPhoto, THEME, STUDENT_STATUSES, DAY_NAMES_SHORT, PLANS } from "../lib/appConstants.js";
+import { getMyWeeklyRank } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
@@ -22,7 +23,7 @@ function pluralize(n, [one, few, many]) {
   return many;
 }
 
-export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal }) {
+export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal }) {
   const { startTourIfNew, showNpcMessage } = useNpc();
   const { profile } = useAuth();
   /* If App passes activeSection/setActiveSection — use them (allows
@@ -40,6 +41,15 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const [hwForm,setHwForm]=useState({title:"",description:"",dueDate:"",userId:""});
   const [schedForm,setSchedForm]=useState({studentId:'',subject:'Математика',mode:'weekly',date:'',startTime:'10:00',endTime:'11:00',weekDays:[],startFrom:new Date().toISOString().slice(0,10),weeks:8});
   const [sidebarOpen,setSidebarOpen]=useState(false);
+  const [rankInfo,setRankInfo]=useState(null); // {rank, total, myPoints} | null
+
+  useEffect(()=>{
+    let cancelled=false;
+    const uid=user?.uid||user?.id;
+    if(!uid){ setRankInfo(null); return; }
+    getMyWeeklyRank(uid).then(r=>{ if(!cancelled) setRankInfo(r); }).catch(()=>{});
+    return ()=>{ cancelled=true; };
+  },[user?.uid||user?.id, user?.weekPoints]);
 
   const isTeacher=user?.role==="teacher"||user?.role==="admin";
   const isAdmin=user?.role==="admin";
@@ -263,6 +273,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const showDiagNav=isTeacher||isTester||(user?.goalKey==="exam");
   const navItems=isInactive?[
     {id:"plan",icon:"🗺️",label:"Индивидуальный план обучения"},
+    {id:"leaderboard",icon:"🏆",label:"Рейтинг"},
     {id:"profile",icon:"👤",label:"Личный кабинет ученика"},
     {id:"faq",icon:"❓",label:"Частые вопросы"},
     ...(isAdmin?[{id:"admin",icon:"⚙️",label:"Администрирование"}]:[]),
@@ -274,6 +285,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     {id:"plan",icon:"🗺️",label:"Индивидуальный план обучения"},
     {id:"theory",icon:"📖",label:"Теория"},
     {id:"daily",icon:"📝",label:"Ежедневные задачи"},
+    {id:"leaderboard",icon:"🏆",label:"Рейтинг"},
     {id:"profile",icon:"👤",label:"Личный кабинет ученика"},
     {id:"faq",icon:"❓",label:"Частые вопросы"},
     ...(isAdmin?[{id:"admin",icon:"⚙️",label:"Администрирование"}]:[]),
@@ -294,6 +306,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
       onOpenDaily?.();return;
     }
     if(id==="faq"){onOpenFaq?.();return;}
+    if(id==="leaderboard"){onOpenLeaderboard?.();return;}
     if(id==="admin"){onOpenAdmin();return;}
     setActiveSection(id);
   };
@@ -487,6 +500,18 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                   </div>
                 );
               })()}
+            </div>
+
+            {/* Weekly rank widget — для всех учеников, включая solo */}
+            <div className="dashboard-section" style={{padding:"18px 22px", marginBottom:24, display:"flex", alignItems:"center", justifyContent:"space-between", gap:16, flexWrap:"wrap"}}>
+              <div style={{flex:"1 1 220px", minWidth:0}}>
+                <div style={{fontSize:13, fontWeight:700, color:THEME.textLight, marginBottom:4}}>🏆 Твой рейтинг этой недели</div>
+                <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary}}>
+                  {(user?.weekPoints ?? rankInfo?.myPoints ?? 0).toLocaleString('ru-RU')} <span style={{fontSize:14, color:THEME.textLight, fontWeight:600}}>очков</span>
+                  {rankInfo?.rank && <span style={{fontSize:14, color:THEME.textLight, fontWeight:600, marginLeft:10}}>· #{rankInfo.rank} среди всех</span>}
+                </div>
+              </div>
+              <button onClick={()=>onOpenLeaderboard?.()} className="cta-button active" style={{width:"auto", padding:"10px 18px", fontSize:13}}>Посмотреть рейтинг →</button>
             </div>
 
             {/* Schedule */}

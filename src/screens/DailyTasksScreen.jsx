@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { doc, getDoc, updateDoc, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
 import { THEME } from "../lib/appConstants.js";
 import { getAlmatyDateStr, SRS_INTERVALS } from "../lib/srsUtils.js";
+import { addPoints } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
@@ -25,8 +26,15 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const [saving,   setSaving]   = useState(false);
   const [lastWrongWasDanger, setLastWrongWasDanger] = useState(false); // lives=0 warning
   const [streak,   setStreak]   = useState(0); // consecutive correct answers (for NPC encouragement)
+  const questionStartRef = useRef(0);
+  const streak3AwardedRef = useRef(false);
 
   const shuf = arr => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+
+  // Засекаем время появления вопроса (для fast_answer < 10s)
+  useEffect(() => {
+    if (phase === 'playing') questionStartRef.current = Date.now();
+  }, [phase, qIdx]);
 
   useEffect(() => {
     const load = async () => {
@@ -110,6 +118,14 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       if (nextStreak >= 3 && nextStreak % 3 === 0) {
         showNpcMessage('streak', 4000);
       }
+      // ── Points ────────────────────────────────────────────────────────────
+      const elapsed = questionStartRef.current ? Date.now() - questionStartRef.current : Infinity;
+      addPoints(user.uid, 'daily_correct', user);
+      if (elapsed < 10000) addPoints(user.uid, 'fast_answer', user);
+      if (nextStreak === 3 && !streak3AwardedRef.current) {
+        streak3AwardedRef.current = true;
+        addPoints(user.uid, 'daily_streak_3', user);
+      }
     } else {
       setStreak(0);
       const curLives = skillLives[current.skillId] ?? 2;
@@ -183,6 +199,15 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       else                                newStreak = 1;
       if (newStreak !== currentStreak || lastActive !== today) {
         await updateDoc(userRef, { streak: newStreak, lastActiveDate: today });
+      }
+      // day_streak_7: один раз навсегда при первом достижении 7 дней подряд
+      const alreadyAwarded = data?.bonusesAwarded?.streak7 === true;
+      if (newStreak >= 7 && !alreadyAwarded) {
+        const ok = await addPoints(user.uid, 'day_streak_7', user);
+        if (ok) {
+          try { await updateDoc(userRef, { 'bonusesAwarded.streak7': true }); }
+          catch (e) { console.error('streak7 flag:', e); }
+        }
       }
     } catch (e) { console.error('streak update:', e); }
   };
