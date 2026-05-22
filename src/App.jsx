@@ -153,15 +153,18 @@ export default function App() {
   const { theme: THEME } = useTheme();
   const { firebaseUser, profile, loading: authLoading, setProfile } = useAuth();
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem("aapa_user");return u?JSON.parse(u):null;}catch{return null;}});
-  // Sync Firestore profile → user; fix landing flicker (bug2) and missing onboarding (bug1)
+  // Sync Firestore profile → user; fix landing flicker (bug2) and missing onboarding (bug1).
+  // ВАЖНО: всегда мержим свежий profile из Firestore поверх локального state — иначе
+  // crystals / inventory / equipped, обновлённые на другом устройстве или через админку,
+  // не доедут до этой сессии, и localStorage становится «источником правды» в расхождение
+  // с БД. Firestore — single source of truth для покупных полей.
   useEffect(()=>{
     if(!profile) return;
-    const profileUid=profile.id||profile.uid;
-    const userUid=user?.id||user?.uid;
-    if(!user||userUid!==profileUid){
-      setUser(profile);
-      try{localStorage.setItem("aapa_user",JSON.stringify(profile));}catch{}
-    }
+    setUser(prev=>{
+      const merged={...(prev||{}), ...profile};
+      try{localStorage.setItem("aapa_user",JSON.stringify(merged));}catch{}
+      return merged;
+    });
     // Bug 2: authenticated user somehow landed on landing (e.g. empty localStorage on load)
     if(screenRef.current==="landing"){
       _setScreen(profile.onboardingDone?"dashboard":"onboarding");

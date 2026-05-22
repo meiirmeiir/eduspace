@@ -241,9 +241,30 @@ export async function setDoc(ref, data, options = {}) {
 export async function updateDoc(ref, data) {
   const keys = Object.keys(data);
   if (keys.length === 0) return;
+  // updateMask.fieldPaths сохраняем как есть (Firestore сам трактует точку как nested path).
   const mask = keys.map(f => `updateMask.fieldPaths=${encodeURIComponent(f)}`).join('&');
   const url = `${BASE()}/${encodeFsPath(ref.path)}?${mask}&key=${getKey()}`;
-  const body = { fields: toFsFields(data) };
+  // Ключи с точкой ('equipped.theme', 'bonusesAwarded.streak7') — это nested-paths.
+  // В body их нужно превратить в mapValue-цепочку, иначе Firestore запишет поле с
+  // буквальной точкой в имени, а mask по nested-пути не найдёт его и поле потеряется.
+  const fields = {};
+  for (const [k, v] of Object.entries(data)) {
+    const parts = k.split('.');
+    if (parts.length === 1) {
+      fields[k] = toFsValue(v);
+      continue;
+    }
+    let cursor = fields;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const seg = parts[i];
+      if (!cursor[seg] || !cursor[seg].mapValue) {
+        cursor[seg] = { mapValue: { fields: {} } };
+      }
+      cursor = cursor[seg].mapValue.fields;
+    }
+    cursor[parts[parts.length - 1]] = toFsValue(v);
+  }
+  const body = { fields };
   const resp = await fetch(url, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ..._authHeader(), ...(await _appCheckHeader()) },
