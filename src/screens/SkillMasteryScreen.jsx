@@ -8,7 +8,7 @@ import LatexText from "../components/ui/LatexText.jsx";
 import { useNpc } from "../NpcContext.jsx";
 
 // Handles 3-stage mastery flow for a single skill
-export default function SkillMasteryScreen({ user, skillId, skillName, onBack }) {
+export default function SkillMasteryScreen({ user, skillId, skillName, onBack, onRankRefresh }) {
   const { showNpcMessage } = useNpc();
   const [loading,      setLoading]      = useState(true);
   const [taskData,     setTaskData]     = useState(null);   // { a:[...], b:[...], c:[...] }
@@ -116,6 +116,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
       if (taskIdx === tasks.length - 1) {
         if (newScore >= 8) {
           await saveMasteryStage(1);
+          onRankRefresh?.();
           showNpcMessage('success', 6000);
           setPhase('result');
         }
@@ -126,6 +127,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
       setS2Energy(newEnergy);
       if (newEnergy >= 8) {
         await saveMasteryStage(2);
+        onRankRefresh?.();
         showNpcMessage('success', 6000);
         setPhase('result');
         return;
@@ -137,6 +139,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack })
       setS3Total(newTotal);
       if (newStreak >= 5) {
         await saveMasteryStage(3);
+        onRankRefresh?.();
         showNpcMessage('success', 6000);
         setPhase('result');
         return;

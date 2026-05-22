@@ -194,6 +194,10 @@ export default function App() {
   const [quizLoading,setQuizLoading]=useState(false);
   const [smartDiagEngineState,setSmartDiagEngineState]=useState(null);
   const [roadmap,setRoadmap]=useState(null);
+  // Счётчик для триггера перезапроса rankInfo в DashboardScreen после Daily/Mastery сессий.
+  // addPoints обновляет Firestore, но не локальный user.weekPoints — перечитываем леaderboard заново.
+  const [rankRefreshKey,setRankRefreshKey]=useState(0);
+  const refreshRank=()=>setRankRefreshKey(k=>k+1);
   /* Dashboard's current sub-section (home/profile/...) lives here so
      the bottom-nav can switch it even when we're already on the
      dashboard screen (which wouldn't otherwise re-mount). */
@@ -976,7 +980,7 @@ export default function App() {
 
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);setProfile(p=>p?{...p,onboardingDone:true}:p);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
-      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={tryOpenDaily} onOpenAdmin={openAdmin} onOpenLeaderboard={()=>navigate("leaderboard")} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser} masteryStatus={masteryStatus} onOpenDailyLockModal={()=>setLockModalOpen(true)}/>}
+      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={tryOpenDaily} onOpenAdmin={openAdmin} onOpenLeaderboard={()=>navigate("leaderboard")} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser} masteryStatus={masteryStatus} onOpenDailyLockModal={()=>setLockModalOpen(true)} rankRefreshKey={rankRefreshKey}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
       {screen==="admin"&&<AdminScreen onBack={()=>goBack()} firebaseUser={firebaseUser}/>}
       {screen==="diagnostics"&&(
@@ -1011,9 +1015,9 @@ export default function App() {
       {screen==="roadmap"&&<RoadmapScreen roadmap={roadmap} user={user} onBack={()=>goBack()} onViewPlan={viewPlan}/>}
 
       {screen==="plan"&&<IndividualPlanScreen user={user} onBack={()=>goBack()} onStartTraining={(skillId,skillName)=>{setMasterySkillId(skillId);setMasterySkillName(skillName||skillId);navigate("mastery");}}/>}
-      {screen==="mastery"&&masterySkillId&&<SkillMasteryScreen user={user} skillId={masterySkillId} skillName={masterySkillName} onBack={()=>{setMasterySkillId(null);setMasterySkillName('');goBack("plan");}}/>}
+      {screen==="mastery"&&masterySkillId&&<SkillMasteryScreen user={user} skillId={masterySkillId} skillName={masterySkillName} onBack={()=>{setMasterySkillId(null);setMasterySkillName('');goBack("plan");}} onRankRefresh={refreshRank}/>}
       {screen==="theory"&&<TheoryBrowseScreen user={user} onBack={()=>{setTheorySkillId(null);goBack();}} initialSkillId={theorySkillId}/>}
-      {screen==="daily"&&<DailyTasksScreen user={user} onBack={()=>goBack()} onOpenDiagnostics={openDiagnostics} onViewPlan={viewPlan} onOpenFaq={openFaq}/>}
+      {screen==="daily"&&<DailyTasksScreen user={user} onBack={()=>goBack()} onOpenDiagnostics={openDiagnostics} onViewPlan={viewPlan} onOpenFaq={openFaq} onRankRefresh={refreshRank}/>}
       {screen==="faq"&&<FaqScreen initialQuestion={faqInitial} onBack={()=>goBack()}/>}
       {screen==="intermediate_tests"&&<IntermediateTestsScreen user={user} onStartBoss={sec=>{setBossSection(sec);navigate("boss_fight");}} onBack={()=>goBack()}/>}
       {screen==="boss_fight"&&bossSection&&<BossFightScreen section={bossSection} user={user} onBack={()=>goBack("intermediate_tests")}/>}

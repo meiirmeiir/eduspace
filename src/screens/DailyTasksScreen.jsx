@@ -9,7 +9,7 @@ import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
 import { useNpc } from "../NpcContext.jsx";
 
-export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onViewPlan, onOpenFaq }) {
+export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onViewPlan, onOpenFaq, onRankRefresh }) {
   const { showNpcMessage } = useNpc();
   const BG = '#f8fafc';
   const [phase,    setPhase]    = useState('loading'); // loading|playing|done|empty
@@ -148,6 +148,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       // Session over — save
       setSaving(true);
       await saveSession();
+      onRankRefresh?.();
       setSaving(false);
       setPhase('done');
     }

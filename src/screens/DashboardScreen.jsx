@@ -24,7 +24,7 @@ function pluralize(n, [one, few, many]) {
   return many;
 }
 
-export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal }) {
+export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
   const { startTourIfNew, showNpcMessage } = useNpc();
   const { profile } = useAuth();
   /* If App passes activeSection/setActiveSection — use them (allows
@@ -79,7 +79,10 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     if(!uid){ setRankInfo(null); return; }
     getMyWeeklyRank(uid).then(r=>{ if(!cancelled) setRankInfo(r); }).catch(()=>{});
     return ()=>{ cancelled=true; };
-  },[user?.uid||user?.id, user?.weekPoints]);
+    // user.weekPoints из локального state stale (addPoints не зовёт setUser).
+    // Перезапрос триггерится через смену uid или через rankRefreshKey, который
+    // App.jsx инкрементирует после Daily/Mastery сессий.
+  },[user?.uid||user?.id, rankRefreshKey]);
 
   const isTeacher=user?.role==="teacher"||user?.role==="admin";
   const isAdmin=user?.role==="admin";
@@ -609,7 +612,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               <div style={{flex:"1 1 220px", minWidth:0}}>
                 <div style={{fontSize:13, fontWeight:700, color:THEME.textLight, marginBottom:4}}>🏆 Твой рейтинг этой недели</div>
                 <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary}}>
-                  {(user?.weekPoints ?? rankInfo?.myPoints ?? 0).toLocaleString('ru-RU')} <span style={{fontSize:14, color:THEME.textLight, fontWeight:600}}>очков</span>
+                  {(rankInfo?.myPoints ?? 0).toLocaleString('ru-RU')} <span style={{fontSize:14, color:THEME.textLight, fontWeight:600}}>очков</span>
                   {rankInfo?.rank && <span style={{fontSize:14, color:THEME.textLight, fontWeight:600, marginLeft:10}}>· #{rankInfo.rank} среди всех</span>}
                 </div>
               </div>
