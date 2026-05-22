@@ -4,6 +4,7 @@ import { getContent } from "../lib/contentCache.js";
 import { THEME } from "../lib/appConstants.js";
 import { getAlmatyDateStr, SRS_INTERVALS } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
+import { addCrystals } from "../lib/crystalsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
@@ -118,9 +119,10 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       if (nextStreak >= 3 && nextStreak % 3 === 0) {
         showNpcMessage('streak', 4000);
       }
-      // ── Points ────────────────────────────────────────────────────────────
+      // ── Points + Crystals ─────────────────────────────────────────────────
       const elapsed = questionStartRef.current ? Date.now() - questionStartRef.current : Infinity;
       addPoints(user.uid, 'daily_correct', user);
+      addCrystals(user.uid, 1, 'daily_correct');
       if (elapsed < 10000) addPoints(user.uid, 'fast_answer', user);
       if (nextStreak === 3 && !streak3AwardedRef.current) {
         streak3AwardedRef.current = true;
@@ -201,13 +203,24 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       if (newStreak !== currentStreak || lastActive !== today) {
         await updateDoc(userRef, { streak: newStreak, lastActiveDate: today });
       }
-      // day_streak_7: один раз навсегда при первом достижении 7 дней подряд
-      const alreadyAwarded = data?.bonusesAwarded?.streak7 === true;
-      if (newStreak >= 7 && !alreadyAwarded) {
+      // day_streak_7: один раз навсегда при первом достижении 7 дней подряд.
+      // Общий флаг bonusesAwarded.streak7 покрывает и +200 очков, и +50 кристаллов.
+      const awarded7 = data?.bonusesAwarded?.streak7 === true;
+      if (newStreak >= 7 && !awarded7) {
         const ok = await addPoints(user.uid, 'day_streak_7', user);
+        addCrystals(user.uid, 50, 'streak_7');
         if (ok) {
           try { await updateDoc(userRef, { 'bonusesAwarded.streak7': true }); }
           catch (e) { console.error('streak7 flag:', e); }
+        }
+      }
+      // streak_30: только кристаллы (+200), один раз навсегда. Отдельный флаг bonusesAwarded.streak30.
+      const awarded30 = data?.bonusesAwarded?.streak30 === true;
+      if (newStreak >= 30 && !awarded30) {
+        const ok = await addCrystals(user.uid, 200, 'streak_30');
+        if (ok) {
+          try { await updateDoc(userRef, { 'bonusesAwarded.streak30': true }); }
+          catch (e) { console.error('streak30 flag:', e); }
         }
       }
     } catch (e) { console.error('streak update:', e); }

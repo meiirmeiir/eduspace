@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc, db } from "../firestore-rest.js";
 import { THEME } from "../lib/appConstants.js";
 import { isStageUnlocked, getAlmatyDateStr, SRS_INTERVALS, getAlmatyNextMidnightAfter, fmtCountdown } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
+import { addCrystals } from "../lib/crystalsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import { useNpc } from "../NpcContext.jsx";
@@ -94,6 +95,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
       setMastery({ stagesCompleted: newCompleted, currentStage: Math.min(newCompleted+1,3), lastStageCompletedAt: now_, pointsAwarded: mastery.pointsAwarded || firstMastery });
       if (firstMastery) {
         addPoints(user.uid, 'skill_mastered', user);
+        addCrystals(user.uid, 10, 'skill_mastered');
       }
     } catch(e) { console.error(e); }
     setSaving(false);

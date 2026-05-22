@@ -18,10 +18,35 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger }     = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
 initializeApp();
 const db = getFirestore();
+
+// Telegram креды читаются из env (functions/.env). Если отсутствуют — уведомления
+// просто не отправляются, основная логика медалей продолжает работать.
+const TG_TOKEN = process.env.TELEGRAM_TOKEN || '';
+const TG_CHAT  = process.env.TELEGRAM_CHAT  || '';
+
+async function sendTelegram(text) {
+  if (!TG_TOKEN || !TG_CHAT) {
+    logger.warn('Telegram disabled: TELEGRAM_TOKEN or TELEGRAM_CHAT missing in env');
+    return;
+  }
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_CHAT, text, parse_mode: 'HTML' }),
+    });
+    if (!r.ok) {
+      const body = await r.text().catch(() => '');
+      logger.error('Telegram send failed', { status: r.status, body: body.slice(0, 200) });
+    }
+  } catch (e) {
+    logger.error('Telegram send threw', { err: String(e) });
+  }
+}
 
 // ── ISO-неделя (год + неделя четверга) ──────────────────────────────────────
 function getWeekId(date) {
@@ -106,12 +131,15 @@ exports.awardWeeklyMedals = onSchedule(
     };
 
     let granted = { global: 0, grade: 0, region: 0 };
+    // Глобальный #1 этой недели — для счётчика topOneCount и Telegram-алёрта.
+    let globalTopUid = null;
 
     // 1. Global
     const globalRanked = rankEntries(entries);
     globalRanked.slice(0, 10).forEach((e, i) => {
       const t = tierForPosition(i + 1);
       if (t) { award(e.uid, t, 'global', i + 1); granted.global++; }
+      if (i === 0) globalTopUid = e.uid;
     });
 
     // 2. Grade groups
@@ -136,6 +164,31 @@ exports.awardWeeklyMedals = onSchedule(
     // без проблем; для AAPA-объёмов хватит с запасом.
     await Promise.all(writes);
 
+    // topOneCount: учёт побед в глобальном недельном рейтинге. ≥3 побед →
+    // Telegram-алёрт админу: «у этого ученика заработано право на кастомизацию».
+    let topOneAlert = null;
+    if (globalTopUid) {
+      try {
+        const userRef = db.collection('users').doc(globalTopUid);
+        await userRef.update({ topOneCount: FieldValue.increment(1) });
+        const userSnap = await userRef.get();
+        const data = userSnap.data() || {};
+        const newCount = Number(data.topOneCount || 0);
+        topOneAlert = { uid: globalTopUid, newCount, firstName: data.firstName || '', lastName: data.lastName || '' };
+        if (newCount >= 3) {
+          const name = `${data.firstName || ''} ${data.lastName || ''}`.trim() || '(без имени)';
+          await sendTelegram(
+            `👑 <b>${name}</b> заработал право на кастомизацию!\n` +
+            `uid: <code>${globalTopUid}</code>\n` +
+            `topOneCount: <b>${newCount}</b>\n` +
+            `weekId: ${weekId}`
+          );
+        }
+      } catch (e) {
+        logger.error('topOneCount update failed', { uid: globalTopUid, err: String(e) });
+      }
+    }
+
     logger.info('awardWeeklyMedals done', {
       weekId,
       entries: entries.length,
@@ -143,6 +196,7 @@ exports.awardWeeklyMedals = onSchedule(
       regions: regionGroups.size,
       granted,
       totalWrites: writes.length,
+      topOneAlert,
     });
   }
 );

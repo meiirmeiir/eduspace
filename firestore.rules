@@ -20,10 +20,20 @@ service cloud.firestore {
       allow get:    if isOwner(userId) || isAdmin();
       allow list:   if isAdmin();
       allow create: if isOwner(userId);
-      allow update: if isAdmin()
-                    || (isOwner(userId)
-                        && !request.resource.data.diff(resource.data)
-                              .affectedKeys().hasAny(['role', 'status']));
+      // Self-update: всё кроме role/status; если затронут crystals — должен быть
+      // целым, монотонно расти и дельта не более +200 за одну запись (anti-cheat).
+      allow update: if isAdmin() || (
+                      isOwner(userId)
+                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status'])
+                      && (
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['crystals'])
+                        || (
+                          request.resource.data.crystals is int
+                          && request.resource.data.crystals >= resource.data.get('crystals', 0)
+                          && request.resource.data.crystals <= resource.data.get('crystals', 0) + 200
+                        )
+                      )
+                    );
       allow delete: if false;
     }
 

@@ -47,6 +47,7 @@ import DashboardScreen from "./screens/DashboardScreen.jsx";
 import AdminScreen from "./screens/AdminScreen.jsx";
 import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
 import { addPoints } from "./lib/pointsUtils.js";
+import { addCrystals } from "./lib/crystalsUtils.js";
 
 
 
@@ -515,7 +516,10 @@ export default function App() {
         totalTime,
         answers:sectionAnswers.map(a=>({topic:a.topic,section:a.section,_grade:a._grade,skillId:a.skillId,verticalId:a.verticalId,correct:a.correct,difficulty:a.difficulty||"A",confidence:a.confidence,timeSpent:a.timeSpent}))
       });
-      if(user?.uid) addPoints(user.uid,'diagnostic_done',user);
+      if(user?.uid){
+        addPoints(user.uid,'diagnostic_done',user);
+        addCrystals(user.uid,20,'diagnostic_done');
+      }
     }catch(e){console.error("section results save:",e);}
 
     // 2. Сохраняем состояние движка и прогресс разделов в Firestore
@@ -590,10 +594,13 @@ export default function App() {
           answers: next.map(a=>({topic:a.topic,section:a.section,_grade:a._grade,skillId:a.skillId,verticalId:a.verticalId,correct:a.correct,difficulty:a.difficulty||"A",confidence:a.confidence,timeSpent:a.timeSpent}))
         });
         setLastResultId(ref.id);
-        // diagnostic_done: для умной диагностики очки уже начисляются за каждый
-        // раздел в finishDiagnosticSection — здесь начисляем только для обычной,
-        // чтобы не двойного-начислять финальный раздел умной.
-        if(user?.uid && !pendingSection?._smartDiag) addPoints(user.uid,'diagnostic_done',user);
+        // diagnostic_done: для умной диагностики очки/кристаллы уже начисляются
+        // за каждый раздел в finishDiagnosticSection — здесь начисляем только для
+        // обычной, чтобы не двойного-начислять финальный раздел умной.
+        if(user?.uid && !pendingSection?._smartDiag){
+          addPoints(user.uid,'diagnostic_done',user);
+          addCrystals(user.uid,20,'diagnostic_done');
+        }
         // Если умная диагностика — генерируем дорожную карту и помечаем как пройденную
         if((next.some(a=>a.verticalId)||pendingSection?._smartDiag) && user?.uid){
           try{
