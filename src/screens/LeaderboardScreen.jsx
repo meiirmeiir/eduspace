@@ -149,7 +149,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
     const titleItem = e.equippedTitle ? getShopItem(e.equippedTitle) : null;
     const titleText = titleItem?.value || '';
     const league = getLeague(e.points);
-    const avatarSize = rank <= 3 ? 48 : 32;
+    const avatarSize = rank <= 3 ? 64 : 44;
     const clickable = !!onOpenPublicProfile;
     const handleOpen = () => clickable && onOpenPublicProfile(e.uid);
     const topBorder = rank === 1 ? '#fbbf24' : rank === 2 ? '#94a3b8' : rank === 3 ? '#b45309' : null;
