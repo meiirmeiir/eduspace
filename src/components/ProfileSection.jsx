@@ -177,16 +177,16 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                 <div style={{display:"flex",gap:8}}>
                   <div style={{flex:1}}>
                     <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:4}}>Имя</div>
-                    <input className="input-field" style={{marginBottom:0,padding:"8px 12px",...inputStyle}} value={editForm.firstName} onChange={e=>setEditForm(p=>({...p,firstName:e.target.value}))} placeholder="Имя"/>
+                    <input className="input-field" style={{marginBottom:0,padding:"8px 12px",background:THEME.surface,color:THEME.text,border:`1px solid ${THEME.border}`,colorScheme:isDarkUi?'dark':'light'}} value={editForm.firstName} onChange={e=>setEditForm(p=>({...p,firstName:e.target.value}))} placeholder="Имя"/>
                   </div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:4}}>Фамилия</div>
-                    <input className="input-field" style={{marginBottom:0,padding:"8px 12px",...inputStyle}} value={editForm.lastName} onChange={e=>setEditForm(p=>({...p,lastName:e.target.value}))} placeholder="Фамилия"/>
+                    <input className="input-field" style={{marginBottom:0,padding:"8px 12px",background:THEME.surface,color:THEME.text,border:`1px solid ${THEME.border}`,colorScheme:isDarkUi?'dark':'light'}} value={editForm.lastName} onChange={e=>setEditForm(p=>({...p,lastName:e.target.value}))} placeholder="Фамилия"/>
                   </div>
                 </div>
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:4}}>Цель</div>
-                  <select className="input-field" style={{marginBottom:0,padding:"8px 12px",...inputStyle}} value={editForm.goalKey}
+                  <select className="input-field" style={{marginBottom:0,padding:"8px 12px",background:THEME.surface,color:THEME.text,border:`1px solid ${THEME.border}`,colorScheme:isDarkUi?'dark':'light'}} value={editForm.goalKey}
                     onChange={e=>setEditForm(p=>({...p,goalKey:e.target.value,details:""}))}>
                     <option value="">— Выберите цель —</option>
                     {Object.entries(REG_GOALS).map(([k,v])=><option key={k} value={k}>{v}</option>)}
@@ -197,7 +197,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                     <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:4}}>
                       {editForm.goalKey==="exam"?"Экзамен":"Класс"}
                     </div>
-                    <select className="input-field" style={{marginBottom:0,padding:"8px 12px",...inputStyle}} value={editForm.details}
+                    <select className="input-field" style={{marginBottom:0,padding:"8px 12px",background:THEME.surface,color:THEME.text,border:`1px solid ${THEME.border}`,colorScheme:isDarkUi?'dark':'light'}} value={editForm.details}
                       onChange={e=>setEditForm(p=>({...p,details:e.target.value}))}>
                       <option value="">— Выберите —</option>
                       {getSpecificList(editForm.goalKey).map(x=><option key={x} value={x}>{x}</option>)}
@@ -206,7 +206,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                 )}
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:4}}>Область</div>
-                  <select className="input-field" style={{marginBottom:0,padding:"8px 12px",...inputStyle}} value={editForm.region}
+                  <select className="input-field" style={{marginBottom:0,padding:"8px 12px",background:THEME.surface,color:THEME.text,border:`1px solid ${THEME.border}`,colorScheme:isDarkUi?'dark':'light'}} value={editForm.region}
                     onChange={e=>setEditForm(p=>({...p,region:e.target.value}))}>
                     <option value="">— Выберите —</option>
                     {KZ_REGIONS.map(r=><option key={r} value={r}>{r}</option>)}

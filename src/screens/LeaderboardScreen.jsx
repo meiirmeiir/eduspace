@@ -208,11 +208,8 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         style={{
           display:'flex', alignItems:'center', gap:0,
           padding:'14px 16px', borderRadius:14, marginBottom:10,
-          // Фон не задаём inline — CSS-правила .page-themed.has-bg .theme-row
-          // (для wallpaper) и .theme-row default (для leaderboard-bg) сами
-          // подберут под контекст. mine выделяем только границей + accent-тинтом.
-          background: mine ? `${THEME.accent}20` : 'transparent',
-          backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)',
+          // Фон и backdrop полностью под управлением CSS .theme-row
+          // (+ .page-themed.has-bg .theme-row для wallpaper). mine выделяем границей.
           border: `1px solid ${mine ? THEME.accent : (topBorder || THEME.border)}`,
           boxShadow: topShadow || 'none',
           cursor: clickable ? 'pointer' : 'default',
