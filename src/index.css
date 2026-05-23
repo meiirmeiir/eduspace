@@ -1019,17 +1019,19 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 /* default .theme-row — полупрозрачный тёмный фон над gradient ::before. */
 .theme-row { background: rgba(15,23,42,0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 
-/* Через wallpaper: карточки строк, hero, stats — все полупрозрачные. */
+/* Через wallpaper: карточки строк — alpha 0.35-0.5 чтобы wallpaper читался
+   как картинка под ними. backdrop-filter убран — blur(8px) превращал
+   wallpaper в кашу даже при низкой alpha. */
 .page-themed.has-bg .theme-row {
-  background: rgba(255,255,255,0.08) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  background: rgba(255,255,255,0.15) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
-[data-theme="dark"] .page-themed.has-bg .theme-row { background: rgba(0,0,0,0.4) !important; }
-[data-shop-theme="galaxy"] .page-themed.has-bg .theme-row { background: rgba(30,27,75,0.7) !important; }
-[data-shop-theme="matrix"] .page-themed.has-bg .theme-row { background: rgba(13,31,13,0.7) !important; }
-[data-shop-theme="fire"]   .page-themed.has-bg .theme-row { background: rgba(45,16,0,0.7) !important; }
-[data-shop-theme="sakura"] .page-themed.has-bg .theme-row { background: rgba(255,240,245,0.8) !important; }
+[data-theme="dark"] .page-themed.has-bg .theme-row { background: rgba(0,0,0,0.35) !important; }
+[data-shop-theme="galaxy"] .page-themed.has-bg .theme-row { background: rgba(30,27,75,0.4) !important; }
+[data-shop-theme="matrix"] .page-themed.has-bg .theme-row { background: rgba(13,31,13,0.4) !important; }
+[data-shop-theme="fire"]   .page-themed.has-bg .theme-row { background: rgba(45,16,0,0.4) !important; }
+[data-shop-theme="sakura"] .page-themed.has-bg .theme-row { background: rgba(255,240,245,0.5) !important; }
 
 /* Hero и stats — slight transparency overrides на wallpaper. */
 .page-themed.has-bg .leaderboard-hero {

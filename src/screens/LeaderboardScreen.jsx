@@ -284,7 +284,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
           position:'fixed', inset:0, zIndex:-1,
           backgroundImage:`url(${equippedBg.file})`,
           backgroundSize:'cover', backgroundPosition:'center',
-          opacity: shopTheme === 'sakura' ? 0.25 : 0.5,
+          opacity: shopTheme === 'sakura' ? 0.35 : 0.7,
           pointerEvents:'none',
         }}/>
       )}
