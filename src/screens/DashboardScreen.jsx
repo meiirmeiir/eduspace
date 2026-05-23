@@ -484,7 +484,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                           :`Система проверит все ключевые навыки для ${user?.details} и выявит твои пробелы. Займёт 15–25 минут.`}
                       </p>
                     </div>
-                    <button style={{background:THEME.accent,color:THEME.primary,border:"none",borderRadius:12,padding:"14px 28px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
+                    <button style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",borderRadius:12,padding:"14px 28px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
                       {user?.smartDiagNextSection?`Начать Раздел ${user.smartDiagNextSection} →`:"Начать →"}
                     </button>
                   </div>
@@ -512,7 +512,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                     </div>
                     <p style={{fontSize:13,opacity:0.65,margin:0,lineHeight:1.5}}>Диагностика завершена — посмотри персональный план обучения снизу вверх.</p>
                   </div>
-                  <button style={{background:THEME.accent,color:THEME.primary,border:"none",borderRadius:10,padding:"12px 22px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
+                  <button style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",borderRadius:10,padding:"12px 22px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
                     Смотреть →
                   </button>
                 </div>
@@ -691,7 +691,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                     <div style={{fontSize:16, lineHeight:1.4, color:'#fff', fontWeight:600}}>{text}</div>
                   </div>
                   <button onClick={onCta} style={{
-                    background:THEME.accent, color:THEME.primary, border:'none', borderRadius:10,
+                    background:THEME.accent, color:THEME.onAccent ?? '#0f172a', border:'none', borderRadius:10,
                     padding:'12px 22px', fontFamily:"'Montserrat',sans-serif", fontSize:14, fontWeight:800,
                     cursor:'pointer', whiteSpace:'nowrap', flexShrink:0,
                     boxShadow:'0 6px 18px -4px rgba(212,175,55,0.5)',
@@ -852,7 +852,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                                       </select>
                                     </div>
                                   </div>
-                                  <button onClick={()=>saveFeedback(sub.id)} style={{marginTop:8,padding:"7px 18px",borderRadius:8,background:THEME.primary,color:THEME.accent,border:"none",fontWeight:700,fontSize:13,cursor:"pointer"}}>Сохранить</button>
+                                  <button onClick={()=>saveFeedback(sub.id)} style={{marginTop:8,padding:"7px 18px",borderRadius:8,background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",fontWeight:700,fontSize:13,cursor:"pointer"}}>Сохранить</button>
                                 </div>
                               ))}
                             </div>

@@ -157,7 +157,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
     }
     if (owned) {
       return <button onClick={() => handleEquip(item)} disabled={busy}
-        style={{...baseStyle, background:THEME.primary, color:THEME.accent, opacity:busy?0.6:1}}>
+        style={{...baseStyle, background:THEME.accent, color:THEME.onAccent ?? '#0f172a', opacity:busy?0.6:1}}>
         {busy ? '...' : 'Надеть'}
       </button>;
     }
@@ -168,7 +168,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
       return <button disabled style={{...baseStyle, background:'rgba(239,68,68,0.08)', color:'#dc2626', cursor:'not-allowed', border:'1px solid rgba(239,68,68,0.25)'}}>Недостаточно 💎</button>;
     }
     return <button onClick={() => handlePurchase(item)} disabled={busy}
-      style={{...baseStyle, background:THEME.accent, color:THEME.primary, opacity:busy?0.6:1}}>
+      style={{...baseStyle, background:THEME.accent, color:THEME.onAccent ?? '#0f172a', opacity:busy?0.6:1}}>
       {busy ? '...' : `Купить · ${item.price} 💎`}
     </button>;
   };
