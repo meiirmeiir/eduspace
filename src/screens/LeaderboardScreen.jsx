@@ -148,11 +148,10 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
     const frameStyle = e.equippedFrame ? (FRAME_STYLES[e.equippedFrame] || null) : null;
     const titleItem = e.equippedTitle ? getShopItem(e.equippedTitle) : null;
     const titleText = titleItem?.value || '';
-    const league = getLeague(e.points).current;
+    const league = getLeague(e.points);
     const avatarSize = rank <= 3 ? 48 : 32;
     const clickable = !!onOpenPublicProfile;
     const handleOpen = () => clickable && onOpenPublicProfile(e.uid);
-    // FACEIT-стиль выделение топ-3: золотой/серебряный/бронзовый glow + border.
     const topBorder = rank === 1 ? '#fbbf24' : rank === 2 ? '#94a3b8' : rank === 3 ? '#b45309' : null;
     const topShadow = rank === 1 ? '0 2px 12px rgba(212,175,55,0.3)' : rank === 2 ? '0 2px 8px rgba(148,163,184,0.3)' : rank === 3 ? '0 2px 8px rgba(180,83,9,0.3)' : null;
     return (
@@ -164,67 +163,67 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         tabIndex={clickable ? 0 : undefined}
         onKeyDown={clickable ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleOpen(); } } : undefined}
         style={{
-          display:'flex', alignItems:'center', gap:12,
-          padding:'10px 14px', borderRadius:12,
+          display:'flex', alignItems:'center', gap:0,
+          padding:'14px 16px', borderRadius:14, marginBottom:10,
           background: mine ? 'rgba(212,175,55,0.12)' : THEME.surface,
           border: `1px solid ${mine ? THEME.accent : (topBorder || THEME.border)}`,
           boxShadow: topShadow || 'none',
-          marginBottom:8,
           cursor: clickable ? 'pointer' : 'default',
           transition: 'transform 0.1s, box-shadow 0.15s',
         }}
         onMouseEnter={clickable ? (ev) => { ev.currentTarget.style.boxShadow = topShadow || '0 4px 14px rgba(15,23,42,0.08)'; } : undefined}
         onMouseLeave={clickable ? (ev) => { ev.currentTarget.style.boxShadow = topShadow || ''; } : undefined}
       >
-        <div style={{
-          minWidth:36, textAlign:'center', fontWeight:800, fontSize:medal?22:14,
-          color: rank<=3 ? THEME.primary : THEME.textLight,
-          fontFamily:"'Montserrat',sans-serif",
-        }}>{medal || `#${rank}`}</div>
-
-        {/* Лига (Бронза/Серебро/Золото/Алмаз) — иконка лиги по сумме очков */}
-        <div style={{minWidth:36, textAlign:'center', fontSize:18}} title={league.name}>
-          {league.icon}
+        {/* Ранг — медалия или #N */}
+        <div style={{minWidth:48, fontSize: rank<=3?22:15, fontWeight:700, color: rank<=3?THEME.accent:THEME.textLight, fontFamily:"'Montserrat',sans-serif"}}>
+          {medal || `#${rank}`}
         </div>
 
-        {/* Аватар: 48×48 для топ-3, иначе 32×32. Фото или fallback с инициалами. */}
-        {e.avatarUrl
-          ? <img src={e.avatarUrl} alt="" style={{
-              width:avatarSize, height:avatarSize, borderRadius:'50%', objectFit:'cover',
-              border: `2px solid ${THEME.accent}`, flexShrink:0,
-              ...(frameStyle || {}),
-            }}/>
-          : <div style={{
-              width:avatarSize, height:avatarSize, borderRadius:'50%', flexShrink:0,
-              background:'linear-gradient(135deg, #6366f1, #a78bfa)',
-              color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-              fontFamily:"'Montserrat',sans-serif", fontWeight:800,
-              fontSize: rank<=3 ? 16 : 12,
-              border: `2px solid ${THEME.accent}`,
-              ...(frameStyle || {}),
-            }}>{initials}</div>
-        }
-
-        <div style={{flex:1, minWidth:0}}>
-          <div style={{fontWeight:700, fontSize:14, color:THEME.primary, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-            {initials}{mine ? ' (вы)' : ''}
-          </div>
-          {titleText && (
-            <div style={{
-              display:'inline-block', marginTop:2,
-              fontSize:11, fontWeight:600, color:'#d4af37',
-              background:'rgba(212,175,55,0.12)', borderRadius:6, padding:'1px 6px',
-              maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-            }}>{titleText}</div>
-          )}
-          {!titleText && (e.grade || e.region) && (
-            <div style={{fontSize:12, color:THEME.textLight, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-              {[e.grade, e.region].filter(Boolean).join(' · ')}
+        {/* Ученик — аватар + инициалы + титул/класс */}
+        <div style={{flex:1, display:'flex', alignItems:'center', gap:12, minWidth:0}}>
+          {e.avatarUrl
+            ? <img src={e.avatarUrl} alt="" style={{
+                width:avatarSize, height:avatarSize, borderRadius:'50%', objectFit:'cover',
+                border: `2px solid ${THEME.accent}`, flexShrink:0,
+                ...(frameStyle || {}),
+              }}/>
+            : <div style={{
+                width:avatarSize, height:avatarSize, borderRadius:'50%', flexShrink:0,
+                background:'linear-gradient(135deg, #6366f1, #a78bfa)',
+                color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+                fontFamily:"'Montserrat',sans-serif", fontWeight:800,
+                fontSize: rank<=3 ? 16 : 12,
+                border: `2px solid ${THEME.accent}`,
+                ...(frameStyle || {}),
+              }}>{initials}</div>
+          }
+          <div style={{minWidth:0, overflow:'hidden'}}>
+            <div style={{fontWeight:700, fontSize:15, color:THEME.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+              {initials}{mine ? ' (вы)' : ''}
             </div>
-          )}
+            {titleText && (
+              <div style={{fontSize:11, color:'#d4af37', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                {titleText}
+              </div>
+            )}
+            {!titleText && (e.grade || e.region) && (
+              <div style={{fontSize:11, color:THEME.textLight, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                {e.grade}{e.grade && e.region ? ' · ' : ''}{e.region}
+              </div>
+            )}
+          </div>
         </div>
-        <div style={{fontWeight:800, fontSize:15, color:THEME.primary, fontFamily:"'Montserrat',sans-serif", whiteSpace:'nowrap'}}>
-          {e.points.toLocaleString('ru-RU')} очк.
+
+        {/* Лига — иконка + название */}
+        <div style={{minWidth:80, textAlign:'center', fontSize:22, lineHeight:1}} title={league.current.name}>
+          {league.current.icon}
+          <div style={{fontSize:10, color:THEME.textLight, marginTop:2, fontWeight:400}}>{league.current.name}</div>
+        </div>
+
+        {/* Рейтинг — очки */}
+        <div style={{minWidth:80, textAlign:'right', fontWeight:800, fontSize:16, color:THEME.primary, fontFamily:"'Montserrat',sans-serif", lineHeight:1}}>
+          {e.points.toLocaleString('ru-RU')}
+          <div style={{fontSize:10, color:THEME.textLight, fontWeight:400, marginTop:2}}>очков</div>
         </div>
       </div>
     );
@@ -267,12 +266,11 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         {!loading && !err && top.length > 0 && (
           <div>
             {/* Заголовочная строка таблицы (FACEIT-стиль) */}
-            <div style={{display:'flex', alignItems:'center', gap:12, padding:'6px 14px', marginBottom:4, opacity:0.6, color:THEME.text}}>
-              <div style={{minWidth:36, fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5}}>Место</div>
-              <div style={{minWidth:36, fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5}}>Лига</div>
-              <div style={{width:36, fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5}}>Игрок</div>
-              <div style={{flex:1, fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5}}>Имя</div>
-              <div style={{fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5}}>Очки</div>
+            <div style={{display:'flex', alignItems:'center', padding:'8px 16px', marginBottom:8, opacity:0.6, color:THEME.text, fontSize:11, letterSpacing:1, textTransform:'uppercase'}}>
+              <div style={{minWidth:48}}>Ранг</div>
+              <div style={{flex:1, paddingLeft:8}}>Ученик</div>
+              <div style={{minWidth:80, textAlign:'center'}}>Лига</div>
+              <div style={{minWidth:80, textAlign:'right'}}>Рейтинг</div>
             </div>
             {top.map((e, i) => renderRow(e, i))}
             {!myInTop && myEntry && (
