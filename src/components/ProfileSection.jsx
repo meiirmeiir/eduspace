@@ -213,8 +213,8 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
               return (
               <>
                 <div className="profile-info-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 12px', width:'100%'}}>
-                  {/* Левый столбец: имя, титул, статус, цель */}
-                  <div>
+                  {/* Левый столбец: имя, титул, статус, цель — с отступом от аватара */}
+                  <div style={{paddingLeft:16}}>
                     <div className="profile-name" style={{marginBottom:6, fontSize:22}}>{user?.firstName} {user?.lastName}</div>
                     {titleItem && (
                       <div style={{
@@ -231,16 +231,17 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                       {user?.goal && <span style={{display:'inline-block', background:'transparent', color:THEME.textLight, fontWeight:600, fontSize:12, padding:'4px 12px', borderRadius:6, border:`1px solid ${THEME.border}`}}>{user.goal}</span>}
                     </div>
                   </div>
-                  {/* Правый столбец: класс, область, дата, кнопки */}
+                  {/* Правый столбец: класс, область, дата */}
                   <div>
                     {user?.details && <div className="profile-detail" style={{marginBottom:6}}>📚 {user.details}</div>}
                     {user?.region && <div className="profile-detail" style={{marginBottom:6}}>📍 {user.region}</div>}
-                    <div className="profile-date" style={{marginBottom:12}}>📅 Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
-                    <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
-                      <button onClick={()=>setIsEditing(true)} style={{background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.textLight, borderRadius:8, padding:'6px 14px', fontWeight:600, fontSize:12, cursor:'pointer'}}>✏️ Редактировать</button>
-                      <ChangePasswordInline />
-                    </div>
+                    <div className="profile-date">📅 Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
                   </div>
+                </div>
+                {/* Кнопки под обоими столбцами, по центру */}
+                <div style={{display:'flex', gap:12, marginTop:16, justifyContent:'center', flexWrap:'wrap'}}>
+                  <button onClick={()=>setIsEditing(true)} style={{background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.text, borderRadius:8, padding:'8px 18px', fontWeight:600, fontSize:13, cursor:'pointer'}}>✏️ Редактировать профиль</button>
+                  <ChangePasswordInline />
                 </div>
                 <label style={{display:'flex', alignItems:'center', gap:10, marginTop:16, fontSize:13, color:THEME.textLight, cursor:'pointer'}}>
                   <input type="checkbox" checked={npcOn} onChange={e=>{setNpcOn(e.target.checked);setNpcEnabled(uid,e.target.checked);}} style={{width:16,height:16,cursor:'pointer'}}/>
