@@ -4,7 +4,8 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "../firestore-rest.js";
 import { compressImage } from "../lib/mathUtils.js";
 import { getAlmatyDateStr } from "../lib/srsUtils.js";
-import { tgPhoto, THEME, STUDENT_STATUSES, DAY_NAMES_SHORT, PLANS } from "../lib/appConstants.js";
+import { tgPhoto, STUDENT_STATUSES, DAY_NAMES_SHORT, PLANS } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { getMyWeeklyRank, getLeague } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
@@ -26,6 +27,7 @@ function pluralize(n, [one, few, many]) {
 export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onOpenShop, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
   const { startTourIfNew, showNpcMessage } = useNpc();
   const { profile } = useAuth();
+  const { theme: THEME } = useTheme();
   /* If App passes activeSection/setActiveSection — use them (allows
      external navigation, e.g. mobile bottom-nav). Otherwise fall back
      to local state for backwards compatibility. */

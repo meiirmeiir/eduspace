@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { doc, getDoc, setDoc, deleteDoc, db } from "../firestore-rest.js";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import WhiteboardCanvas from "./WhiteboardCanvas.jsx";
 
 export default function LessonModal({ lesson, date, user, isAdmin, onClose }) {
+  const { theme: THEME } = useTheme();
   const [initData, setInitData] = useState(null); // null = loading
   const [summary, setSummary] = useState("");
   const [videoUrl, setVideoUrl] = useState("");

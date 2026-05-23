@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { THEME, RPG_NODES, RPG_PATHS } from "../lib/appConstants.js";
+import { RPG_NODES, RPG_PATHS } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
 import RadarChart from "../components/ui/RadarChart.jsx";
 
 function PathMap({ user, onBack }) {
+  const { theme: THEME } = useTheme();
   return(
     <div className="path-container">
       <div className="path-header"><h1>Образовательный трек {user?.firstName}</h1></div>
@@ -22,6 +24,7 @@ function PathMap({ user, onBack }) {
 
 // ── ПРОСМОТР ЭКСПЕРТНОГО ОТЧЁТА (ДЛЯ УЧЕНИКА) ────────────────────────────────
 function ExpertReportView({ report, onBack, studentPhotos }) {
+  const { theme: THEME } = useTheme();
   const zoneColor={correct:THEME.success,partial:THEME.warning,incorrect:THEME.error};
   const zoneLabel={correct:"Верно",partial:"Частично",incorrect:"Неверно"};
   const [lightbox,setLightbox]=useState(null);

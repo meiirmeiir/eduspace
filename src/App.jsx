@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { InlineMath, BlockMath } from "react-katex";
 import "katex/dist/katex.min.css";
 import { ReactFlow, Background, Controls, Panel, useNodesState, useEdgesState, Handle, Position, getBezierPath } from '@xyflow/react';
@@ -18,7 +18,7 @@ import {
   query, where,
 } from "./firestore-rest.js";
 import { getContent } from "./lib/contentCache.js";
-import { useTheme } from "./ThemeContext.jsx";
+import { ThemeProvider, useTheme } from "./ThemeContext.jsx";
 import Logo from "./components/ui/Logo.jsx";
 import MobileBottomNav from "./components/MobileBottomNav.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
@@ -149,7 +149,7 @@ async function autoGeneratePlan(userId, currentAnswers, targetGrade) {
 // ── APP ───────────────────────────────────────────────────────────────────────
 const QUIZ_PROGRESS_KEY="aapa_quiz_progress";
 
-export default function App() {
+function AppInner() {
   const { showNpcMessage, startTourIfNew } = useNpc();
   const { theme: THEME } = useTheme();
   const { firebaseUser, profile, loading: authLoading, setProfile } = useAuth();
@@ -178,19 +178,6 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[profile]);
 
-  // Shop theme: применяем data-атрибут на body синхронно после React-commit,
-  // до того как браузер нарисует первый кадр — иначе на первом рендере есть
-  // «вспышка» неоформленного UI пока useEffect отрабатывает асинхронно.
-  // useLayoutEffect, как и useEffect, ВСЕГДА запускается один раз на mount
-  // и потом при изменении dep — поэтому работает и на первом рендере тоже.
-  useLayoutEffect(() => {
-    const themeId = user?.equipped?.theme || '';
-    // CSS селекторы в index.css ждут data-shop-theme="galaxy" (поле value),
-    // а в equipped.theme хранится itemId ("theme-galaxy") — резолвим через каталог.
-    const v = themeId ? getShopItem(themeId)?.value : null;
-    if (v) document.body.dataset.shopTheme = v;
-    else delete document.body.dataset.shopTheme;
-  }, [user?.equipped?.theme]);
   const [screen,setScreen]=useState(()=>{
     const hash=window.location.hash.slice(1);
     if(hash){
@@ -1127,5 +1114,21 @@ export default function App() {
         onOpenFaq={(key)=>{setLockModalOpen(false);openFaq(key);}}
       />
     </>
+  );
+}
+
+// Внешняя обёртка: вычисляет shopThemeValue из profile.equipped.theme (источник
+// истины — AuthContext, не локальный merged user внутри AppInner) и оборачивает
+// AppInner в ThemeProvider. AppInner должен находиться ВНУТРИ провайдера, чтобы
+// его useTheme() возвращал валидный контекст.
+export default function App() {
+  const { profile } = useAuth();
+  const shopThemeValue = profile?.equipped?.theme
+    ? (getShopItem(profile.equipped.theme)?.value || null)
+    : null;
+  return (
+    <ThemeProvider shopThemeValue={shopThemeValue}>
+      <AppInner />
+    </ThemeProvider>
   );
 }

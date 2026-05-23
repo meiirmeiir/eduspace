@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { doc, getDoc, updateDoc, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { getAlmatyDateStr, SRS_INTERVALS } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
 import { addCrystals } from "../lib/crystalsUtils.js";
@@ -12,6 +12,7 @@ import { useNpc } from "../NpcContext.jsx";
 
 export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onViewPlan, onOpenFaq, onRankRefresh }) {
   const { showNpcMessage } = useNpc();
+  const { theme: THEME } = useTheme();
   const BG = '#f8fafc';
   const [phase,    setPhase]    = useState('loading'); // loading|playing|done|empty
   const [emptyReason, setEmptyReason] = useState(null); // 'no-diag'|'no-mastered'|'wait-until'|null

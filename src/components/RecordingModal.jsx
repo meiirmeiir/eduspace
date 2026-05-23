@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { doc, onSnapshot, updateDoc, db } from "../firestore-rest.js";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 
 export default function RecordingModal({ lesson, user, isAdmin, onClose }) {
+  const { theme: THEME } = useTheme();
   const [liveSummary,setLiveSummary]=useState(lesson.summary||'');
   const [liveVideoUrl,setLiveVideoUrl]=useState(lesson.driveVideoUrl||'');
   const [editSummary,setEditSummary]=useState(lesson.summary||'');

@@ -1,17 +1,25 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { THEME_LIGHT, THEME_DARK } from './lib/appConstants.js';
 
 const ThemeContext = createContext(null);
 
-// BUG-13: dark mode = data-theme="dark" on <html>, which triggers
-// the explicit overrides in index.css. Default (no attribute) = light.
-// Theme is applied in main.jsx before first render, so the initial
-// state below is correct on mount.
+// Палитры, перекрывающие base (light/dark) когда в equipped стоит shop-тема.
+// Значения совпадают с CSS-селекторами в index.css ([data-shop-theme="..."]).
+const SHOP_THEME_OVERRIDES = {
+  galaxy: { primary:'#0f0a1e', accent:'#a78bfa', bg:'#0f0a1e', surface:'#1e1b4b', text:'#e2e8f0', textLight:'rgba(226,232,240,0.7)', border:'#312e81' },
+  sakura: { primary:'#fff0f5', accent:'#f472b6', bg:'#fff0f5', surface:'#fce7f3', text:'#831843', textLight:'rgba(131,24,67,0.7)', border:'#fbcfe8' },
+  matrix: { primary:'#0a0f0a', accent:'#22c55e', bg:'#0a0f0a', surface:'#0d1f0d', text:'#22c55e', textLight:'rgba(34,197,94,0.7)', border:'#14532d' },
+  fire:   { primary:'#1a0a00', accent:'#f97316', bg:'#1a0a00', surface:'#2d1000', text:'#fed7aa', textLight:'rgba(253,211,170,0.7)', border:'#7c2d12' },
+};
+
+// BUG-13: dark mode = data-theme="dark" on <html>. Default (no attr) = light.
+// Применяется в main.jsx до первого рендера, чтобы initial state ниже был корректен.
 //
-// Audit follow-up: expose a `theme` object (light/dark palette) so new
-// components can do `const { theme } = useTheme()` and styles update
-// reactively when the theme switches.
-export function ThemeProvider({ children }) {
+// shopThemeValue приходит из App.jsx после резолва user?.equipped?.theme через
+// getShopItem(...).value. Если значение известно SHOP_THEME_OVERRIDES, оно
+// мерджится поверх base-палитры; параллельно ставим document.body.dataset.shopTheme
+// (CSS-оверрайды в index.css зависят от этого атрибута).
+export function ThemeProvider({ children, shopThemeValue = null }) {
   const [isDark, setIsDark] = useState(
     () => document.documentElement.getAttribute('data-theme') === 'dark'
   );
@@ -30,11 +38,20 @@ export function ThemeProvider({ children }) {
     }
   };
 
-  const value = useMemo(() => ({
-    dark: isDark,
-    theme: isDark ? THEME_DARK : THEME_LIGHT,
-    toggle,
-  }), [isDark]);
+  useEffect(() => {
+    if (shopThemeValue && SHOP_THEME_OVERRIDES[shopThemeValue]) {
+      document.body.dataset.shopTheme = shopThemeValue;
+    } else {
+      delete document.body.dataset.shopTheme;
+    }
+  }, [shopThemeValue]);
+
+  const value = useMemo(() => {
+    const base = isDark ? THEME_DARK : THEME_LIGHT;
+    const override = shopThemeValue ? SHOP_THEME_OVERRIDES[shopThemeValue] : null;
+    const theme = override ? { ...base, ...override } : base;
+    return { dark: isDark, theme, toggle, shopTheme: shopThemeValue || null };
+  }, [isDark, shopThemeValue]);
 
   return (
     <ThemeContext.Provider value={value}>

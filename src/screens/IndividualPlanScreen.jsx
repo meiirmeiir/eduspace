@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { doc, getDoc, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
 import DiagnosticModuleTree, { buildDiagModuleTree } from "../components/diagTree/DiagnosticModuleTree.jsx";
 
 export default function IndividualPlanScreen({ user, onBack, onStartTraining }) {
+  const { theme: THEME } = useTheme();
   const [autoPlan,          setAutoPlan]          = useState(null);
   const [loading,           setLoading]           = useState(true);
   const [fetchError,        setFetchError]        = useState(false);

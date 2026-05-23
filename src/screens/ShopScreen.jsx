@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { SHOP_ITEMS, SHOP_TYPES, FRAME_STYLES } from "../lib/shopItems.js";
 import { purchaseItem, equipItem } from "../lib/shopUtils.js";
 import { getLeague } from "../lib/pointsUtils.js";
@@ -89,6 +89,7 @@ function Preview({ item }) {
 }
 
 export default function ShopScreen({ user, onBack, onUpdateUser }) {
+  const { theme: THEME } = useTheme();
   const [activeType, setActiveType] = useState('background');
   const [pendingId, setPendingId] = useState(null);   // id предмета в покупке/экипировке
   const [errMsg, setErrMsg]       = useState(null);

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { addDoc, collection, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
-import { THEME, DIFFICULTY_WEIGHTS } from "../lib/appConstants.js";
+import { DIFFICULTY_WEIGHTS } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { shuffle, generateQuestion, updateTopicProgress } from "../lib/mathUtils.js";
 import PixelBoss from "../components/PixelBoss.jsx";
 import ImageModal from "../components/ui/ImageModal.jsx";
@@ -9,6 +10,7 @@ import MathText from "../components/ui/MathText.jsx";
 import ChartRenderer from "../components/charts/ChartRenderer.jsx";
 
 export default function BossFightScreen({ section, user, onBack }) {
+  const { theme: THEME } = useTheme();
   const bossType = section.sectionType;
   const isChapter = bossType === "chapter";
   const [phase,setPhase]=useState("loading");

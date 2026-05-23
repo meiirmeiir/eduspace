@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { THEME, CONFIDENCE_LEVELS, GRADES_LIST, EXAMS_LIST } from "../lib/appConstants.js";
+import { CONFIDENCE_LEVELS, GRADES_LIST, EXAMS_LIST } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { generateQuestion, shuffle } from "../lib/mathUtils.js";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import ChartRenderer from "../components/charts/ChartRenderer.jsx";
@@ -13,6 +14,7 @@ import Timer from "../components/ui/Timer.jsx";
 
 // ── ЭКРАН ПРАВИЛ ДИАГНОСТИКИ ──────────────────────────────────────────────────
 function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) {
+  const { theme: THEME } = useTheme();
   const [step, setStep] = useState(0);
   const [countdown, setCountdown] = useState(null);
 
@@ -96,6 +98,7 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
 // ── ЭКРАН ВЫБОРА ДИАГНОСТИКИ ──────────────────────────────────────────────────
 function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
   // ── Все хуки вверху (Rules of Hooks) ──────────────────────────────────────
+  const { theme: THEME } = useTheme();
   const [sections,setSections]=useState([]);
   const [counts,setCounts]=useState({});
   const [reportMap,setReportMap]=useState({});
@@ -291,6 +294,7 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
 
 // ── ВОПРОС (MCQ + MULTIPLE + MATCHING) ───────────────────────────────────────
 function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, onComplete, onStop, onPause, canSkip }) {
+  const { theme: THEME } = useTheme();
   const [elapsed,setElapsed]=useState(0);
   // Resolve generated questions once per question change
   const resolvedQ = useMemo(()=>(question.type==="generated"||question.type==="model")?generateQuestion(question):question, [question.id||question.text]);

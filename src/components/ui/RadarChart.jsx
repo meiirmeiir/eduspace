@@ -1,7 +1,8 @@
 import React from "react";
-import { THEME } from "../../lib/appConstants.js";
+import { useTheme } from "../../ThemeContext.jsx";
 
 export default function RadarChart({ data, size=260 }) {
+  const { theme: THEME } = useTheme();
   if(!data||data.length<3) return <div style={{color:THEME.textLight,fontSize:13,textAlign:"center",padding:20}}>Недостаточно данных для диаграммы (мин. 3 темы)</div>;
   const n=data.length, cx=size/2, cy=size/2, r=size*0.36;
   const ang=i=>-Math.PI/2+i*(2*Math.PI/n);

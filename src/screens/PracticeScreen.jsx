@@ -2,13 +2,15 @@ import React, { useState, useEffect } from "react";
 import { doc, getDoc, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
 import { shuffle, generateQuestion } from "../lib/mathUtils.js";
-import { THEME, GRADES_LIST } from "../lib/appConstants.js";
+import { GRADES_LIST } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
 import MathText from "../components/ui/MathText.jsx";
 import ChartRenderer from "../components/charts/ChartRenderer.jsx";
 import ImageModal from "../components/ui/ImageModal.jsx";
 
 export default function PracticeScreen({ user, onBack }) {
+  const { theme: THEME } = useTheme();
   const [phase, setPhase] = useState("select"); // select | theory_list | theory | practice | done
   const [zones, setZones] = useState({ red:[], yellow:[], green:[] });
   const [allSections, setAllSections] = useState([]);

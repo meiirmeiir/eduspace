@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { doc, getDoc, setDoc, db } from "../firestore-rest.js";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { isStageUnlocked, getAlmatyDateStr, SRS_INTERVALS, getAlmatyNextMidnightAfter, fmtCountdown } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
 import { addCrystals } from "../lib/crystalsUtils.js";
@@ -11,6 +11,7 @@ import { useNpc } from "../NpcContext.jsx";
 // Handles 3-stage mastery flow for a single skill
 export default function SkillMasteryScreen({ user, skillId, skillName, onBack, onRankRefresh }) {
   const { showNpcMessage } = useNpc();
+  const { theme: THEME } = useTheme();
   const [loading,      setLoading]      = useState(true);
   const [taskData,     setTaskData]     = useState(null);   // { a:[...], b:[...], c:[...] }
   const [theory,       setTheory]       = useState(null);   // skillTheory entry

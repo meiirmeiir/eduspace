@@ -1,7 +1,8 @@
 import React from "react";
-import { THEME } from "../../lib/appConstants.js";
+import { useTheme } from "../../ThemeContext.jsx";
 
 export default function ErrorCard({ message, onRetry }) {
+  const { theme: THEME } = useTheme();
   return (
     <div style={{textAlign:"center",padding:"60px 24px"}}>
       <div style={{fontSize:40,marginBottom:12}}>⚠️</div>

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { collection, getDocs, db } from "../firestore-rest.js";
 import { DiagnosticEngine } from "../lib/diagnosticUtils.js";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { DiagnosticRulesScreen, QuestionScreen } from "../screens/DiagnosticsScreens.jsx";
 
 const DIAG_PAUSE_KEY = 'aapa_diag_pause';
 
 export default function SmartDiagRunner({ user, grade, onFinish, onStop, onSectionComplete, initialEngineState, initialSectionNum }) {
+  const { theme: THEME } = useTheme();
   const [phase, setPhase]         = useState('loading'); // loading | rules | question | transition | done_section | error
   const [curQ,  setCurQ]          = useState(null);
   const [qNum,  setQNum]          = useState(0);   // вопрос внутри текущего раздела

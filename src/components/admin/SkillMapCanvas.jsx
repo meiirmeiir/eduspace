@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { THEME } from "../../lib/appConstants.js";
+import { useTheme } from "../../ThemeContext.jsx";
 
 export default function SkillMapCanvas({ nodes }) {
+  const { theme: THEME } = useTheme();
   const [disabled,setDisabled]=useState(new Set());
   const [zoom,setZoom]=useState(1);
 

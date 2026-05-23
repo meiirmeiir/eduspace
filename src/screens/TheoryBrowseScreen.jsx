@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { getContent } from "../lib/contentCache.js";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
 
 export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
+  const { theme: THEME } = useTheme();
   const [skillTheories, setSkillTheories] = useState([]);
   const [namesMap, setNamesMap] = useState({}); // skill_id → Russian name
   const [loading, setLoading] = useState(true);

@@ -1,5 +1,5 @@
 import React from "react";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 
 /**
  * Модальное окно, открывается при попытке зайти в "Ежедневные задачи"
@@ -7,6 +7,7 @@ import { THEME } from "../lib/appConstants.js";
  * Показывает прогресс-шаги до разблокировки.
  */
 export default function DailyLockModal({ open, onClose, smartDiagDone, onStartDiagnostic, onViewPlan, onOpenFaq }) {
+  const { theme: THEME } = useTheme();
   if (!open) return null;
 
   const steps = [

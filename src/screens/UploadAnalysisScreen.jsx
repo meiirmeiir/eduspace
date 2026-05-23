@@ -1,11 +1,13 @@
 import React, { useState } from "react";
-import { THEME, tgPhoto } from "../lib/appConstants.js";
+import { tgPhoto } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { compressImage } from "../lib/mathUtils.js";
 import { updateDoc, doc, db } from "../firestore-rest.js";
 import Logo from "../components/ui/Logo.jsx";
 
 // ── ЗАГРУЗКА ФОТО ─────────────────────────────────────────────────────────────
 function UploadAnalysisScreen({ user, onDone, onSkip, resultId }) {
+  const { theme: THEME } = useTheme();
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [sending, setSending] = useState(false);

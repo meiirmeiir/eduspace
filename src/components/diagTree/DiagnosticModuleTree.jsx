@@ -3,7 +3,8 @@ import { ReactFlow, Background, Controls, useNodesState, useEdgesState, Handle, 
 import "@xyflow/react/dist/style.css";
 import CustomNode from "../../CustomNode.jsx";
 import MagicEdge from "../../MagicEdge.jsx";
-import { THEME, GRADES_LIST } from "../../lib/appConstants.js";
+import { GRADES_LIST } from "../../lib/appConstants.js";
+import { useTheme } from "../../ThemeContext.jsx";
 import { fmtCountdown } from "../../lib/srsUtils.js";
 
 // ── ИНДИВИДУАЛЬНЫЙ ПЛАН ОБУЧЕНИЯ ──────────────────────────────────────────────
@@ -482,6 +483,7 @@ const DIAG_MOD_EDGE_TYPES = { diagModuleEdge: MagicEdge };
 
 // ── DiagModulePopup ────────────────────────────────────────────────────────────
 function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery = {} }) {
+  const { theme: THEME } = useTheme();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const fn = e => { if(e.key==='Escape') onClose(); };

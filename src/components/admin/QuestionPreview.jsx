@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { THEME } from "../../lib/appConstants.js";
+import { useTheme } from "../../ThemeContext.jsx";
 import { generateQuestion } from "../../lib/mathUtils.js";
 import MathText from "../ui/MathText.jsx";
 
 export default function QuestionPreview({ qForm }) {
+  const { theme: THEME } = useTheme();
   const [preview, setPreview] = useState(null);
   const [visible, setVisible] = useState(false);
 

@@ -1,7 +1,8 @@
 import React, { useRef, useEffect } from "react";
-import { THEME } from "../../lib/appConstants.js";
+import { useTheme } from "../../ThemeContext.jsx";
 
 export default function RichTextEditor({ value, onChange }) {
+  const { theme: THEME } = useTheme();
   const ref = useRef(null);
   useEffect(()=>{ if(ref.current) ref.current.innerHTML = value||""; },[]);
   const exec=(cmd,val)=>{

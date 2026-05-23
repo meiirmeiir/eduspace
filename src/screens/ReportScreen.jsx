@@ -1,8 +1,9 @@
 import React from "react";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 
 // ── ОТЧЁТ ─────────────────────────────────────────────────────────────────────
 function ReportScreen({ report, user, onUpload, onViewPlan, onBack }) {
+  const { theme: THEME } = useTheme();
   const { answers } = report;
   const correct=answers.filter(a=>a.correct).length;
   const score=Math.round((correct/answers.length)*100);

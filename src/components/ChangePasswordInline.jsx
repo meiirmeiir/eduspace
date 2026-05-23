@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "../lib/firebase";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 
 export default function ChangePasswordInline() {
   const { firebaseUser } = useAuth();
+  const { theme: THEME } = useTheme();
   const [open, setOpen]           = useState(false);
   const [current, setCurrent]     = useState('');
   const [next, setNext]           = useState('');

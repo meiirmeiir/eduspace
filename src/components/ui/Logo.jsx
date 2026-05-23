@@ -1,7 +1,8 @@
 import React from "react";
-import { THEME } from "../../lib/appConstants.js";
+import { useTheme } from "../../ThemeContext.jsx";
 
 export default function Logo({ size=48, light=false }) {
+  const { theme: THEME } = useTheme();
   return (
     <div style={{display:"flex",alignItems:"center",gap:14}}>
       <svg width={size} height={size} viewBox="0 0 100 100" fill="none" style={{flexShrink:0}}>

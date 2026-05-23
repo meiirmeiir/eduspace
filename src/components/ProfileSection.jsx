@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { collection, doc, getDocs, query, updateDoc, where, db } from "../firestore-rest.js";
-import { THEME, REG_GOALS, getSpecificList, KZ_REGIONS } from "../lib/appConstants.js";
+import { REG_GOALS, getSpecificList, KZ_REGIONS } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { isNpcEnabled, setNpcEnabled } from "../NpcContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import ChangePasswordInline from "./ChangePasswordInline.jsx";
@@ -11,6 +12,7 @@ import { getShopItem, FRAME_STYLES } from "../lib/shopItems.js";
 
 export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser }) {
   const { firebaseUser } = useAuth();
+  const { theme: THEME } = useTheme();
   const uid = firebaseUser?.uid;
   const [results,setResults]=useState([]);
   const [loading,setLoading]=useState(true);

@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { VERTICAL_LABELS } from "../lib/diagnosticUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 
 function RoadmapScreen({ roadmap, user, onBack, onViewPlan }) {
+  const { theme: THEME } = useTheme();
   const [expandedStep, setExpandedStep] = useState(0);
   const { total_gap_skills, roadmap: steps = [], isPerfectStudent } = roadmap || {};
   const totalSteps = steps.length;

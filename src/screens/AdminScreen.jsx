@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from "../firestore-rest.js";
 import { compressImage, parseGradeNumber, computeSkillC, getM_c, computeKAdj, computeS_diag, computeM_g_final } from "../lib/mathUtils.js";
 import { runDiagnosticSimulation } from "../lib/diagnosticUtils.js";
-import { REG_GOALS, DIFFICULTY_COLORS, EXAMS_LIST, GRADES_LIST, STUDENT_STATUSES, QUESTION_TYPES, THEME, PLANS, PAYMENT_METHODS } from "../lib/appConstants.js";
+import { REG_GOALS, DIFFICULTY_COLORS, EXAMS_LIST, GRADES_LIST, STUDENT_STATUSES, QUESTION_TYPES, PLANS, PAYMENT_METHODS } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { storage, storageRef, uploadBytes, getDownloadURL } from "../lib/firebase.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
@@ -14,6 +15,7 @@ import InteractiveSkillTree from "../components/skillTree/InteractiveSkillTree.j
 import ModuleTreeModal from "../components/moduleTree/ModuleTreeModal.jsx";
 
 export default function AdminScreen({ onBack, firebaseUser }) {
+  const { theme: THEME } = useTheme();
   const [tab,setTab]=useState("sections");
   const [sections,setSections]=useState([]);
   const [questions,setQuestions]=useState([]);

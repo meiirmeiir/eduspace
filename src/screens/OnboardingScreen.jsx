@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { updateDoc, doc, db } from "../firestore-rest.js";
 import Logo from "../components/ui/Logo.jsx";
 
@@ -38,6 +38,7 @@ const ONBOARDING_STEPS = [
 ];
 
 function OnboardingScreen({ user, onFinish }) {
+  const { theme: THEME } = useTheme();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const total = ONBOARDING_STEPS.length;

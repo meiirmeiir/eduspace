@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { collection, getDocs, query, where, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
 import PixelBoss from "../components/PixelBoss.jsx";
 
 export default function IntermediateTestsScreen({ user, onStartBoss, onBack }) {
+  const { theme: THEME } = useTheme();
   const [sections,setSections]=useState([]);
   const [counts,setCounts]=useState({});
   const [medals,setMedals]=useState([]);

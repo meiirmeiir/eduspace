@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
 
 const QUESTIONS = [
@@ -30,19 +30,19 @@ const QUESTIONS = [
         <p>Каждый навык осваивается в три этапа возрастающей сложности. Между этапами нужно подождать 24 часа — это закрепляет материал.</p>
         <div style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:10, padding:'12px 14px', marginBottom:12 }}>
           <div style={{ fontWeight:700, color:'#6366f1', marginBottom:6 }}>Этап 1 — Теория + задачи уровня A</div>
-          <div style={{ fontSize:14, color:THEME.text, lineHeight:1.6 }}>
+          <div style={{ fontSize:14, color:'#334155', lineHeight:1.6 }}>
             Сначала изучаешь теорию навыка, потом проходишь <b>10 базовых задач</b>. Для разблокировки этапа 2 нужно правильно ответить минимум <b>на 8 из 10</b>.
           </div>
         </div>
         <div style={{ background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:10, padding:'12px 14px', marginBottom:12 }}>
           <div style={{ fontWeight:700, color:'#f59e0b', marginBottom:6 }}>Этап 2 — Задачи уровня B</div>
-          <div style={{ fontSize:14, color:THEME.text, lineHeight:1.6 }}>
+          <div style={{ fontSize:14, color:'#334155', lineHeight:1.6 }}>
             Решаешь задачи среднего уровня. Каждый правильный ответ — <b>+1 к энергии</b>. Нужно набрать <b>8 единиц</b>, чтобы перейти дальше.
           </div>
         </div>
         <div style={{ background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.2)', borderRadius:10, padding:'12px 14px', marginBottom:12 }}>
           <div style={{ fontWeight:700, color:'#22c55e', marginBottom:6 }}>Этап 3 — Задачи уровня C</div>
-          <div style={{ fontSize:14, color:THEME.text, lineHeight:1.6 }}>
+          <div style={{ fontSize:14, color:'#334155', lineHeight:1.6 }}>
             Самые сложные задачи. Нужно решить <b>5 правильных подряд</b>, без ошибок. Если ошибёшься — счётчик обнуляется и нужно начать серию заново.
           </div>
         </div>
@@ -104,6 +104,7 @@ const QUESTIONS = [
 ];
 
 export default function FaqScreen({ onBack, initialQuestion }) {
+  const { theme: THEME } = useTheme();
   const [openKey, setOpenKey] = useState(initialQuestion || null);
   const BG = '#f8fafc';
 

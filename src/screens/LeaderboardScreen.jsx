@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { THEME } from "../lib/appConstants.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { getWeekId } from "../lib/pointsUtils.js";
 import { getToken } from 'firebase/app-check';
 import { auth, app } from "../lib/firebase.js";
@@ -89,6 +89,7 @@ const TABS = [
 ];
 
 export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile }) {
+  const { theme: THEME } = useTheme();
   const [tab, setTab] = useState('all');
   const [allEntries, setAllEntries] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -5,7 +5,7 @@
 // не показываем — но и не читаем (publicProfiles их не содержит).
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { THEME } from '../lib/appConstants.js';
+import { useTheme } from '../ThemeContext.jsx';
 import { getLeague } from '../lib/pointsUtils.js';
 import { FRAME_STYLES, getShopItem } from '../lib/shopItems.js';
 import AppTopbar from '../components/AppTopbar.jsx';
@@ -43,6 +43,7 @@ function fromFsDoc(d) {
 }
 
 export default function PublicProfileScreen({ uid, onBack }) {
+  const { theme: THEME } = useTheme();
   const [profile, setProfile] = useState(null);
   const [masteredCount, setMasteredCount] = useState(null);
   const [medals, setMedals] = useState([]);

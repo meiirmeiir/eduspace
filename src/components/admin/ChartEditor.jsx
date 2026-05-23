@@ -1,8 +1,9 @@
 import React from "react";
-import { THEME } from "../../lib/appConstants.js";
+import { useTheme } from "../../ThemeContext.jsx";
 import ChartRenderer from "../charts/ChartRenderer.jsx";
 
 export default function ChartEditor({ chart, onChange, isGenerated = false }) {
+  const { theme: THEME } = useTheme();
   const empty = {type:"bar",title:"",items:[{label:"",value:""},{label:"",value:""}]};
   const c = chart || empty;
   return(
