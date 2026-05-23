@@ -833,7 +833,7 @@ function AppInner() {
         .theory-rich-text p{margin:4px 0;}
         .input-field:focus{border-color:${THEME.primary};background:#fff;}
         .cta-button{width:100%;padding:16px 24px;border-radius:8px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:15px;text-align:center;border:none;background:${THEME.border};color:${THEME.textLight};transition:all 0.3s;letter-spacing:0.2px;cursor:default;}
-        .cta-button.active{background:${THEME.primary};color:${THEME.accent};cursor:pointer;box-shadow:0 10px 20px -5px rgba(10,25,47,0.3);}
+        .cta-button.active{background:${THEME.accent};color:${THEME.onAccent ?? '#0f172a'};cursor:pointer;box-shadow:0 10px 20px -5px rgba(10,25,47,0.3);}
         .cta-button.active:hover{transform:translateY(-1px);}
         .benefits-list{display:flex;flex-direction:column;gap:28px;margin-bottom:60px;}
         .benefit-item{display:flex;gap:20px;align-items:flex-start;}
@@ -852,9 +852,9 @@ function AppInner() {
         .type-badge.type-matching{background:rgba(245,158,11,0.1);color:#92400e;}
         .question-text{font-family:'Montserrat',sans-serif;font-size:26px;font-weight:800;line-height:1.4;margin-bottom:40px;color:${THEME.primary};}
         .options-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:32px;}
-        .option-card{display:flex;align-items:center;padding:18px 22px;background:#fff;border:1px solid ${THEME.border};border-radius:12px;cursor:pointer;transition:all 0.2s;}
-        .option-card:hover:not(.disabled){border-color:${THEME.primary};background:#f8fafc;}
-        .option-card.selected{border-color:${THEME.primary};background:#f1f5f9;border-width:2px;}
+        .option-card{display:flex;align-items:center;padding:18px 22px;background:${THEME.surface};border:1px solid ${THEME.border};border-radius:12px;cursor:pointer;transition:all 0.2s;color:${THEME.text};}
+        .option-card:hover:not(.disabled){border-color:${THEME.primary};background:${THEME.bg};}
+        .option-card.selected{border-color:${THEME.primary};background:${THEME.bg};border-width:2px;}
         .option-card.correct{border-color:${THEME.success};background:#ecfdf5;border-width:2px;}
         .option-card.wrong{border-color:${THEME.error};background:#fef2f2;border-width:2px;}
         .option-card.disabled{opacity:0.5;pointer-events:none;}
@@ -966,7 +966,7 @@ function AppInner() {
         .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
         .modal-card{background:#fff;border-radius:16px;padding:32px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.2);}
         .modal-title{font-family:'Montserrat',sans-serif;font-weight:800;font-size:20px;color:${THEME.primary};margin-bottom:24px;}
-        .profile-card{display:flex;align-items:flex-start;gap:28px;padding:28px;background:${THEME.bg};border-radius:14px;border:1px solid ${THEME.border};margin-bottom:24px;}
+        .profile-card{display:flex;align-items:flex-start;gap:12px;padding:28px;background:${THEME.bg};border-radius:14px;border:1px solid ${THEME.border};margin-bottom:24px;}
         .profile-avatar{width:80px;height:80px;border-radius:50%;background:${THEME.primary};color:${THEME.accent};display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;font-size:28px;flex-shrink:0;}
         .profile-name{font-family:'Montserrat',sans-serif;font-size:24px;font-weight:800;color:${THEME.primary};margin-bottom:6px;}
         .profile-phone{color:${THEME.textLight};font-size:14px;margin-bottom:10px;}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { CONFIDENCE_LEVELS, GRADES_LIST, EXAMS_LIST } from "../lib/appConstants.js";
 import { useTheme } from "../ThemeContext.jsx";
+import { useAuth } from "../contexts/AuthContext.jsx";
 import { generateQuestion, shuffle } from "../lib/mathUtils.js";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import ChartRenderer from "../components/charts/ChartRenderer.jsx";
@@ -11,6 +12,7 @@ import ImageModal from "../components/ui/ImageModal.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import MathText from "../components/ui/MathText.jsx";
 import Timer from "../components/ui/Timer.jsx";
+import { getShopItem } from "../lib/shopItems.js";
 
 // ── ЭКРАН ПРАВИЛ ДИАГНОСТИКИ ──────────────────────────────────────────────────
 function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) {
@@ -41,13 +43,13 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
       <style>{`
         @keyframes fadeSlide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
         @keyframes countPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
-        .rules-card{background:#fff;border-radius:20px;border:1px solid ${THEME.border};box-shadow:0 20px 50px -10px rgba(10,25,47,0.08);max-width:760px;width:100%;overflow:hidden;}
-        .rules-header{background:${THEME.primary};padding:32px 40px;color:#fff;}
+        .rules-card{background:${THEME.surface};border-radius:20px;border:1px solid ${THEME.border};box-shadow:0 20px 50px -10px rgba(10,25,47,0.08);max-width:760px;width:100%;overflow:hidden;}
+        .rules-header{background:${THEME.primary};padding:32px 40px;color:${THEME.onPrimary ?? '#fff'};}
         .rules-body{padding:40px;}
         .rule-row{display:flex;gap:16px;align-items:flex-start;padding:16px 0;border-bottom:1px solid ${THEME.border};}
         .rule-row:last-child{border-bottom:none;}
         .rule-icon{font-size:22px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:${THEME.bg};border-radius:12px;flex-shrink:0;}
-        .countdown-circle{width:100px;height:100px;border-radius:50%;background:${THEME.primary};color:${THEME.accent};display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:44px;font-weight:800;animation:countPulse 0.8s ease infinite;margin:0 auto 16px;}
+        .countdown-circle{width:100px;height:100px;border-radius:50%;background:${THEME.primary};color:${THEME.onPrimary ?? '#fff'};display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:44px;font-weight:800;animation:countPulse 0.8s ease infinite;margin:0 auto 16px;}
       `}</style>
 
       {countdown !== null ? (
@@ -81,7 +83,7 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
             </div>
 
             <div className="buttons-row" style={{display:"flex",gap:12}}>
-              <button onClick={onBack} className="btn-back" style={{padding:"12px 24px",border:`1px solid ${THEME.border}`,borderRadius:10,background:"#fff",color:THEME.textLight,fontWeight:600,cursor:"pointer",fontSize:14}}>
+              <button onClick={onBack} className="btn-back" style={{padding:"12px 24px",border:`1px solid ${THEME.border}`,borderRadius:10,background:THEME.surface,color:THEME.text,fontWeight:600,cursor:"pointer",fontSize:14}}>
                 ← Назад
               </button>
               <button onClick={startCountdown} className="btn-start" style={{flex:1,padding:"14px 24px",border:"none",borderRadius:10,background:THEME.accent,color:THEME.onAccent ?? '#0f172a',fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,cursor:"pointer",letterSpacing:0.5,boxShadow:"0 8px 20px -5px rgba(10,25,47,0.3)"}}>
@@ -295,6 +297,10 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
 // ── ВОПРОС (MCQ + MULTIPLE + MATCHING) ───────────────────────────────────────
 function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, onComplete, onStop, onPause, canSkip }) {
   const { theme: THEME } = useTheme();
+  const { profile } = useAuth();
+  // Кастомный фон из equipped.background для диагностики — radial-gradient
+  // делает края тёмными (фокус на условие задачи), центр прозрачный.
+  const equippedBg = profile?.equipped?.background ? getShopItem(profile.equipped.background) : null;
   const [elapsed,setElapsed]=useState(0);
   // Resolve generated questions once per question change
   const resolvedQ = useMemo(()=>(question.type==="generated"||question.type==="model")?generateQuestion(question):question, [question.id||question.text]);
@@ -386,6 +392,14 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
   };
 
   return (
+    <>
+    {equippedBg && (
+      <div aria-hidden="true" style={{
+        position:'fixed', inset:0, zIndex:-1,
+        backgroundImage:`radial-gradient(ellipse at center, transparent 20%, rgba(0,0,0,0.65) 100%), url(${equippedBg.file})`,
+        backgroundSize:'cover', backgroundPosition:'center', pointerEvents:'none',
+      }}/>
+    )}
     <div className="question-container question-page-content">
       <ImageModal src={lightboxSrc} onClose={()=>setLightboxSrc(null)}/>
       <div className="question-breadcrumb" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:32}}>
@@ -402,7 +416,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
       </div>
       <h2 className="question-text">{question.latex?<LatexText text={resolvedQ.text}/>:<MathText text={resolvedQ.text}/>}</h2>
       {resolvedQ.image&&<div style={{margin:"12px 0 16px"}}><img src={resolvedQ.image} alt="question" onClick={()=>setLightboxSrc(resolvedQ.image)} style={{maxWidth:"100%",maxHeight:400,borderRadius:12,border:`1px solid ${THEME.border}`,cursor:"zoom-in",display:"block",objectFit:"contain"}}/></div>}
-      {resolvedQ.conditionChart&&<div style={{margin:"8px 0 20px",display:"flex",justifyContent:"center",background:"#fff",borderRadius:12,padding:"14px 10px",border:`1px solid ${THEME.border}`,overflowX:"auto"}}><ChartRenderer chart={resolvedQ.conditionChart} vars={resolvedQ._vars||{}}/></div>}
+      {resolvedQ.conditionChart&&<div style={{margin:"8px 0 20px",display:"flex",justifyContent:"center",background:THEME.surface,borderRadius:12,padding:"14px 10px",border:`1px solid ${THEME.border}`,overflowX:"auto"}}><ChartRenderer chart={resolvedQ.conditionChart} vars={resolvedQ._vars||{}}/></div>}
 
       {/* ── MCQ (includes resolved generated) ── */}
       {qType==="mcq" && (
@@ -462,7 +476,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
             {(resolvedQ.pairs||[]).map((pair,i)=>{
               const selectedRight=matchSel[i];
               return(
-                <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:"#fff",borderRadius:12,border:`1px solid ${THEME.border}`}}>
+                <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:THEME.surface,borderRadius:12,border:`1px solid ${THEME.border}`}}>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:600,color:THEME.primary,fontSize:15}}>{pair.left}</div>
                     {pair.leftImage&&<img src={pair.leftImage} alt="" style={{maxHeight:80,maxWidth:"100%",borderRadius:8,marginTop:6,border:`1px solid ${THEME.border}`}}/>}
@@ -501,7 +515,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
           <p style={{color:THEME.textLight,fontSize:14,marginBottom:20}}>Выберите ответ для каждого вопроса</p>
           <div style={{display:"flex",flexDirection:"column",gap:20,marginBottom:24}}>
             {(resolvedQ.subQuestions||[]).map((sq,sqi)=>(
-              <div key={sqi} style={{background:"#fff",borderRadius:12,border:`1px solid ${THEME.border}`,padding:"16px 18px"}}>
+              <div key={sqi} style={{background:THEME.surface,borderRadius:12,border:`1px solid ${THEME.border}`,padding:"16px 18px"}}>
                 <div style={{fontWeight:700,color:THEME.primary,fontSize:15,marginBottom:8}}>{sqi+1}. <MathText text={sq.text}/></div>
                 {sq.image&&<img src={sq.image} alt="" onClick={()=>setLightboxSrc(sq.image)} style={{maxWidth:"100%",maxHeight:400,objectFit:"contain",borderRadius:8,marginBottom:12,border:`1px solid ${THEME.border}`,cursor:"zoom-in",display:"block"}}/>}
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -542,7 +556,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
             disabled={openSubmitted}
             rows={5}
             placeholder="Напишите ваш ответ здесь..."
-            style={{width:"100%",boxSizing:"border-box",padding:"14px 16px",borderRadius:12,border:`1.5px solid ${openSubmitted?THEME.success:THEME.border}`,background:openSubmitted?"#f0fdf4":"#fff",fontSize:15,fontFamily:"'Inter',sans-serif",lineHeight:1.6,resize:"vertical",outline:"none",color:THEME.text,transition:"border-color 0.2s"}}
+            style={{width:"100%",boxSizing:"border-box",padding:"14px 16px",borderRadius:12,border:`1.5px solid ${openSubmitted?THEME.success:THEME.border}`,background:openSubmitted?"#f0fdf4":THEME.surface,fontSize:15,fontFamily:"'Inter',sans-serif",lineHeight:1.6,resize:"vertical",outline:"none",color:THEME.text,transition:"border-color 0.2s"}}
           />
           {!openSubmitted&&openAnswer.trim()&&(
             <button className="cta-button active" onClick={()=>setOpenSubmitted(true)} style={{marginTop:12}}>Подтвердить ответ</button>
@@ -573,6 +587,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
         )}
       </div>
     </div>
+    </>
   );
 }
 

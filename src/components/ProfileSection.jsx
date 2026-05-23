@@ -137,11 +137,11 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
             {(isEditing?editForm.avatarUrl:user?.avatarUrl)
               ? <img src={isEditing?editForm.avatarUrl:user.avatarUrl} alt="avatar"
                   style={{
-                    width:96, height:96, borderRadius:"50%", objectFit:"cover",
+                    width:120, height:120, borderRadius:"50%", objectFit:"cover",
                     border: `3px solid ${THEME.accent}`,
                     ...(frameStyle || {}),
                   }}/>
-              : <div className="profile-avatar" style={{...(frameStyle || {}), width:96, height:96, fontSize:32}}>
+              : <div className="profile-avatar" style={{...(frameStyle || {}), width:120, height:120, fontSize:40}}>
                   {(isEditing?editForm.firstName:user?.firstName)?.[0]}{(isEditing?editForm.lastName:user?.lastName)?.[0]}
                 </div>
             }
@@ -205,10 +205,10 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
               const titleItem = user?.equipped?.title ? getShopItem(user.equipped.title) : null;
               return (
               <>
-                <div className="profile-info-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 24px', width:'100%'}}>
+                <div className="profile-info-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 12px', width:'100%'}}>
                   {/* Левый столбец: имя, титул, статус, цель */}
                   <div>
-                    <div className="profile-name" style={{marginBottom:6}}>{user?.firstName} {user?.lastName}</div>
+                    <div className="profile-name" style={{marginBottom:6, fontSize:22}}>{user?.firstName} {user?.lastName}</div>
                     {titleItem && (
                       <div style={{
                         display:'inline-block', marginBottom:8,
