@@ -2,15 +2,14 @@ import React from "react";
 import { useTheme } from "../../ThemeContext.jsx";
 
 export default function Logo({ size=48, light=false }) {
-  const { theme: THEME, shopTheme } = useTheme();
-  // Sakura в sidebar имеет светло-розовый фон (а не тёмный primary), поэтому
-  // light-onPrimary=#fff там невидим. Хардкодим тёмный для sakura sidebar.
-  // В topbar (тоже light=true) sakura.primary=#831843 тёмный, onPrimary=#fff
-  // читается. Различить sidebar vs topbar по пропу мы не можем — но CSS-правило
-  // .dashboard-sidebar .logo-title (index.css) перебивает inline для sidebar.
-  const isSakura = shopTheme === 'sakura';
-  const titleColor    = light ? (isSakura ? '#4a0020' : (THEME.onPrimary ?? '#fff')) : THEME.primary;
-  const subtitleColor = light ? (isSakura ? '#831843' : (THEME.onPrimary ?? '#fff')) : THEME.accent;
+  const { theme: THEME } = useTheme();
+  // light=true → текст на цветном primary topbar (или sidebar с primary bg).
+  // Sakura — особый случай: её sidebar светло-розовый, а topbar тёмно-бордовый.
+  // Inline даём onPrimary=#fff (работает в topbar); CSS-правило
+  // [data-shop-theme="sakura"] .dashboard-sidebar .logo-title/.logo-subtitle с
+  // !important перебивает inline только в sidebar — там текст становится тёмным.
+  const titleColor    = light ? (THEME.onPrimary ?? '#fff') : THEME.primary;
+  const subtitleColor = light ? (THEME.onPrimary ?? '#fff') : THEME.accent;
   return (
     <div style={{display:"flex",alignItems:"center",gap:14}}>
       <svg width={size} height={size} viewBox="0 0 100 100" fill="none" style={{flexShrink:0}}>
