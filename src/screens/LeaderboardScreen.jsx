@@ -222,7 +222,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
     <div className="page-themed" style={{minHeight:'100vh', background:THEME.bg, paddingBottom:80}}>
       <div style={{background:THEME.primary, padding:'0 24px', display:'flex', alignItems:'center', justifyContent:'space-between', height:64}}>
         <Logo size={32} light/>
-        <button onClick={onBack} style={{background:'transparent', border:'1px solid rgba(255,255,255,0.2)', color:'rgba(255,255,255,0.7)', borderRadius:8, padding:'8px 16px', cursor:'pointer', fontSize:13, fontFamily:"'Inter',sans-serif"}}>← Назад</button>
+        <button onClick={onBack} style={{background:'transparent', border:`1px solid ${THEME.onPrimary ?? 'rgba(255,255,255,0.2)'}33`, color:THEME.onPrimary ?? '#fff', borderRadius:8, padding:'8px 16px', cursor:'pointer', fontSize:13, fontFamily:"'Inter',sans-serif"}}>← Назад</button>
       </div>
 
       <div style={{maxWidth:720, margin:'0 auto', padding:'24px 16px'}}>

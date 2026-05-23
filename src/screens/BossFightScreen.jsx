@@ -144,7 +144,7 @@ export default function BossFightScreen({ section, user, onBack }) {
             {isChapter?"Победи босса полностью (все ответы верно), чтобы получить медаль!":"Попробуй ещё раз — ты можешь!"}
           </div>
         )}
-        <button onClick={onBack} style={{background:THEME.accent,color:THEME.primary,border:"none",borderRadius:10,padding:"14px 32px",fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:15,cursor:"pointer"}}>← Назад к тестам</button>
+        <button onClick={onBack} style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",borderRadius:10,padding:"14px 32px",fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:15,cursor:"pointer"}}>← Назад к тестам</button>
       </div>
     </div>
   );

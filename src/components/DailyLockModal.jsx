@@ -125,7 +125,7 @@ export default function DailyLockModal({ open, onClose, smartDiagDone, onStartDi
               onClick={onViewPlan}
               style={{
                 flex:1, minWidth:180,
-                background:THEME.primary, color:THEME.accent, border:"none",
+                background:THEME.accent,color:THEME.onAccent ?? '#0f172a', border:"none",
                 borderRadius:10, padding:"12px 18px", fontWeight:700, fontSize:14, cursor:"pointer",
               }}
             >
@@ -136,7 +136,7 @@ export default function DailyLockModal({ open, onClose, smartDiagDone, onStartDi
               onClick={onStartDiagnostic}
               style={{
                 flex:1, minWidth:180,
-                background:THEME.primary, color:THEME.accent, border:"none",
+                background:THEME.accent,color:THEME.onAccent ?? '#0f172a', border:"none",
                 borderRadius:10, padding:"12px 18px", fontWeight:700, fontSize:14, cursor:"pointer",
               }}
             >

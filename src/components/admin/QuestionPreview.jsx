@@ -35,7 +35,7 @@ export default function QuestionPreview({ qForm }) {
     <div className="input-group">
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:visible&&pv?12:0}}>
         <label className="input-label" style={{margin:0}}>Предпросмотр</label>
-        <button type="button" onClick={showPreview} style={{background:THEME.primary,color:THEME.accent,border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+        <button type="button" onClick={showPreview} style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
           {(type==='generated'||type==='model')?'🎲 Сгенерировать':'👁 Показать'}
         </button>
         {visible&&pv&&<button type="button" onClick={()=>setVisible(false)} style={{background:'transparent',border:`1px solid ${THEME.border}`,borderRadius:6,padding:'4px 10px',fontSize:12,cursor:'pointer',color:THEME.textLight}}>Скрыть</button>}

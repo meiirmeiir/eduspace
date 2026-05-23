@@ -84,7 +84,7 @@ function DiagnosticRulesScreen({ sectionName, questionCount, onStart, onBack }) 
               <button onClick={onBack} className="btn-back" style={{padding:"12px 24px",border:`1px solid ${THEME.border}`,borderRadius:10,background:"#fff",color:THEME.textLight,fontWeight:600,cursor:"pointer",fontSize:14}}>
                 ← Назад
               </button>
-              <button onClick={startCountdown} className="btn-start" style={{flex:1,padding:"14px 24px",border:"none",borderRadius:10,background:THEME.primary,color:THEME.accent,fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,cursor:"pointer",letterSpacing:0.5,boxShadow:"0 8px 20px -5px rgba(10,25,47,0.3)"}}>
+              <button onClick={startCountdown} className="btn-start" style={{flex:1,padding:"14px 24px",border:"none",borderRadius:10,background:THEME.accent,color:THEME.onAccent ?? '#0f172a',fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,cursor:"pointer",letterSpacing:0.5,boxShadow:"0 8px 20px -5px rgba(10,25,47,0.3)"}}>
                 Начать диагностику →
               </button>
             </div>
@@ -204,7 +204,7 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
             </p>
           </div>
           <button data-tour="diag-smart" onClick={()=>onSelectSection({_smartDiag:true,goal:user?.goalKey,grade:user?.details})}
-            style={{padding:'13px 24px',borderRadius:14,background:THEME.primary,color:THEME.accent,
+            style={{padding:'13px 24px',borderRadius:14,background:THEME.accent,color:THEME.onAccent ?? '#0f172a',
               fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,border:'none',cursor:'pointer',whiteSpace:'nowrap'}}>
             🚀 Умная Диагностика
           </button>
@@ -219,7 +219,7 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
               Адаптивный тест выявит твои пробелы и построит индивидуальный план обучения. Занимает 20–40 минут.
             </p>
             <button onClick={()=>onSelectSection({_smartDiag:true,goal:user?.goalKey,grade:user?.details})}
-              style={{padding:"16px 36px",borderRadius:14,background:THEME.accent,color:THEME.primary,fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:16,border:"none",cursor:"pointer",boxShadow:"0 10px 30px -10px rgba(212,175,55,0.5)"}}>
+              style={{padding:"16px 36px",borderRadius:14,background:THEME.accent,color:THEME.onAccent ?? '#0f172a',fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:16,border:"none",cursor:"pointer",boxShadow:"0 10px 30px -10px rgba(212,175,55,0.5)"}}>
               🚀 Пройти Умную Диагностику →
             </button>
             <p style={{color:"rgba(255,255,255,0.5)",fontSize:12,marginTop:20}}>
@@ -273,7 +273,7 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
                               <div style={{display:"flex",gap:8}}>
                                 {reportMap[sec.id]&&<button onClick={e=>{e.stopPropagation();onViewReport(reportMap[sec.id]);}} style={{background:`rgba(212,175,55,0.12)`,border:`1px solid ${THEME.accent}`,color:"#92680e",fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,cursor:"pointer"}}>📋 Отчёт</button>}
                                 {isDone&&!isTester&&<span style={{background:"#dcfce7",color:"#15803d",fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8}}>Пройдено ✓</span>}
-                                {(!isDone||isTester)&&qCount>0&&<button onClick={()=>onSelectSection(sec)} style={{background:THEME.primary,color:THEME.accent,fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer"}}>{isDone&&isTester?"Пройти снова →":"Начать →"}</button>}
+                                {(!isDone||isTester)&&qCount>0&&<button onClick={()=>onSelectSection(sec)} style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer"}}>{isDone&&isTester?"Пройти снова →":"Начать →"}</button>}
                                 {qCount===0&&<span style={{color:THEME.textLight,fontSize:12}}>Нет вопросов</span>}
                               </div>
                             </div>

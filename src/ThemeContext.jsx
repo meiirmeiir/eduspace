@@ -11,10 +11,10 @@ const ThemeContext = createContext(null);
 // тёмный фон, на котором светлый primary читается как «light-on-dark».
 // onAccent — semantic-цвет текста НА accent-фоне (CTA-кнопки, шапки).
 const SHOP_THEME_OVERRIDES = {
-  galaxy: { primary:'#a78bfa', accent:'#a78bfa', onAccent:'#0f0a1e', bg:'#0f0a1e', surface:'#1e1b4b', text:'#e2e8f0', textLight:'rgba(226,232,240,0.7)', border:'#312e81' },
-  sakura: { primary:'#fce7f3', accent:'#f472b6', onAccent:'#831843', bg:'#fff0f5', surface:'#fce7f3', text:'#831843', textLight:'rgba(131,24,67,0.7)', border:'#fbcfe8' },
-  matrix: { primary:'#22c55e', accent:'#22c55e', onAccent:'#0a0f0a', bg:'#0a0f0a', surface:'#0d1f0d', text:'#22c55e', textLight:'rgba(34,197,94,0.7)', border:'#14532d' },
-  fire:   { primary:'#f97316', accent:'#f97316', onAccent:'#1a0a00', bg:'#1a0a00', surface:'#2d1000', text:'#fed7aa', textLight:'rgba(253,211,170,0.7)', border:'#7c2d12' },
+  galaxy: { primary:'#a78bfa', accent:'#a78bfa', onAccent:'#0f0a1e', onPrimary:'#e2e8f0', bg:'#0f0a1e', surface:'#1e1b4b', text:'#e2e8f0', textLight:'rgba(226,232,240,0.7)', border:'#312e81' },
+  sakura: { primary:'#fce7f3', accent:'#f472b6', onAccent:'#831843', onPrimary:'#831843', bg:'#fff0f5', surface:'#fce7f3', text:'#831843', textLight:'rgba(131,24,67,0.7)', border:'#fbcfe8' },
+  matrix: { primary:'#22c55e', accent:'#22c55e', onAccent:'#0a0f0a', onPrimary:'#22c55e', bg:'#0a0f0a', surface:'#0d1f0d', text:'#22c55e', textLight:'rgba(34,197,94,0.7)', border:'#14532d' },
+  fire:   { primary:'#f97316', accent:'#f97316', onAccent:'#1a0a00', onPrimary:'#fed7aa', bg:'#1a0a00', surface:'#2d1000', text:'#fed7aa', textLight:'rgba(253,211,170,0.7)', border:'#7c2d12' },
 };
 
 // BUG-13: dark mode = data-theme="dark" on <html>. Default (no attr) = light.

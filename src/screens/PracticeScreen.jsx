@@ -175,7 +175,7 @@ export default function PracticeScreen({ user, onBack }) {
           <div style={{width:90,height:90,borderRadius:"50%",background:color,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",fontFamily:"'Montserrat',sans-serif",fontWeight:900,fontSize:28,color:"#fff"}}>{pct}%</div>
           <div style={{fontSize:16,color:THEME.textLight,marginBottom:32}}>Верно: <b style={{color:THEME.primary}}>{correct}</b> из {results.length}</div>
           <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
-            <button onClick={()=>{setPhase("practice");setQIdx(0);setChosen(null);setRevealed(false);setResults([]);setQuestions(shuffle(questions).map(q=>q._generated?generateQuestion(q._origQuestion):q));}} style={{padding:"12px 24px",borderRadius:10,background:THEME.primary,color:THEME.accent,border:"none",fontWeight:700,cursor:"pointer",fontSize:14}}>🔄 Ещё раз</button>
+            <button onClick={()=>{setPhase("practice");setQIdx(0);setChosen(null);setRevealed(false);setResults([]);setQuestions(shuffle(questions).map(q=>q._generated?generateQuestion(q._origQuestion):q));}} style={{padding:"12px 24px",borderRadius:10,background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",fontWeight:700,cursor:"pointer",fontSize:14}}>🔄 Ещё раз</button>
             <button onClick={()=>setPhase("select")} style={{padding:"12px 24px",borderRadius:10,background:"#fff",color:THEME.primary,border:`1px solid ${THEME.border}`,fontWeight:700,cursor:"pointer",fontSize:14}}>← Выбрать тему</button>
             <button onClick={onBack} style={{padding:"12px 24px",borderRadius:10,background:"#fff",color:THEME.textLight,border:`1px solid ${THEME.border}`,fontWeight:600,cursor:"pointer",fontSize:14}}>На главную</button>
           </div>
@@ -236,7 +236,7 @@ export default function PracticeScreen({ user, onBack }) {
               <div style={{fontSize:48,marginBottom:16}}>📭</div>
               <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,color:THEME.primary,marginBottom:8}}>Теория пока не добавлена</div>
               <div style={{color:THEME.textLight,fontSize:14,marginBottom:28}}>Преподаватель ещё не добавил теорию по теме «{selectedTopic?.topic}»</div>
-              <button onClick={()=>startPractice(selectedTopic?.topic, selectedTopic?.section)} style={{padding:"12px 28px",borderRadius:12,background:THEME.primary,color:THEME.accent,border:"none",fontWeight:700,cursor:"pointer",fontSize:14}}>🏋️ Всё равно начать тренировку</button>
+              <button onClick={()=>startPractice(selectedTopic?.topic, selectedTopic?.section)} style={{padding:"12px 28px",borderRadius:12,background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",fontWeight:700,cursor:"pointer",fontSize:14}}>🏋️ Всё равно начать тренировку</button>
             </div>
           )}
           {hasContent&&(
@@ -338,7 +338,7 @@ export default function PracticeScreen({ user, onBack }) {
                       <button onClick={(e)=>{e.stopPropagation();setCardIdx(i=>Math.max(0,i-1));setCardFlipped(false);}} disabled={cardIdx===0} style={{padding:"10px 24px",borderRadius:10,background:"#fff",border:`1px solid ${THEME.border}`,fontWeight:700,cursor:cardIdx===0?"not-allowed":"pointer",color:cardIdx===0?THEME.textLight:THEME.primary,fontSize:14}}>← Назад</button>
                       <span style={{fontSize:13,color:THEME.textLight,fontWeight:600}}>{cardIdx+1} / {cards.length}</span>
                       {cardIdx<cards.length-1
-                        ?<button onClick={(e)=>{e.stopPropagation();setCardIdx(i=>i+1);setCardFlipped(false);}} style={{padding:"10px 24px",borderRadius:10,background:THEME.primary,color:THEME.accent,border:"none",fontWeight:700,cursor:"pointer",fontSize:14}}>Следующая →</button>
+                        ?<button onClick={(e)=>{e.stopPropagation();setCardIdx(i=>i+1);setCardFlipped(false);}} style={{padding:"10px 24px",borderRadius:10,background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",fontWeight:700,cursor:"pointer",fontSize:14}}>Следующая →</button>
                         :<button onClick={(e)=>{e.stopPropagation();setCardIdx(0);setCardFlipped(false);}} style={{padding:"10px 24px",borderRadius:10,background:THEME.success,color:"#fff",border:"none",fontWeight:700,cursor:"pointer",fontSize:14}}>🔄 Сначала</button>
                       }
                     </div>
@@ -346,7 +346,7 @@ export default function PracticeScreen({ user, onBack }) {
                 )
               )}
 
-              <button onClick={()=>startPractice(selectedTopic?.topic, selectedTopic?.section)} style={{width:"100%",padding:"15px",borderRadius:12,background:THEME.primary,color:THEME.accent,border:"none",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,cursor:"pointer",boxShadow:"0 6px 20px rgba(15,23,42,0.2)"}}>
+              <button onClick={()=>startPractice(selectedTopic?.topic, selectedTopic?.section)} style={{width:"100%",padding:"15px",borderRadius:12,background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,cursor:"pointer",boxShadow:"0 6px 20px rgba(15,23,42,0.2)"}}>
                 🏋️ Начать тренировку по этой теме →
               </button>
             </>
@@ -380,7 +380,7 @@ export default function PracticeScreen({ user, onBack }) {
 
           <div style={{background:"#fff",borderRadius:18,border:`1px solid ${THEME.border}`,padding:"32px",marginBottom:20,boxShadow:"0 4px 20px rgba(0,0,0,0.04)"}}>
             <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
-              <span style={{background:THEME.primary,color:THEME.accent,padding:"4px 12px",borderRadius:8,fontSize:11,fontWeight:700}}>{q.sectionName||q.section}</span>
+              <span style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',padding:"4px 12px",borderRadius:8,fontSize:11,fontWeight:700}}>{q.sectionName||q.section}</span>
               <span style={{background:THEME.bg,color:THEME.textLight,padding:"4px 12px",borderRadius:8,fontSize:11,fontWeight:600,border:`1px solid ${THEME.border}`}}>{q.topic}</span>
               <span style={{marginLeft:"auto",background:"rgba(16,185,129,0.1)",color:THEME.success,padding:"4px 12px",borderRadius:8,fontSize:11,fontWeight:700}}>🏋️ Тренировка</span>
             </div>
@@ -428,7 +428,7 @@ export default function PracticeScreen({ user, onBack }) {
           </div>
 
           {revealed&&(
-            <button onClick={next} style={{width:"100%",padding:"14px",borderRadius:12,background:THEME.primary,color:THEME.accent,border:"none",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,cursor:"pointer",boxShadow:"0 6px 20px rgba(15,23,42,0.2)"}}>
+            <button onClick={next} style={{width:"100%",padding:"14px",borderRadius:12,background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15,cursor:"pointer",boxShadow:"0 6px 20px rgba(15,23,42,0.2)"}}>
               {qIdx+1>=questions.length?"Завершить тренировку →":"Следующий вопрос →"}
             </button>
           )}
@@ -489,7 +489,7 @@ export default function PracticeScreen({ user, onBack }) {
                           {t.lastScore!=null&&<div style={{fontSize:11,color:zoneColors[zone].c,fontWeight:600,marginBottom:8}}>Результат: {t.lastScore}%</div>}
                           <div style={{display:"flex",gap:6}}>
                             <button onClick={()=>{const sec=allSections.find(s=>s.name===t.section);const tp=allTopics.find(x=>x.name===t.topic&&x.sectionId===sec?.id);openTheory(t.topic,t.section,tp?.id||null);}} style={{flex:1,padding:"6px 4px",borderRadius:8,border:`1px solid ${THEME.border}`,background:THEME.bg,color:THEME.textLight,fontWeight:600,fontSize:11,cursor:"pointer"}}>📖 Теория</button>
-                            <button onClick={()=>startPractice(t.topic,t.section)} style={{flex:1,padding:"6px 4px",borderRadius:8,border:"none",background:THEME.primary,color:THEME.accent,fontWeight:700,fontSize:11,cursor:"pointer"}}>🏋️ Тренировка</button>
+                            <button onClick={()=>startPractice(t.topic,t.section)} style={{flex:1,padding:"6px 4px",borderRadius:8,border:"none",background:THEME.accent,color:THEME.onAccent ?? '#0f172a',fontWeight:700,fontSize:11,cursor:"pointer"}}>🏋️ Тренировка</button>
                           </div>
                         </div>
                       ))}
@@ -536,7 +536,7 @@ export default function PracticeScreen({ user, onBack }) {
                             ?<button onClick={()=>setExpandedSecs(p=>({...p,[s.id]:!p[s.id]}))} style={{padding:"5px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,background:THEME.bg,color:THEME.textLight,fontWeight:600,fontSize:11,cursor:"pointer",flexShrink:0}}>{isExpanded?"▲ Свернуть":"▼ Темы"}</button>
                             :<div style={{display:"flex",gap:6}}>
                               <button onClick={()=>openTheory(s.name,s.name,null)} style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${THEME.border}`,background:THEME.bg,color:THEME.textLight,fontWeight:600,fontSize:11,cursor:"pointer"}}>📖</button>
-                              <button onClick={()=>startPractice(s.name,s.name)} style={{padding:"6px 10px",borderRadius:8,border:"none",background:THEME.primary,color:THEME.accent,fontWeight:700,fontSize:11,cursor:"pointer"}}>🏋️</button>
+                              <button onClick={()=>startPractice(s.name,s.name)} style={{padding:"6px 10px",borderRadius:8,border:"none",background:THEME.accent,color:THEME.onAccent ?? '#0f172a',fontWeight:700,fontSize:11,cursor:"pointer"}}>🏋️</button>
                             </div>
                           }
                         </div>
@@ -550,7 +550,7 @@ export default function PracticeScreen({ user, onBack }) {
                                 </div>
                                 <div style={{display:"flex",gap:6,flexShrink:0}}>
                                   <button onClick={()=>openTheory(tp.name,s.name,tp.id)} style={{padding:"5px 10px",borderRadius:8,border:`1px solid ${THEME.border}`,background:THEME.bg,color:THEME.textLight,fontWeight:600,fontSize:11,cursor:"pointer"}}>📖 Теория</button>
-                                  <button onClick={()=>startPractice(tp.name,s.name)} style={{padding:"5px 10px",borderRadius:8,border:"none",background:THEME.primary,color:THEME.accent,fontWeight:700,fontSize:11,cursor:"pointer"}}>🏋️</button>
+                                  <button onClick={()=>startPractice(tp.name,s.name)} style={{padding:"5px 10px",borderRadius:8,border:"none",background:THEME.accent,color:THEME.onAccent ?? '#0f172a',fontWeight:700,fontSize:11,cursor:"pointer"}}>🏋️</button>
                                 </div>
                               </div>
                             ))}

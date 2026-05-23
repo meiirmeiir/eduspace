@@ -71,7 +71,7 @@ export default function ChangePasswordInline() {
               </div>
               <div style={{display:'flex',gap:8,marginTop:10}}>
                 <button type="submit" disabled={saving}
-                  style={{background:THEME.primary,color:THEME.accent,border:'none',borderRadius:8,padding:'8px 18px',fontWeight:700,fontSize:12,cursor:saving?'not-allowed':'pointer',opacity:saving?0.7:1}}>
+                  style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:'none',borderRadius:8,padding:'8px 18px',fontWeight:700,fontSize:12,cursor:saving?'not-allowed':'pointer',opacity:saving?0.7:1}}>
                   {saving ? 'Сохраняю...' : 'Сохранить'}
                 </button>
                 <button type="button" onClick={reset}

@@ -42,7 +42,7 @@ function ReportScreen({ report, user, onUpload, onViewPlan, onBack }) {
         <div style={{display:"flex",gap:12,flexShrink:0,flexWrap:"wrap"}}>
           <button onClick={onBack} style={{padding:"12px 20px",borderRadius:8,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.7)",fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,cursor:"pointer"}}>← Главная</button>
           <button onClick={onViewPlan} style={{padding:"12px 20px",borderRadius:8,border:"none",background:"rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.7)",fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,cursor:"pointer"}}>План без анализа</button>
-          <button onClick={onUpload} style={{padding:"12px 24px",borderRadius:8,border:"none",background:THEME.accent,color:THEME.primary,fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,cursor:"pointer",boxShadow:"0 4px 15px rgba(212,175,55,0.3)"}}>📸 Загрузить записи →</button>
+          <button onClick={onUpload} style={{padding:"12px 24px",borderRadius:8,border:"none",background:THEME.accent,color:THEME.onAccent ?? '#0f172a',fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,cursor:"pointer",boxShadow:"0 4px 15px rgba(212,175,55,0.3)"}}>📸 Загрузить записи →</button>
         </div>
       </div>
     </div>

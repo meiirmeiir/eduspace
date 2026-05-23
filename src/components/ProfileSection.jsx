@@ -197,7 +197,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                   </select>
                 </div>
                 <div style={{display:"flex",gap:8,marginTop:4}}>
-                  <button onClick={saveProfile} disabled={editSaving} style={{background:THEME.primary,color:THEME.accent,border:"none",borderRadius:8,padding:"8px 20px",fontWeight:700,fontSize:13,cursor:editSaving?"not-allowed":"pointer",opacity:editSaving?0.7:1}}>{editSaving?"Сохраняю...":"Сохранить"}</button>
+                  <button onClick={saveProfile} disabled={editSaving} style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",borderRadius:8,padding:"8px 20px",fontWeight:700,fontSize:13,cursor:editSaving?"not-allowed":"pointer",opacity:editSaving?0.7:1}}>{editSaving?"Сохраняю...":"Сохранить"}</button>
                   <button onClick={()=>{setIsEditing(false);setEditForm({firstName:user?.firstName||"",lastName:user?.lastName||"",goalKey:user?.goalKey||"",details:user?.details||"",region:user?.region||"",avatarUrl:user?.avatarUrl||""});}} style={{background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"8px 16px",fontWeight:600,fontSize:13,cursor:"pointer"}}>Отмена</button>
                 </div>
               </div>

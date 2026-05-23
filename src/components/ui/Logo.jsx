@@ -16,8 +16,8 @@ export default function Logo({ size=48, light=false }) {
         <circle cx="72" cy="68" r="3.5" fill="#FBBF24"/>
       </svg>
       <div>
-        <div className="logo-title" style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:size*0.6,color:light?"#fff":THEME.primary,lineHeight:1,letterSpacing:"1px"}}>AAPA</div>
-        <div className="logo-subtitle" style={{fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:Math.max(size*0.2,9),color:THEME.accent,letterSpacing:"1px",marginTop:4,textTransform:"uppercase"}}>Ad Astra Per Aspera</div>
+        <div className="logo-title" style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:size*0.6,color:light?(THEME.onPrimary ?? '#fff'):THEME.primary,lineHeight:1,letterSpacing:"1px"}}>AAPA</div>
+        <div className="logo-subtitle" style={{fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:Math.max(size*0.2,9),color:light?(THEME.onPrimary ?? '#fff'):THEME.accent,letterSpacing:"1px",marginTop:4,textTransform:"uppercase"}}>Ad Astra Per Aspera</div>
       </div>
     </div>
   );

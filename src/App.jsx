@@ -887,7 +887,7 @@ function AppInner() {
         .nav-badge-done{}
         .nav-badge-due{width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,0.25);}
         .sidebar-user{padding:20px 24px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:12px;}
-        .sidebar-user-avatar{width:38px;height:38px;border-radius:50%;background:${THEME.accent}30;color:${THEME.text};display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;font-size:14px;flex-shrink:0;}
+        .sidebar-user-avatar{width:38px;height:38px;border-radius:50%;background:${THEME.accent}30;color:${THEME.onAccent ?? THEME.text};display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;font-size:14px;flex-shrink:0;}
         .sidebar-user-name{color:#fff;font-weight:600;font-size:13px;}
         .sidebar-user-role{font-size:11px;margin-top:2px;}
         .dashboard-main{margin-left:268px;flex:1;padding:40px 48px;min-height:100vh;}
