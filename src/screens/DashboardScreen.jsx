@@ -732,9 +732,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               <div className="section-title-row">
                 <h2 className="section-title">📅 Расписание занятий</h2>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <button onClick={()=>setWeekOffset(p=>p-1)} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,background:"#fff",cursor:"pointer",fontSize:14,fontWeight:700,color:THEME.text}}>‹</button>
+                  <button onClick={()=>setWeekOffset(p=>p-1)} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,background:THEME.surface,cursor:"pointer",fontSize:14,fontWeight:700,color:THEME.text}}>‹</button>
                   <span style={{fontSize:13,fontWeight:600,color:weekOffset===0?THEME.primary:THEME.textLight,minWidth:160,textAlign:"center"}}>{weekLabel}</span>
-                  <button onClick={()=>setWeekOffset(p=>Math.min(0,p+1))} disabled={weekOffset>=0} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,background:"#fff",cursor:weekOffset>=0?"not-allowed":"pointer",fontSize:14,fontWeight:700,color:weekOffset>=0?THEME.border:THEME.text,opacity:weekOffset>=0?0.4:1}}>›</button>
+                  <button onClick={()=>setWeekOffset(p=>Math.min(0,p+1))} disabled={weekOffset>=0} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${THEME.border}`,background:THEME.surface,cursor:weekOffset>=0?"not-allowed":"pointer",fontSize:14,fontWeight:700,color:weekOffset>=0?THEME.border:THEME.text,opacity:weekOffset>=0?0.4:1}}>›</button>
                   {weekOffset<0&&<button onClick={()=>setWeekOffset(0)} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${THEME.accent}`,background:"rgba(212,175,55,0.1)",cursor:"pointer",fontSize:12,fontWeight:700,color:"#92680e"}}>Сегодня</button>}
                   {isTeacher&&<button className="add-btn" onClick={()=>setShowSchedForm(true)}>+ Добавить</button>}
                 </div>

@@ -2122,8 +2122,8 @@ ${JSON.stringify({section:hier.section,clusters},null,2)}`;
       </div>
       <div style={{maxWidth:1100,margin:"0 auto",padding:"36px 24px"}}>
         <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:26,fontWeight:800,color:THEME.primary,marginBottom:24}}>Панель администратора</h1>
-        <div style={{display:"flex",gap:4,background:"#fff",border:`1px solid ${THEME.border}`,borderRadius:12,padding:6,marginBottom:32,width:"fit-content"}}>
-          {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"10px 20px",borderRadius:8,border:"none",background:tab===t.id?THEME.primary:"transparent",color:tab===t.id?"#fff":THEME.textLight,fontFamily:"'Inter',sans-serif",fontWeight:600,fontSize:14,cursor:"pointer",transition:"all 0.2s"}}>{t.label}</button>)}
+        <div style={{display:"flex",gap:4,background:THEME.surface,border:`1px solid ${THEME.border}`,borderRadius:12,padding:6,marginBottom:32,width:"fit-content"}}>
+          {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"10px 20px",borderRadius:8,border:"none",background:tab===t.id?THEME.primary:"transparent",color:tab===t.id?(THEME.onPrimary??"#fff"):THEME.text,fontFamily:"'Inter',sans-serif",fontWeight:600,fontSize:14,cursor:"pointer",transition:"all 0.2s"}}>{t.label}</button>)}
         </div>
 
         {loading&&<div style={{textAlign:"center",padding:60,color:THEME.textLight}}>Загрузка...</div>}

@@ -958,6 +958,23 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-shop-theme="fire"]   .diag-history-item *,
 [data-shop-theme="fire"]   .profile-detail { color: #334155 !important; }
 
+/* Неактивные .theme-tab (Shop, Leaderboard) на тёмных shop-темах —
+   защита от inline background:#fff + color:THEME.textLight (light-on-white). */
+[data-shop-theme="galaxy"] .theme-tab:not(.active),
+[data-shop-theme="matrix"] .theme-tab:not(.active),
+[data-shop-theme="fire"]   .theme-tab:not(.active) {
+  background: rgba(255,255,255,0.08) !important;
+  color: rgba(255,255,255,0.7) !important;
+  border-color: rgba(255,255,255,0.18) !important;
+}
+
+/* .add-btn (Admin «+ Новый раздел» и т.п.) — на тёмных shop-темах
+   primary===accent, оба ярких, текст белым невидим. Используем
+   accent-on-onAccent semantic. */
+[data-shop-theme="galaxy"] .add-btn { background: #a78bfa !important; color: #0f0a1e !important; }
+[data-shop-theme="matrix"] .add-btn { background: #22c55e !important; color: #0a0f0a !important; }
+[data-shop-theme="fire"]   .add-btn { background: #f97316 !important; color: #1a0a00 !important; }
+
 /* Растягиваем .profile-page за пределы padding-а .dashboard-main (40/48),
    чтобы фоновый layer покрывал весь main-блок, а не оставлял белую рамку.
    Возвращаем padding обратно, чтобы контент не «прилип» к краям. */

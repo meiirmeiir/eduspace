@@ -234,8 +234,8 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
             <button key={t.id} className={`theme-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)} style={{
               padding:'8px 14px', borderRadius:99, fontSize:13, fontWeight:700,
               cursor:'pointer', fontFamily:"'Inter',sans-serif",
-              background: tab===t.id ? THEME.primary : '#fff',
-              color: tab===t.id ? '#fff' : THEME.textLight,
+              background: tab===t.id ? THEME.primary : THEME.surface,
+              color: tab===t.id ? (THEME.onPrimary ?? '#fff') : THEME.text,
               border: `1px solid ${tab===t.id ? THEME.primary : THEME.border}`,
             }}>{t.icon} {t.label}</button>
           ))}

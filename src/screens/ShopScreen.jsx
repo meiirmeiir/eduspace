@@ -199,8 +199,8 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
             <button key={t.id} className={`theme-tab${activeType===t.id?' active':''}`} onClick={() => setActiveType(t.id)} style={{
               padding:'10px 16px', borderRadius:99, fontSize:13, fontWeight:700, fontFamily:"'Inter',sans-serif",
               cursor:'pointer',
-              background: activeType === t.id ? THEME.primary : '#fff',
-              color:      activeType === t.id ? '#fff'        : THEME.textLight,
+              background: activeType === t.id ? THEME.primary : THEME.surface,
+              color:      activeType === t.id ? (THEME.onPrimary ?? '#fff') : THEME.text,
               border: `1px solid ${activeType === t.id ? THEME.primary : THEME.border}`,
             }}>{t.icon} {t.label}</button>
           ))}
