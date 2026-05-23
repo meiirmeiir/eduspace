@@ -119,6 +119,11 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
   // от темы (на тёмном градиенте leaderboard-bg тоже нужен светлый — формула
   // ниже учитывает оба случая через forceLightText || !equippedBg).
   const forceLightText = !!equippedBg;
+  // Страница рейтинга ВСЕГДА на тёмном фоне (leaderboard-bg #0f172a или
+  // wallpaper) → все тексты принудительно светлые независимо от base/shop темы.
+  // THEME.text/textLight/primary в color: заменены на lt/ltd по всему компоненту.
+  const lt  = '#e2e8f0';                    // light text
+  const ltd = 'rgba(226,232,240,0.7)';      // light text dimmed
 
   // Таймер до сброса рейтинга — тик каждую секунду (показываем минуты).
   useEffect(() => {
@@ -223,7 +228,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         onMouseLeave={clickable ? (ev) => { ev.currentTarget.style.boxShadow = topShadow || ''; } : undefined}
       >
         {/* Ранг — медалия или #N */}
-        <div style={{minWidth:48, fontSize: rank<=3?22:15, fontWeight:700, color: rank<=3?THEME.accent:THEME.textLight, fontFamily:"'Montserrat',sans-serif"}}>
+        <div style={{minWidth:48, fontSize: rank<=3?22:15, fontWeight:700, color: rank<=3?THEME.accent:ltd, fontFamily:"'Montserrat',sans-serif"}}>
           {medal || `#${rank}`}
         </div>
 
@@ -246,7 +251,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
               }}>{initials}</div>
           }
           <div style={{minWidth:0, overflow:'hidden'}}>
-            <div style={{fontWeight:700, fontSize:15, color:THEME.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+            <div style={{fontWeight:700, fontSize:15, color:lt, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
               {initials}{mine ? ' (вы)' : ''}
             </div>
             {titleText && (
@@ -255,7 +260,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
               </div>
             )}
             {!titleText && (e.grade || e.region) && (
-              <div style={{fontSize:11, color:THEME.textLight, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+              <div style={{fontSize:11, color:ltd, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
                 {e.grade}{e.grade && e.region ? ' · ' : ''}{e.region}
               </div>
             )}
@@ -265,13 +270,13 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         {/* Лига — иконка + название */}
         <div style={{minWidth:80, textAlign:'center', fontSize:22, lineHeight:1}} title={league.current.name}>
           {league.current.icon}
-          <div style={{fontSize:10, color:THEME.textLight, marginTop:2, fontWeight:400}}>{league.current.name}</div>
+          <div style={{fontSize:10, color:ltd, marginTop:2, fontWeight:400}}>{league.current.name}</div>
         </div>
 
         {/* Рейтинг — очки */}
-        <div style={{minWidth:80, textAlign:'right', fontWeight:800, fontSize:16, color:THEME.primary, fontFamily:"'Montserrat',sans-serif", lineHeight:1}}>
+        <div style={{minWidth:80, textAlign:'right', fontWeight:800, fontSize:16, color:lt, fontFamily:"'Montserrat',sans-serif", lineHeight:1}}>
           {e.points.toLocaleString('ru-RU')}
-          <div style={{fontSize:10, color:THEME.textLight, fontWeight:400, marginTop:2}}>очков</div>
+          <div style={{fontSize:10, color:ltd, fontWeight:400, marginTop:2}}>очков</div>
         </div>
       </div>
     );
@@ -297,8 +302,8 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         {/* forceLightText = wallpaper активен → светлый текст поверх обоев.
             !equippedBg → тёмный градиент → светлый текст. Итог: светлый всегда. */}
         {(() => null)()}
-        <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color: forceLightText || !equippedBg ? '#e2e8f0' : THEME.primary, marginBottom:6}}>🏆 Рейтинг</h1>
-        <p style={{fontSize:13, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : THEME.textLight, marginBottom:18}}>Неделя {weekId} · обновляется в реальном времени</p>
+        <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color: lt, marginBottom:6}}>🏆 Рейтинг</h1>
+        <p style={{fontSize:13, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : ltd, marginBottom:18}}>Неделя {weekId} · обновляется в реальном времени</p>
 
         <div style={{display:'flex', gap:6, marginBottom:18, flexWrap:'wrap'}}>
           {TABS.map(t => (
@@ -306,7 +311,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
               padding:'8px 14px', borderRadius:99, fontSize:13, fontWeight:700,
               cursor:'pointer', fontFamily:"'Inter',sans-serif",
               background: tab===t.id ? THEME.primary : THEME.surface,
-              color: tab===t.id ? (THEME.onPrimary ?? '#fff') : THEME.text,
+              color: tab===t.id ? (THEME.onPrimary ?? '#fff') : lt,
               border: `1px solid ${tab===t.id ? THEME.primary : THEME.border}`,
             }}>{t.icon} {t.label}</button>
           ))}
@@ -321,19 +326,19 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
           textAlign:'center',
         }}>
           <div style={{fontSize:48, lineHeight:1}}>🏆</div>
-          <div style={{fontFamily:"'Montserrat',sans-serif", fontSize:14, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : THEME.textLight, marginTop:8}}>
+          <div style={{fontFamily:"'Montserrat',sans-serif", fontSize:14, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : ltd, marginTop:8}}>
             Соревнуйся с лучшими учениками платформы
           </div>
-          <div style={{fontSize:13, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : THEME.textLight, marginTop:8}}>
-            ⏳ До сброса: <b style={{color: forceLightText || !equippedBg ? '#e2e8f0' : THEME.text}}>{timeLeft.days} дн {timeLeft.hours} ч {timeLeft.minutes} мин</b>
+          <div style={{fontSize:13, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : ltd, marginTop:8}}>
+            ⏳ До сброса: <b style={{color: forceLightText || !equippedBg ? '#e2e8f0' : lt}}>{timeLeft.days} дн {timeLeft.hours} ч {timeLeft.minutes} мин</b>
           </div>
         </div>
 
-        {loading && <div style={{textAlign:'center', color:THEME.textLight, padding:'40px 0'}}>Загрузка...</div>}
+        {loading && <div style={{textAlign:'center', color:ltd, padding:'40px 0'}}>Загрузка...</div>}
         {err && <div style={{textAlign:'center', color:'#dc2626', padding:'20px 0', fontSize:13}}>Не удалось загрузить рейтинг: {err}</div>}
 
         {!loading && !err && top.length === 0 && (
-          <div style={{textAlign:'center', color:THEME.textLight, padding:'40px 16px'}}>
+          <div style={{textAlign:'center', color:ltd, padding:'40px 16px'}}>
             {tab==='all'    && 'На этой неделе пока нет участников. Решай задачи — попадёшь в рейтинг!'}
             {tab==='grade'  && `В рейтинге ${user?.details||'твоего класса'} ещё никого нет.`}
             {tab==='region' && `В рейтинге ${user?.region||'твоей области'} ещё никого нет.`}
@@ -343,10 +348,10 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         {!loading && !err && top.length > 0 && (
           <div>
             {/* Блок 4 — мини-статы */}
-            <div className="leaderboard-stats" style={{display:'flex', gap:24, marginBottom:18, fontSize:13, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : THEME.textLight, flexWrap:'wrap'}}>
+            <div className="leaderboard-stats" style={{display:'flex', gap:24, marginBottom:18, fontSize:13, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : ltd, flexWrap:'wrap'}}>
               <div>👥 {filtered.length} участник{filtered.length===1?'':(filtered.length>=2&&filtered.length<=4?'а':'ов')}</div>
-              {myEntry && <div>🏆 Твоя лига: <b style={{color: forceLightText || !equippedBg ? '#e2e8f0' : THEME.text}}>{getLeague(myEntry.points).current.name}</b></div>}
-              {myEntry && filtered.length > 0 && <div>📊 Топ <b style={{color: forceLightText || !equippedBg ? '#e2e8f0' : THEME.text}}>{Math.max(1, Math.ceil((myRank / filtered.length) * 100))}%</b></div>}
+              {myEntry && <div>🏆 Твоя лига: <b style={{color: forceLightText || !equippedBg ? '#e2e8f0' : lt}}>{getLeague(myEntry.points).current.name}</b></div>}
+              {myEntry && filtered.length > 0 && <div>📊 Топ <b style={{color: forceLightText || !equippedBg ? '#e2e8f0' : lt}}>{Math.max(1, Math.ceil((myRank / filtered.length) * 100))}%</b></div>}
             </div>
 
             {/* Блок 3 — Подиум топ-3 (показывается даже если 1-2 чел.; пустые слоты — пробел) */}
@@ -368,7 +373,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
                       ? <img src={entry.avatarUrl} alt="" style={{width:avSize, height:avSize, borderRadius:'50%', objectFit:'cover', border:`3px solid ${accent}`, boxShadow:`0 0 20px ${accent}66`, ...(frameStyle || {})}}/>
                       : <div style={{width:avSize, height:avSize, borderRadius:'50%', background:'linear-gradient(135deg,#6366f1,#a78bfa)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:rank===1?22:18, border:`3px solid ${accent}`, boxShadow:`0 0 20px ${accent}66`, ...(frameStyle || {})}}>{initials}</div>
                     }
-                    <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:rank===1?16:14, color:THEME.text, marginTop:8, textAlign:'center'}}>{initials}{isMine?' (вы)':''}</div>
+                    <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:rank===1?16:14, color:lt, marginTop:8, textAlign:'center'}}>{initials}{isMine?' (вы)':''}</div>
                     <div style={{fontWeight:700, fontSize:14, color:accent, marginTop:2}}>{entry.points.toLocaleString('ru-RU')} очк.</div>
                     {/* пьедестал-подножие — насыщенный градиент */}
                     <div style={{width:'100%', height, background:`linear-gradient(180deg, ${accent}, ${accent}55)`, borderRadius:'12px 12px 0 0', border:`1px solid ${accent}`, marginTop:8, display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:8, fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:24, color:'#fff', textShadow:`0 2px 4px rgba(0,0,0,0.4)`}}>#{rank}</div>
@@ -396,10 +401,10 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
                     ? <img src={myEntry.avatarUrl} alt="" style={{width:56, height:56, borderRadius:'50%', objectFit:'cover', border:`2px solid ${THEME.accent}`, flexShrink:0, ...(frameStyle || {})}}/>
                     : <div style={{width:56, height:56, borderRadius:'50%', background:'linear-gradient(135deg,#6366f1,#a78bfa)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:18, border:`2px solid ${THEME.accent}`, flexShrink:0, ...(frameStyle || {})}}>{initials}</div>
                   }
-                  <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:THEME.text}}>{initials}</div>
-                  <div style={{fontSize:13, color:THEME.textLight}}>#<b style={{color:THEME.text}}>{myRank}</b> из <b style={{color:THEME.text}}>{filtered.length}</b></div>
-                  <div style={{fontSize:13}} title={myLeague.name}>{myLeague.icon} <span style={{color:THEME.text, fontWeight:600}}>{myLeague.name}</span></div>
-                  <div style={{fontSize:13, fontWeight:700, color:THEME.primary}}>{myEntry.points.toLocaleString('ru-RU')} очков</div>
+                  <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:lt}}>{initials}</div>
+                  <div style={{fontSize:13, color:ltd}}>#<b style={{color:lt}}>{myRank}</b> из <b style={{color:lt}}>{filtered.length}</b></div>
+                  <div style={{fontSize:13}} title={myLeague.name}>{myLeague.icon} <span style={{color:lt, fontWeight:600}}>{myLeague.name}</span></div>
+                  <div style={{fontSize:13, fontWeight:700, color:lt}}>{myEntry.points.toLocaleString('ru-RU')} очков</div>
                   {delta != null && (
                     <div style={{fontSize:13, fontWeight:700, color: delta >= 0 ? '#10b981' : '#ef4444'}}>
                       {delta >= 0 ? '+' : ''}{delta} за неделю {delta > 0 ? '↑' : delta < 0 ? '↓' : '='}
@@ -410,7 +415,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
             })()}
 
             {/* Заголовочная строка таблицы (FACEIT-стиль) */}
-            <div style={{display:'flex', alignItems:'center', padding:'8px 16px', marginBottom:8, opacity:0.6, color:THEME.text, fontSize:11, letterSpacing:1, textTransform:'uppercase'}}>
+            <div style={{display:'flex', alignItems:'center', padding:'8px 16px', marginBottom:8, opacity:0.6, color:lt, fontSize:11, letterSpacing:1, textTransform:'uppercase'}}>
               <div style={{minWidth:48}}>Ранг</div>
               <div style={{flex:1, paddingLeft:8}}>Ученик</div>
               <div style={{minWidth:80, textAlign:'center'}}>Лига</div>
@@ -419,12 +424,12 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
             {top.map((e, i) => renderRow(e, i))}
             {!myInTop && myEntry && (
               <>
-                <div style={{textAlign:'center', color:THEME.textLight, fontSize:12, margin:'14px 0 6px'}}>· · ·</div>
+                <div style={{textAlign:'center', color:ltd, fontSize:12, margin:'14px 0 6px'}}>· · ·</div>
                 {renderRow(myEntry, 0, { rank: myRank })}
               </>
             )}
             {!myEntry && (
-              <div style={{textAlign:'center', color:THEME.textLight, fontSize:12, margin:'16px 0', fontStyle:'italic'}}>
+              <div style={{textAlign:'center', color:ltd, fontSize:12, margin:'16px 0', fontStyle:'italic'}}>
                 Тебя пока нет в этом рейтинге — заработай первые очки и попади в топ.
               </div>
             )}
