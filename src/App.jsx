@@ -446,6 +446,13 @@ function AppInner() {
   const closePublicProfile=React.useCallback(()=>{
     setPublicProfileUid(null);
     try { localStorage.removeItem('aapa_public_profile_uid'); } catch {}
+    // Снимаем stale "leaderboard" с customHistory — он был добавлен
+    // navigate('public_profile') при открытии (там push'ится screenRef.current,
+    // который был leaderboard). Без pop первый клик ← Назад на leaderboard
+    // пытается уйти на ту же leaderboard — визуально клик не работает.
+    if (customHistory.current[customHistory.current.length - 1] === 'leaderboard') {
+      customHistory.current.pop();
+    }
     // Явно заменяем текущую запись браузерной истории (вместо push), чтобы
     // public_profile не попадал в browser back-стек: следующее нажатие Back
     // в leaderboard уведёт на dashboard, а не обратно в публичный профиль.
@@ -1027,7 +1034,7 @@ function AppInner() {
 
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);setProfile(p=>p?{...p,onboardingDone:true}:p);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
-      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={tryOpenDaily} onOpenAdmin={openAdmin} onOpenLeaderboard={()=>navigate("leaderboard")} onOpenShop={()=>navigate("shop")} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser} masteryStatus={masteryStatus} onOpenDailyLockModal={()=>setLockModalOpen(true)} rankRefreshKey={rankRefreshKey}/>}
+      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={tryOpenDaily} onOpenAdmin={openAdmin} onOpenLeaderboard={()=>_setScreen("leaderboard")} onOpenShop={()=>navigate("shop")} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser} masteryStatus={masteryStatus} onOpenDailyLockModal={()=>setLockModalOpen(true)} rankRefreshKey={rankRefreshKey}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
       {screen==="admin"&&<AdminScreen onBack={()=>goBack()} firebaseUser={firebaseUser}/>}
       {screen==="diagnostics"&&(
@@ -1083,7 +1090,7 @@ function AppInner() {
             if(id==="plan"){ viewPlan(); return; }
             if(id==="daily"){ tryOpenDaily(); return; }
             if(id==="theory"){ navigate("theory"); return; }
-            if(id==="leaderboard"){ navigate("leaderboard"); return; }
+            if(id==="leaderboard"){ _setScreen("leaderboard"); return; }
           }}
         />
       )}
