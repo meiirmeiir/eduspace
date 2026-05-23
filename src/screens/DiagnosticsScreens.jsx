@@ -407,17 +407,22 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
     )}
     <div className="question-container question-page-content">
       <ImageModal src={lightboxSrc} onClose={()=>setLightboxSrc(null)}/>
-      <div className="question-breadcrumb" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:32}}>
-        <Logo size={36}/>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <Timer seconds={elapsed}/>
-          {onPause&&<button onClick={onPause} style={{background:"transparent",border:"1px solid rgba(234,179,8,0.45)",color:"#b45309",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",lineHeight:1}}>⏸ Поставить паузу</button>}
-          {onStop&&<button onClick={onStop} style={{background:"transparent",border:"1px solid rgba(220,38,38,0.35)",color:"#dc2626",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",lineHeight:1}}>✕ Завершить досрочно</button>}
+      <div style={{
+        background:`${THEME.surface}cc`, backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)',
+        borderRadius:12, padding:'8px 16px', marginBottom:24,
+      }}>
+        <div className="question-breadcrumb" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <Logo size={36}/>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <Timer seconds={elapsed}/>
+            {onPause&&<button onClick={onPause} style={{background:"transparent",border:`1px solid ${THEME.warning ?? 'rgba(234,179,8,0.45)'}`,color:THEME.warning ?? '#b45309',borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",lineHeight:1}}>⏸ Поставить паузу</button>}
+            {onStop&&<button onClick={onStop} style={{background:"transparent",border:`1px solid ${THEME.error ?? 'rgba(220,38,38,0.35)'}`,color:THEME.error ?? '#dc2626',borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",lineHeight:1}}>✕ Завершить досрочно</button>}
+          </div>
         </div>
-      </div>
-      {!adaptiveMode&&<div className="progress-bar-container"><div className="progress-bar-fill" style={{width:`${(qNum/total)*100}%`}}/></div>}
-      <div className="question-meta" style={{justifyContent:"flex-end"}}>
-        <span style={{color:THEME.textLight,fontSize:14}}>{adaptiveMode?`Вопрос ${qNum}`:`Вопрос ${qNum} из ${total}`}</span>
+        {!adaptiveMode&&<div className="progress-bar-container" style={{marginTop:8}}><div className="progress-bar-fill" style={{width:`${(qNum/total)*100}%`}}/></div>}
+        <div className="question-meta" style={{justifyContent:"flex-end",marginTop:8}}>
+          <span style={{color:THEME.text,fontSize:14}}>{adaptiveMode?`Вопрос ${qNum}`:`Вопрос ${qNum} из ${total}`}</span>
+        </div>
       </div>
       <div style={{
         background:`${THEME.surface}dd`, backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)',
