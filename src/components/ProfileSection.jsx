@@ -231,16 +231,20 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                       {user?.goal && <span style={{display:'inline-block', background:'transparent', color:THEME.textLight, fontWeight:600, fontSize:12, padding:'4px 12px', borderRadius:6, border:`1px solid ${THEME.border}`}}>{user.goal}</span>}
                     </div>
                   </div>
-                  {/* Правый столбец: класс, область, дата */}
+                  {/* Правый столбец: класс, область, дата, npc-toggle */}
                   <div>
                     {user?.details && <div className="profile-detail" style={{marginBottom:6}}>📚 {user.details}</div>}
                     {user?.region && <div className="profile-detail" style={{marginBottom:6}}>📍 {user.region}</div>}
-                    <div className="profile-date">📅 Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
+                    <div className="profile-date" style={{marginBottom:10}}>📅 Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
+                    <label style={{display:'flex', alignItems:'center', gap:10, fontSize:13, color:THEME.textLight, cursor:'pointer'}}>
+                      <input type="checkbox" checked={npcOn} onChange={e=>{setNpcOn(e.target.checked);setNpcEnabled(uid,e.target.checked);}} style={{width:16,height:16,cursor:'pointer'}}/>
+                      Показывать подсказки помощника
+                    </label>
                   </div>
                 </div>
-                {/* Кнопки под обоими столбцами, по центру. Обе обёрнуты в
-                    одинаковые контейнеры minWidth:160 для симметрии. */}
-                <div style={{display:'flex', gap:12, marginTop:16, justifyContent:'center', flexWrap:'wrap', alignItems:'center'}}>
+                {/* Кнопки под обоими столбцами, смещены влево для визуального
+                    баланса с большой аватаркой слева (minWidth:160 каждая). */}
+                <div style={{display:'flex', gap:12, marginTop:16, marginLeft:'-80px', justifyContent:'center', flexWrap:'wrap', alignItems:'center'}}>
                   <button onClick={()=>setIsEditing(true)} style={{
                     padding:'10px 20px', fontSize:13, fontWeight:600,
                     borderRadius:10, border:`1px solid ${THEME.border}`,
@@ -251,10 +255,6 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                     <ChangePasswordInline />
                   </div>
                 </div>
-                <label style={{display:'flex', alignItems:'center', gap:10, marginTop:16, fontSize:13, color:THEME.textLight, cursor:'pointer'}}>
-                  <input type="checkbox" checked={npcOn} onChange={e=>{setNpcOn(e.target.checked);setNpcEnabled(uid,e.target.checked);}} style={{width:16,height:16,cursor:'pointer'}}/>
-                  Показывать подсказки помощника
-                </label>
               </>
               );
             })()}
