@@ -415,7 +415,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
             })()}
 
             {/* Заголовочная строка таблицы (FACEIT-стиль) */}
-            <div style={{display:'flex', alignItems:'center', padding:'8px 16px', marginBottom:8, opacity:0.6, color:lt, fontSize:11, letterSpacing:1, textTransform:'uppercase'}}>
+            <div style={{display:'flex', alignItems:'center', padding:'8px 16px', marginBottom:8, opacity:0.9, color:lt, fontSize:11, letterSpacing:1, textTransform:'uppercase'}}>
               <div style={{minWidth:48}}>Ранг</div>
               <div style={{flex:1, paddingLeft:8}}>Ученик</div>
               <div style={{minWidth:80, textAlign:'center'}}>Лига</div>
