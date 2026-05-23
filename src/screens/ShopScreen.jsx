@@ -141,6 +141,25 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
     setPendingId(null);
   };
 
+  // Снять предмет: equipItem(uid, null, type) → nullValue в Firestore (см.
+  // firestore-rest.js:22 toFsValue). Локально пишем equipped[type]=null.
+  // Для shop-темы дополнительно очищаем ThemeContext, чтобы UI не ждал sync.
+  const handleUnequip = async (item) => {
+    if (pendingId) return;
+    setErrMsg(null); setPendingId(item.id);
+    const res = await equipItem(uid, null, item.type);
+    if (res.success) {
+      onUpdateUser?.({
+        ...user,
+        equipped: { ...equipped, [item.type]: null },
+      });
+      if (item.type === 'theme') setShopTheme(null);
+    } else {
+      setErrMsg(`Не удалось снять: ${res.error}`);
+    }
+    setPendingId(null);
+  };
+
   const renderButton = (item) => {
     const owned     = inventory.includes(item.id);
     const isEquipped= equipped[item.type] === item.id;
@@ -154,7 +173,12 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
     };
 
     if (isEquipped) {
-      return <button disabled style={{...baseStyle, background:'rgba(16,185,129,0.15)', color:'#10b981', cursor:'default', border:'1px solid rgba(16,185,129,0.4)'}}>Надето ✓</button>;
+      return (
+        <div style={{display:'flex', gap:8, width:'100%'}}>
+          <button disabled style={{...baseStyle, flex:1, background:'rgba(16,185,129,0.15)', color:'#10b981', cursor:'default', border:'1px solid rgba(16,185,129,0.4)'}}>Надето ✓</button>
+          <button onClick={() => handleUnequip(item)} disabled={busy} style={{...baseStyle, flex:'0 0 auto', background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.text, opacity:busy?0.6:1}}>{busy?'...':'Снять'}</button>
+        </div>
+      );
     }
     if (owned) {
       return <button onClick={() => handleEquip(item)} disabled={busy}
@@ -270,7 +294,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
             {errMsg && <div style={{position:'absolute', top:80, left:'50%', transform:'translateX(-50%)', background:'rgba(239,68,68,0.95)', color:'#fff', padding:'10px 18px', borderRadius:10, fontSize:13, fontFamily:"'Inter',sans-serif"}}>{errMsg}</div>}
             <div style={{position:'absolute', bottom:40, left:0, right:0, display:'flex', justifyContent:'center', gap:16, flexWrap:'wrap', padding:'0 16px'}}>
               {action}
-              <button onClick={() => setPreviewItem(null)} style={{...btnBase, background:'rgba(255,255,255,0.12)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)'}}>Закрыть</button>
+              <button onClick={() => setPreviewItem(null)} style={{...btnBase, background:'rgba(0,0,0,0.7)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)'}}>Закрыть</button>
             </div>
           </div>
         );
