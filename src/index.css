@@ -964,11 +964,11 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 }
 
 /* LeaderboardScreen — анимированный градиентный фон когда нет wallpaper.
-   !important — на случай если page-themed-bg перебивается тем-специфичной CSS. */
+   5 stop'ов с разными цветами indigo/violet для заметной анимации. */
 .page-themed.leaderboard-bg {
-  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%) !important;
+  background: linear-gradient(135deg, #0f172a 0%, #312e81 25%, #1e1b4b 50%, #4c1d95 75%, #0f172a 100%) !important;
   background-size: 400% 400% !important;
-  animation: gradientShift 8s ease infinite !important;
+  animation: gradientShift 6s ease infinite !important;
 }
 .page-themed.has-bg {
   background: transparent !important;
@@ -978,6 +978,10 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
+
+/* default .theme-row (для leaderboard-bg тёмного градиента) — полупрозрачный
+   тёмный фон, чтобы текст читался. На wallpaper переопределяется has-bg-правилами ниже. */
+.theme-row { background: rgba(15,23,42,0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 
 /* Через wallpaper: карточки строк, hero, stats — все полупрозрачные. */
 .page-themed.has-bg .theme-row {
