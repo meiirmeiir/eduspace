@@ -764,7 +764,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                   const isToday=date.toDateString()===today.toDateString();
                   const isPast=date<today&&!isToday;
                   return(<div key={idx} className={`week-day ${isToday?"today":""}`} style={{opacity:isPast&&weekOffset===0?0.75:1}}>
-                    <div className="week-day-header"><span className="day-name">{DAY_NAMES_SHORT[idx]}</span><span className={`day-date ${isToday?"today-dot":""}`}>{date.getDate()}</span></div>
+                    <div className="week-day-header"><span className="day-name" style={{color:THEME.textLight}}>{DAY_NAMES_SHORT[idx]}</span><span className={`day-date ${isToday?"today-dot":""}`} style={{color:THEME.text}}>{date.getDate()}</span></div>
                     <div className="day-lessons">
                       {dayLessons.length===0?<div className="no-lessons">—</div>:dayLessons.map((l,li)=>{
                         const stName=isTeacher?(()=>{const s=students.find(s=>s.id===l.studentId);return s?s.firstName+" "+s.lastName[0]+".":null;})():null;

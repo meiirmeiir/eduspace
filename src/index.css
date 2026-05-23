@@ -986,26 +986,37 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   .profile-info-grid { grid-template-columns: 1fr !important; }
 }
 
-/* LeaderboardScreen — анимированный градиентный фон когда нет wallpaper.
-   4 stop'а с контрастными цветами navy/violet/blue для заметной анимации.
-   Keyframes ходят по диагонали 0,0 → 100,0 → 100,100 → 0,0. */
+/* LeaderboardScreen — анимированный градиентный фон через ::before
+   pseudo-element с fixed-позиционированием (более надёжная анимация чем
+   background-position на огромном элементе). */
 .page-themed.leaderboard-bg {
-  background: linear-gradient(135deg, #0f172a 0%, #4c1d95 33%, #1e3a8a 66%, #0f172a 100%) !important;
-  background-size: 300% 300% !important;
-  animation: gradientShift 5s ease infinite !important;
+  position: relative;
+  background: #0f172a !important;
+  overflow: hidden;
 }
+.page-themed.leaderboard-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #4c1d95, #1e3a8a, #312e81, #4c1d95);
+  background-size: 400% 400%;
+  animation: gradientShift 5s ease infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+/* Контент над ::before — без этого pseudo с z-index:0 рисуется поверх
+   static-детей (positioned > static в stacking order). */
+.page-themed.leaderboard-bg > * { position: relative; z-index: 1; }
 .page-themed.has-bg {
   background: transparent !important;
 }
 @keyframes gradientShift {
-  0%   { background-position: 0% 0%; }
-  33%  { background-position: 100% 0%; }
-  66%  { background-position: 100% 100%; }
-  100% { background-position: 0% 0%; }
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
-/* default .theme-row (для leaderboard-bg тёмного градиента) — полупрозрачный
-   тёмный фон, чтобы текст читался. На wallpaper переопределяется has-bg-правилами ниже. */
+/* default .theme-row — полупрозрачный тёмный фон над gradient ::before. */
 .theme-row { background: rgba(15,23,42,0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 
 /* Через wallpaper: карточки строк, hero, stats — все полупрозрачные. */
