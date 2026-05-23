@@ -5,14 +5,15 @@ const ThemeContext = createContext(null);
 
 // Палитры, перекрывающие base (light/dark) когда в equipped стоит shop-тема.
 // Значения совпадают с CSS-селекторами в index.css ([data-shop-theme="..."]).
-// primary НЕ совпадает с bg: иначе элементы с `color: THEME.primary` (H1,
-// CTA-кнопки с `background:THEME.primary, color:THEME.accent`) сливаются с
-// фоном. Поднимаем primary до контрастного оттенка surface.
+// primary === accent для тёмных shop-тем: на dark bg хорошо читается яркий
+// акцентный цвет, и заголовки/кнопки с `color: THEME.primary` остаются видимы.
+// Для sakura primary держим светло-розовым (surface) — index.css даёт ей
+// тёмный фон, на котором светлый primary читается как «light-on-dark».
 const SHOP_THEME_OVERRIDES = {
-  galaxy: { primary:'#1e1b4b', accent:'#a78bfa', bg:'#0f0a1e', surface:'#1e1b4b', text:'#e2e8f0', textLight:'rgba(226,232,240,0.7)', border:'#312e81' },
+  galaxy: { primary:'#a78bfa', accent:'#a78bfa', bg:'#0f0a1e', surface:'#1e1b4b', text:'#e2e8f0', textLight:'rgba(226,232,240,0.7)', border:'#312e81' },
   sakura: { primary:'#fce7f3', accent:'#f472b6', bg:'#fff0f5', surface:'#fce7f3', text:'#831843', textLight:'rgba(131,24,67,0.7)', border:'#fbcfe8' },
-  matrix: { primary:'#0d1f0d', accent:'#22c55e', bg:'#0a0f0a', surface:'#0d1f0d', text:'#22c55e', textLight:'rgba(34,197,94,0.7)', border:'#14532d' },
-  fire:   { primary:'#2d1000', accent:'#f97316', bg:'#1a0a00', surface:'#2d1000', text:'#fed7aa', textLight:'rgba(253,211,170,0.7)', border:'#7c2d12' },
+  matrix: { primary:'#22c55e', accent:'#22c55e', bg:'#0a0f0a', surface:'#0d1f0d', text:'#22c55e', textLight:'rgba(34,197,94,0.7)', border:'#14532d' },
+  fire:   { primary:'#f97316', accent:'#f97316', bg:'#1a0a00', surface:'#2d1000', text:'#fed7aa', textLight:'rgba(253,211,170,0.7)', border:'#7c2d12' },
 };
 
 // BUG-13: dark mode = data-theme="dark" on <html>. Default (no attr) = light.
@@ -26,6 +27,11 @@ export function ThemeProvider({ children, shopThemeValue = null }) {
   const [isDark, setIsDark] = useState(
     () => document.documentElement.getAttribute('data-theme') === 'dark'
   );
+  // Локальный «override» поверх медленного prop-канала (App ← AuthContext ←
+  // Firestore onSnapshot). ShopScreen зовёт setShopTheme сразу после
+  // успешного equipItem — UI обновляется мгновенно, не дожидаясь sync.
+  const [shopThemeOverride, setShopThemeOverride] = useState(shopThemeValue);
+  useEffect(() => { setShopThemeOverride(shopThemeValue); }, [shopThemeValue]);
 
   const toggle = () => {
     const nowDark =
@@ -42,21 +48,27 @@ export function ThemeProvider({ children, shopThemeValue = null }) {
   };
 
   useEffect(() => {
-    if (shopThemeValue && SHOP_THEME_OVERRIDES[shopThemeValue]) {
-      document.body.dataset.shopTheme = shopThemeValue;
+    if (shopThemeOverride && SHOP_THEME_OVERRIDES[shopThemeOverride]) {
+      document.body.dataset.shopTheme = shopThemeOverride;
     } else {
       delete document.body.dataset.shopTheme;
     }
-  }, [shopThemeValue]);
+  }, [shopThemeOverride]);
 
   const value = useMemo(() => {
-    const override = shopThemeValue ? SHOP_THEME_OVERRIDES[shopThemeValue] : null;
+    const override = shopThemeOverride ? SHOP_THEME_OVERRIDES[shopThemeOverride] : null;
     // Shop-тема имеет приоритет над dark mode: базой всегда LIGHT, чтобы
     // оверрайды не получали dark-«хвосты» по неперекрытым полям (success/warning/error).
     const base = override ? THEME_LIGHT : (isDark ? THEME_DARK : THEME_LIGHT);
     const theme = override ? { ...THEME_LIGHT, ...override } : base;
-    return { dark: isDark, theme, toggle, shopTheme: shopThemeValue || null };
-  }, [isDark, shopThemeValue]);
+    return {
+      dark: isDark,
+      theme,
+      toggle,
+      shopTheme: shopThemeOverride || null,
+      setShopTheme: setShopThemeOverride,
+    };
+  }, [isDark, shopThemeOverride]);
 
   return (
     <ThemeContext.Provider value={value}>

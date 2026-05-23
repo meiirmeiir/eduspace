@@ -89,7 +89,7 @@ function Preview({ item }) {
 }
 
 export default function ShopScreen({ user, onBack, onUpdateUser }) {
-  const { theme: THEME } = useTheme();
+  const { theme: THEME, setShopTheme } = useTheme();
   const [activeType, setActiveType] = useState('background');
   const [pendingId, setPendingId] = useState(null);   // id предмета в покупке/экипировке
   const [errMsg, setErrMsg]       = useState(null);
@@ -130,6 +130,10 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
         ...user,
         equipped: { ...equipped, [item.type]: item.id },
       });
+      // Шортcat для shop-темы: обновляем ThemeContext синхронно. Без этого
+      // палитра подменится только после того, как Firestore onSnapshot
+      // прокатится через AuthContext → outer App → ThemeProvider prop.
+      if (item.type === 'theme') setShopTheme(item.value);
     } else {
       setErrMsg(`Не удалось надеть: ${res.error}`);
     }
