@@ -13,6 +13,7 @@ import ThemeToggle from "../components/ThemeToggle.jsx";
 import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
+import { getShopItem } from "../lib/shopItems.js";
 
 // Простая русская плюрализация: pluralize(2, ['день','дня','дней']) → 'дня'
 function pluralize(n, [one, few, many]) {
@@ -359,8 +360,24 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     setActiveSection(id);
   };
 
+  // Кастомный фон из магазина (equipped.background) — wallpaper-эффект
+  // на весь дашборд. Слой кладётся в root-stack (position:fixed, z-1)
+  // и для просвечивания .dashboard-layout помечается классом .has-bg
+  // (CSS-правила в index.css делают карточки/сайдбар полупрозрачными
+  // и сам layout — transparent).
+  const equippedBg = user?.equipped?.background ? getShopItem(user.equipped.background) : null;
+
   return(
-    <div className="dashboard-layout">
+    <>
+    {equippedBg && (
+      <div aria-hidden="true" style={{
+        position:'fixed', inset:0, zIndex:-1,
+        backgroundImage:`url(${equippedBg.file})`,
+        backgroundSize:'cover', backgroundPosition:'center',
+        opacity:0.5, pointerEvents:'none',
+      }}/>
+    )}
+    <div className={`dashboard-layout${equippedBg ? ' has-bg' : ''}`}>
       {sidebarOpen&&<div className="sidebar-overlay" onClick={()=>setSidebarOpen(false)}/>}
       <div className={`sidebar-backdrop ${sidebarOpen?"visible":""}`} onClick={()=>setSidebarOpen(false)}/>
       <aside className={`dashboard-sidebar ${sidebarOpen?"open":""}`}>
@@ -997,5 +1014,6 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
         </form>
       </div></div>}
     </div>
+    </>
   );
 }

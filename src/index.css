@@ -938,6 +938,15 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 .has-bg .dashboard-section { background: rgba(255,255,255,0.82) !important; }
 [data-theme="dark"] .has-bg .dashboard-section { background: rgba(20,20,30,0.82) !important; }
 
+/* ── Дашборд с экипированным фоном (.has-bg на .dashboard-layout) ──
+   Сам layout делаем transparent (его inline-bg=THEME.bg иначе перекрыл бы
+   wallpaper-слой за zIndex:-1). Сайдбар и карточки — полупрозрачными,
+   чтобы фон просвечивал сквозь UI. */
+.dashboard-layout.has-bg { background: transparent !important; }
+.dashboard-layout.has-bg .dashboard-section { background: rgba(255,255,255,0.82) !important; }
+.dashboard-layout.has-bg .dashboard-sidebar { background: rgba(15,23,42,0.88) !important; }
+[data-theme="dark"] .dashboard-layout.has-bg .dashboard-section { background: rgba(20,20,30,0.82) !important; }
+
 /* Тёмные shop-темы перебивают .has-bg-белый фон карточек — иначе светлый
    THEME.text (e2e8f0 / fed7aa / etc.) теряется на white-translucent. */
 [data-shop-theme="galaxy"] .has-bg .dashboard-section { background: rgba(30,27,75,0.82) !important; }

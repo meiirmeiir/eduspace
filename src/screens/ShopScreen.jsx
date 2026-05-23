@@ -93,6 +93,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
   const [activeType, setActiveType] = useState('background');
   const [pendingId, setPendingId] = useState(null);   // id предмета в покупке/экипировке
   const [errMsg, setErrMsg]       = useState(null);
+  const [previewItem, setPreviewItem] = useState(null);  // item для overlay «Примерить»
 
   const uid       = user?.uid || user?.id;
   const crystals  = Number(user?.crystals || 0);
@@ -217,10 +218,63 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
                 <div style={{fontSize:12, color:THEME.textLight, fontWeight:600}}>{item.price} 💎</div>
               </div>
               {renderButton(item)}
+              {(item.type === 'background' || item.type === 'theme') && (
+                <button onClick={() => setPreviewItem(item)} style={{
+                  width:'100%', padding:'8px 14px', borderRadius:10,
+                  fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12,
+                  border:`1px solid ${THEME.border}`, background:'transparent',
+                  color:THEME.text, cursor:'pointer', transition:'all 0.15s',
+                }}>👁 Примерить</button>
+              )}
             </div>
           ))}
         </div>
       </div>
+      {previewItem && (() => {
+        const it = previewItem;
+        const owned = inventory.includes(it.id);
+        const isEquipped = equipped[it.type] === it.id;
+        const requires = it.requiredLeague ? LEAGUE_MAP[it.requiredLeague] : null;
+        const leagueOk = !requires || myLeague === requires;
+        const busy = pendingId === it.id;
+        const sw = it.type === 'theme' ? (THEME_SWATCHES[it.value] || ['#666','#999','#ccc']) : null;
+        let action;
+        const btnBase = { padding:'12px 24px', borderRadius:10, fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, border:'none', cursor:'pointer', minWidth:160 };
+        if (isEquipped) {
+          action = <button disabled style={{...btnBase, background:'rgba(16,185,129,0.2)', color:'#10b981', cursor:'default'}}>Надето ✓</button>;
+        } else if (owned) {
+          action = <button onClick={() => { handleEquip(it); setPreviewItem(null); }} disabled={busy} style={{...btnBase, background:THEME.accent, color:THEME.onAccent ?? '#0f172a', opacity:busy?0.6:1}}>{busy?'...':'Надеть'}</button>;
+        } else if (it.isExclusive && !leagueOk) {
+          action = <button disabled style={{...btnBase, background:'rgba(167,139,250,0.2)', color:'#a78bfa', cursor:'not-allowed'}}>🔒 Только Алмаз</button>;
+        } else if (crystals < it.price) {
+          action = <button disabled style={{...btnBase, background:'rgba(239,68,68,0.15)', color:'#fca5a5', cursor:'not-allowed'}}>Недостаточно 💎</button>;
+        } else {
+          action = <button onClick={() => handlePurchase(it)} disabled={busy} style={{...btnBase, background:THEME.accent, color:THEME.onAccent ?? '#0f172a', opacity:busy?0.6:1}}>{busy?'...':`Купить · ${it.price} 💎`}</button>;
+        }
+        return (
+          <div style={{position:'fixed', inset:0, zIndex:1000, background:'#000'}} role="dialog" aria-modal="true">
+            {it.type === 'background' ? (
+              <img src={it.file} alt={it.name} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+            ) : (
+              <div style={{display:'flex', width:'100%', height:'100%'}}>
+                {sw.map((c,i) => <div key={i} style={{flex:1, background:c}}/>)}
+                <div style={{position:'absolute', top:'40%', left:0, right:0, textAlign:'center', color:'#fff', textShadow:'0 2px 12px rgba(0,0,0,0.7)'}}>
+                  <div style={{fontFamily:"'Montserrat',sans-serif", fontSize:48, fontWeight:800}}>{it.name}</div>
+                  <div style={{fontSize:14, marginTop:8, opacity:0.85}}>Палитра темы</div>
+                </div>
+              </div>
+            )}
+            <div style={{position:'absolute', top:24, right:24, padding:'8px 14px', borderRadius:99, background:'rgba(0,0,0,0.6)', color:'#fff', fontSize:13, fontWeight:700, fontFamily:"'Montserrat',sans-serif"}}>
+              👁 Предпросмотр · {it.name}
+            </div>
+            {errMsg && <div style={{position:'absolute', top:80, left:'50%', transform:'translateX(-50%)', background:'rgba(239,68,68,0.95)', color:'#fff', padding:'10px 18px', borderRadius:10, fontSize:13, fontFamily:"'Inter',sans-serif"}}>{errMsg}</div>}
+            <div style={{position:'absolute', bottom:40, left:0, right:0, display:'flex', justifyContent:'center', gap:16, flexWrap:'wrap', padding:'0 16px'}}>
+              {action}
+              <button onClick={() => setPreviewItem(null)} style={{...btnBase, background:'rgba(255,255,255,0.12)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)'}}>Закрыть</button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
