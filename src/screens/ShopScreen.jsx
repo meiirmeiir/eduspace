@@ -174,9 +174,9 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
 
     if (isEquipped) {
       return (
-        <div style={{display:'flex', gap:6, width:'100%', flexWrap:'nowrap', alignItems:'center'}}>
-          <button disabled style={{...baseStyle, flex:'1 1 auto', minWidth:0, fontSize:12, background:'rgba(16,185,129,0.15)', color:'#10b981', cursor:'default', border:'1px solid rgba(16,185,129,0.4)'}}>Надето ✓</button>
-          <button onClick={() => handleUnequip(item)} disabled={busy} style={{...baseStyle, flex:'0 0 auto', padding:'8px 10px', fontSize:12, background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.text, opacity:busy?0.6:1}}>{busy?'...':'Снять'}</button>
+        <div style={{display:'flex', flexDirection:'column', gap:6, width:'100%'}}>
+          <button disabled style={{...baseStyle, width:'100%', background:'rgba(16,185,129,0.15)', color:'#10b981', cursor:'default', border:'1px solid rgba(16,185,129,0.4)', opacity:0.7}}>Надето ✓</button>
+          <button onClick={() => handleUnequip(item)} disabled={busy} style={{...baseStyle, width:'100%', background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.text, opacity:busy?0.6:1}}>{busy?'...':'Снять'}</button>
         </div>
       );
     }
