@@ -963,11 +963,12 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   .profile-info-grid { grid-template-columns: 1fr !important; }
 }
 
-/* LeaderboardScreen — анимированный градиентный фон когда нет wallpaper. */
+/* LeaderboardScreen — анимированный градиентный фон когда нет wallpaper.
+   !important — на случай если page-themed-bg перебивается тем-специфичной CSS. */
 .page-themed.leaderboard-bg {
-  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
-  background-size: 400% 400%;
-  animation: gradientShift 8s ease infinite;
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%) !important;
+  background-size: 400% 400% !important;
+  animation: gradientShift 8s ease infinite !important;
 }
 .page-themed.has-bg {
   background: transparent !important;
@@ -977,6 +978,28 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
+
+/* Через wallpaper: карточки строк, hero, stats — все полупрозрачные. */
+.page-themed.has-bg .theme-row {
+  background: rgba(255,255,255,0.08) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+[data-theme="dark"] .page-themed.has-bg .theme-row { background: rgba(0,0,0,0.4) !important; }
+[data-shop-theme="galaxy"] .page-themed.has-bg .theme-row { background: rgba(30,27,75,0.7) !important; }
+[data-shop-theme="matrix"] .page-themed.has-bg .theme-row { background: rgba(13,31,13,0.7) !important; }
+[data-shop-theme="fire"]   .page-themed.has-bg .theme-row { background: rgba(45,16,0,0.7) !important; }
+[data-shop-theme="sakura"] .page-themed.has-bg .theme-row { background: rgba(255,240,245,0.8) !important; }
+
+/* Hero и stats — slight transparency overrides на wallpaper. */
+.page-themed.has-bg .leaderboard-hero {
+  background: rgba(255,255,255,0.08) !important;
+}
+[data-theme="dark"] .page-themed.has-bg .leaderboard-hero { background: rgba(0,0,0,0.35) !important; }
+[data-shop-theme="galaxy"] .page-themed.has-bg .leaderboard-hero { background: rgba(30,27,75,0.55) !important; }
+[data-shop-theme="matrix"] .page-themed.has-bg .leaderboard-hero { background: rgba(13,31,13,0.55) !important; }
+[data-shop-theme="fire"]   .page-themed.has-bg .leaderboard-hero { background: rgba(45,16,0,0.55) !important; }
+[data-shop-theme="sakura"] .page-themed.has-bg .leaderboard-hero { background: rgba(255,240,245,0.75) !important; }
 
 /* Тёмные shop-темы перебивают .has-bg-белый фон карточек — иначе светлый
    THEME.text (e2e8f0 / fed7aa / etc.) теряется на white-translucent. */

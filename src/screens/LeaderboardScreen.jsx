@@ -290,8 +290,11 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
       </div>
 
       <div style={{maxWidth:720, margin:'0 auto', padding:'24px 16px'}}>
-        <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color:THEME.primary, marginBottom:6}}>🏆 Рейтинг</h1>
-        <p style={{fontSize:13, color:THEME.textLight, marginBottom:18}}>Неделя {weekId} · обновляется в реальном времени</p>
+        {/* useDarkBg = leaderboard-bg активен (тёмный градиент). На нём светлые
+            primary/text тем плохо читаются — принудительно светлый. */}
+        {(() => null)()}
+        <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color: !equippedBg ? '#e2e8f0' : THEME.primary, marginBottom:6}}>🏆 Рейтинг</h1>
+        <p style={{fontSize:13, color: !equippedBg ? 'rgba(226,232,240,0.7)' : THEME.textLight, marginBottom:18}}>Неделя {weekId} · обновляется в реальном времени</p>
 
         <div style={{display:'flex', gap:6, marginBottom:18, flexWrap:'wrap'}}>
           {TABS.map(t => (
@@ -306,7 +309,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         </div>
 
         {/* Hero-блок с приглашением + таймер до сброса */}
-        <div style={{
+        <div className="leaderboard-hero" style={{
           background:`linear-gradient(135deg, ${THEME.primary}40, ${THEME.accent}20)`,
           borderRadius:20, padding:'24px', marginBottom:24,
           border:`1px solid ${THEME.accent}30`,
@@ -314,11 +317,11 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
           textAlign:'center',
         }}>
           <div style={{fontSize:48, lineHeight:1}}>🏆</div>
-          <div style={{fontFamily:"'Montserrat',sans-serif", fontSize:14, color:THEME.textLight, marginTop:8}}>
+          <div style={{fontFamily:"'Montserrat',sans-serif", fontSize:14, color: !equippedBg ? 'rgba(226,232,240,0.7)' : THEME.textLight, marginTop:8}}>
             Соревнуйся с лучшими учениками платформы
           </div>
-          <div style={{fontSize:13, color:THEME.textLight, marginTop:8}}>
-            ⏳ До сброса: <b style={{color:THEME.text}}>{timeLeft.days} дн {timeLeft.hours} ч {timeLeft.minutes} мин</b>
+          <div style={{fontSize:13, color: !equippedBg ? 'rgba(226,232,240,0.7)' : THEME.textLight, marginTop:8}}>
+            ⏳ До сброса: <b style={{color: !equippedBg ? '#e2e8f0' : THEME.text}}>{timeLeft.days} дн {timeLeft.hours} ч {timeLeft.minutes} мин</b>
           </div>
         </div>
 
@@ -336,10 +339,10 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         {!loading && !err && top.length > 0 && (
           <div>
             {/* Блок 4 — мини-статы */}
-            <div style={{display:'flex', gap:24, marginBottom:18, fontSize:13, color:THEME.textLight, flexWrap:'wrap'}}>
+            <div className="leaderboard-stats" style={{display:'flex', gap:24, marginBottom:18, fontSize:13, color: !equippedBg ? 'rgba(226,232,240,0.7)' : THEME.textLight, flexWrap:'wrap'}}>
               <div>👥 {filtered.length} участник{filtered.length===1?'':(filtered.length>=2&&filtered.length<=4?'а':'ов')}</div>
-              {myEntry && <div>🏆 Твоя лига: <b style={{color:THEME.text}}>{getLeague(myEntry.points).current.name}</b></div>}
-              {myEntry && filtered.length > 0 && <div>📊 Топ <b style={{color:THEME.text}}>{Math.max(1, Math.ceil((myRank / filtered.length) * 100))}%</b></div>}
+              {myEntry && <div>🏆 Твоя лига: <b style={{color: !equippedBg ? '#e2e8f0' : THEME.text}}>{getLeague(myEntry.points).current.name}</b></div>}
+              {myEntry && filtered.length > 0 && <div>📊 Топ <b style={{color: !equippedBg ? '#e2e8f0' : THEME.text}}>{Math.max(1, Math.ceil((myRank / filtered.length) * 100))}%</b></div>}
             </div>
 
             {/* Блок 3 — Подиум топ-3 (показывается даже если 1-2 чел.; пустые слоты — пробел) */}
