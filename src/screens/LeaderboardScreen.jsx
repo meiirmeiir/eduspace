@@ -88,13 +88,53 @@ const TABS = [
   { id: 'region', icon: '📍', label: 'Моя область' },
 ];
 
+// Время до следующего сброса рейтинга — понедельник 00:00 UTC.
+function getTimeUntilReset() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setUTCHours(0, 0, 0, 0);
+  const day = next.getUTCDay() || 7; // 1=пн ... 7=вс
+  const daysToAdd = ((8 - day) % 7) || 7; // если сейчас пн 00:00, ждём 7 дней
+  next.setUTCDate(next.getUTCDate() + daysToAdd);
+  const ms = Math.max(0, next.getTime() - now.getTime());
+  const days = Math.floor(ms / 86400000);
+  const hours = Math.floor((ms % 86400000) / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  return { days, hours, minutes };
+}
+
 export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile }) {
   const { theme: THEME } = useTheme();
   const [tab, setTab] = useState('all');
   const [allEntries, setAllEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(() => getTimeUntilReset());
+  const [prevPoints, setPrevPoints] = useState(null);
   const weekId = getWeekId();
+
+  // Таймер до сброса рейтинга — тик каждую секунду (показываем минуты).
+  useEffect(() => {
+    const tick = setInterval(() => setTimeLeft(getTimeUntilReset()), 1000);
+    return () => clearInterval(tick);
+  }, []);
+
+  // Предыдущая неделя — нужна для week-delta в карточке «Твоя позиция».
+  useEffect(() => {
+    if (!user?.uid) return;
+    let cancelled = false;
+    const prevDate = new Date(Date.now() - 7 * 86400000);
+    const prevId = getWeekId(prevDate);
+    (async () => {
+      try {
+        const entries = await fetchEntries(prevId);
+        if (cancelled) return;
+        const mine = entries.find(e => e.uid === user.uid);
+        setPrevPoints(mine ? mine.points : 0);
+      } catch { /* prev-week может не существовать — оставим null */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.uid]);
 
   useEffect(() => {
     let cancelled = false;
@@ -238,7 +278,8 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
 
       <div style={{maxWidth:720, margin:'0 auto', padding:'24px 16px'}}>
         <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color:THEME.primary, marginBottom:6}}>🏆 Рейтинг</h1>
-        <p style={{fontSize:13, color:THEME.textLight, marginBottom:18}}>Неделя {weekId} · обновляется в реальном времени</p>
+        <p style={{fontSize:13, color:THEME.textLight, marginBottom:6}}>Неделя {weekId} · обновляется в реальном времени</p>
+        <p style={{fontSize:13, color:THEME.textLight, marginBottom:18}}>⏳ До сброса: <b style={{color:THEME.text}}>{timeLeft.days} дн {timeLeft.hours} ч {timeLeft.minutes} мин</b></p>
 
         <div style={{display:'flex', gap:6, marginBottom:18, flexWrap:'wrap'}}>
           {TABS.map(t => (
@@ -265,6 +306,72 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
 
         {!loading && !err && top.length > 0 && (
           <div>
+            {/* Блок 4 — мини-статы */}
+            <div style={{display:'flex', gap:24, marginBottom:18, fontSize:13, color:THEME.textLight, flexWrap:'wrap'}}>
+              <div>👥 {filtered.length} участник{filtered.length===1?'':(filtered.length>=2&&filtered.length<=4?'а':'ов')}</div>
+              {myEntry && <div>🏆 Твоя лига: <b style={{color:THEME.text}}>{getLeague(myEntry.points).current.name}</b></div>}
+              {myEntry && filtered.length > 0 && <div>📊 Топ <b style={{color:THEME.text}}>{Math.max(1, Math.ceil((myRank / filtered.length) * 100))}%</b></div>}
+            </div>
+
+            {/* Блок 3 — Подиум топ-3 (показывается даже если 1-2 чел.; пустые слоты — пробел) */}
+            {(() => {
+              const renderPodium = (entry, rank, height) => {
+                if (!entry) return <div style={{flex:1, height, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end'}}><div style={{width:'100%', height:height*0.4, background:THEME.surface, borderRadius:'12px 12px 0 0', border:`1px dashed ${THEME.border}`, opacity:0.4}}/></div>;
+                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+                const accent = rank === 1 ? '#fbbf24' : rank === 2 ? '#94a3b8' : '#b45309';
+                const initials = ((entry.firstName?.[0] || '') + (entry.lastName?.[0] || '')).toUpperCase() || '?';
+                const frameStyle = entry.equippedFrame ? (FRAME_STYLES[entry.equippedFrame] || null) : null;
+                const avSize = rank === 1 ? 80 : 64;
+                const isMine = entry.uid === user?.uid;
+                const clickable = !!onOpenPublicProfile;
+                return (
+                  <div onClick={() => clickable && onOpenPublicProfile(entry.uid)} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', cursor: clickable?'pointer':'default'}}>
+                    <div style={{fontSize:28, marginBottom:6}}>{medal}</div>
+                    {entry.avatarUrl
+                      ? <img src={entry.avatarUrl} alt="" style={{width:avSize, height:avSize, borderRadius:'50%', objectFit:'cover', border:`3px solid ${accent}`, ...(frameStyle || {})}}/>
+                      : <div style={{width:avSize, height:avSize, borderRadius:'50%', background:'linear-gradient(135deg,#6366f1,#a78bfa)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:rank===1?22:18, border:`3px solid ${accent}`, ...(frameStyle || {})}}>{initials}</div>
+                    }
+                    <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:rank===1?16:14, color:THEME.text, marginTop:8, textAlign:'center'}}>{initials}{isMine?' (вы)':''}</div>
+                    <div style={{fontWeight:700, fontSize:14, color:accent, marginTop:2}}>{entry.points.toLocaleString('ru-RU')} очк.</div>
+                    {/* пьедестал-подножие */}
+                    <div style={{width:'100%', height, background:`linear-gradient(180deg, ${accent}30, ${accent}10)`, borderRadius:'12px 12px 0 0', border:`1px solid ${accent}`, marginTop:8, display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:8, fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:24, color:accent}}>#{rank}</div>
+                  </div>
+                );
+              };
+              return (
+                <div style={{display:'flex', gap:12, alignItems:'flex-end', marginBottom:24, padding:'8px 0'}}>
+                  {renderPodium(top[1], 2, 80)}
+                  {renderPodium(top[0], 1, 120)}
+                  {renderPodium(top[2], 3, 60)}
+                </div>
+              );
+            })()}
+
+            {/* Блок 2 — карточка «Твоя позиция» */}
+            {myEntry && (() => {
+              const initials = ((myEntry.firstName?.[0] || '') + (myEntry.lastName?.[0] || '')).toUpperCase() || '?';
+              const myLeague = getLeague(myEntry.points).current;
+              const delta = prevPoints != null ? (myEntry.points - prevPoints) : null;
+              const frameStyle = myEntry.equippedFrame ? (FRAME_STYLES[myEntry.equippedFrame] || null) : null;
+              return (
+                <div style={{display:'flex', alignItems:'center', gap:14, padding:'14px 16px', borderRadius:14, background:'rgba(212,175,55,0.1)', border:`1px solid ${THEME.accent}`, marginBottom:20, flexWrap:'wrap'}}>
+                  {myEntry.avatarUrl
+                    ? <img src={myEntry.avatarUrl} alt="" style={{width:56, height:56, borderRadius:'50%', objectFit:'cover', border:`2px solid ${THEME.accent}`, flexShrink:0, ...(frameStyle || {})}}/>
+                    : <div style={{width:56, height:56, borderRadius:'50%', background:'linear-gradient(135deg,#6366f1,#a78bfa)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:18, border:`2px solid ${THEME.accent}`, flexShrink:0, ...(frameStyle || {})}}>{initials}</div>
+                  }
+                  <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:THEME.text}}>{initials}</div>
+                  <div style={{fontSize:13, color:THEME.textLight}}>#<b style={{color:THEME.text}}>{myRank}</b> из <b style={{color:THEME.text}}>{filtered.length}</b></div>
+                  <div style={{fontSize:13}} title={myLeague.name}>{myLeague.icon} <span style={{color:THEME.text, fontWeight:600}}>{myLeague.name}</span></div>
+                  <div style={{fontSize:13, fontWeight:700, color:THEME.primary}}>{myEntry.points.toLocaleString('ru-RU')} очков</div>
+                  {delta != null && (
+                    <div style={{fontSize:13, fontWeight:700, color: delta >= 0 ? '#10b981' : '#ef4444'}}>
+                      {delta >= 0 ? '+' : ''}{delta} за неделю {delta > 0 ? '↑' : delta < 0 ? '↓' : '='}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Заголовочная строка таблицы (FACEIT-стиль) */}
             <div style={{display:'flex', alignItems:'center', padding:'8px 16px', marginBottom:8, opacity:0.6, color:THEME.text, fontSize:11, letterSpacing:1, textTransform:'uppercase'}}>
               <div style={{minWidth:48}}>Ранг</div>
