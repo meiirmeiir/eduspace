@@ -2,7 +2,15 @@ import React from "react";
 import { useTheme } from "../../ThemeContext.jsx";
 
 export default function Logo({ size=48, light=false }) {
-  const { theme: THEME } = useTheme();
+  const { theme: THEME, shopTheme } = useTheme();
+  // Sakura в sidebar имеет светло-розовый фон (а не тёмный primary), поэтому
+  // light-onPrimary=#fff там невидим. Хардкодим тёмный для sakura sidebar.
+  // В topbar (тоже light=true) sakura.primary=#831843 тёмный, onPrimary=#fff
+  // читается. Различить sidebar vs topbar по пропу мы не можем — но CSS-правило
+  // .dashboard-sidebar .logo-title (index.css) перебивает inline для sidebar.
+  const isSakura = shopTheme === 'sakura';
+  const titleColor    = light ? (isSakura ? '#4a0020' : (THEME.onPrimary ?? '#fff')) : THEME.primary;
+  const subtitleColor = light ? (isSakura ? '#831843' : (THEME.onPrimary ?? '#fff')) : THEME.accent;
   return (
     <div style={{display:"flex",alignItems:"center",gap:14}}>
       <svg width={size} height={size} viewBox="0 0 100 100" fill="none" style={{flexShrink:0}}>
@@ -16,8 +24,8 @@ export default function Logo({ size=48, light=false }) {
         <circle cx="72" cy="68" r="3.5" fill="#FBBF24"/>
       </svg>
       <div>
-        <div className="logo-title" style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:size*0.6,color:light?(THEME.onPrimary ?? '#fff'):THEME.primary,lineHeight:1,letterSpacing:"1px"}}>AAPA</div>
-        <div className="logo-subtitle" style={{fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:Math.max(size*0.2,9),color:light?(THEME.onPrimary ?? '#fff'):THEME.accent,letterSpacing:"1px",marginTop:4,textTransform:"uppercase"}}>Ad Astra Per Aspera</div>
+        <div className="logo-title" style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:size*0.6,color:titleColor,lineHeight:1,letterSpacing:"1px"}}>AAPA</div>
+        <div className="logo-subtitle" style={{fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:Math.max(size*0.2,9),color:subtitleColor,letterSpacing:"1px",marginTop:4,textTransform:"uppercase"}}>Ad Astra Per Aspera</div>
       </div>
     </div>
   );

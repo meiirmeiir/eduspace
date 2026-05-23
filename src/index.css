@@ -919,14 +919,18 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 
 /* ── Sakura sidebar — сайдбар имеет фон #fff0f5 (светло-розовый),
    дефолтный белый/полупрозрачный текст на нём не читается. Делаем
-   текст глубоким бордовым для контраста. */
+   текст глубоким бордовым для контраста.
+   ВАЖНО: .logo-title/.logo-subtitle scoped к .dashboard-sidebar — иначе
+   правила перебивают inline-color в topbar (#831843 dark), где Logo
+   должен быть светлым. */
 [data-shop-theme="sakura"] .sidebar-brand,
 [data-shop-theme="sakura"] .sidebar-logo,
-[data-shop-theme="sakura"] .logo-title,
 [data-shop-theme="sakura"] .sidebar-user-name,
 [data-shop-theme="sakura"] .sidebar-user-role,
 [data-shop-theme="sakura"] .sidebar-nav-item,
 [data-shop-theme="sakura"] .sidebar-nav-item span { color: #4a0020 !important; }
+[data-shop-theme="sakura"] .dashboard-sidebar .logo-title { color: #4a0020 !important; }
+[data-shop-theme="sakura"] .dashboard-sidebar .logo-subtitle { color: #831843 !important; }
 
 /* ── Профиль с экипированным фоном (.has-bg на .profile-page) ──
    Делаем карточки полупрозрачными, чтобы фон-layer (под zIndex:-1)
@@ -939,6 +943,20 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-shop-theme="galaxy"] .has-bg .dashboard-section { background: rgba(30,27,75,0.82) !important; }
 [data-shop-theme="matrix"] .has-bg .dashboard-section { background: rgba(13,31,13,0.82) !important; }
 [data-shop-theme="fire"]   .has-bg .dashboard-section { background: rgba(45,16,0,0.82) !important; }
+
+/* History-карточки на Profile (.diag-history-item) и detail-rows
+   (.profile-detail) — фон у них белый/светло-серый системный, а
+   inline-цвет текста = THEME.primary/text/textLight (светлые в тёмных
+   shop-темах). Принудительно делаем текст dark-slate, чтобы читалось. */
+[data-shop-theme="galaxy"] .diag-history-item,
+[data-shop-theme="galaxy"] .diag-history-item *,
+[data-shop-theme="galaxy"] .profile-detail,
+[data-shop-theme="matrix"] .diag-history-item,
+[data-shop-theme="matrix"] .diag-history-item *,
+[data-shop-theme="matrix"] .profile-detail,
+[data-shop-theme="fire"]   .diag-history-item,
+[data-shop-theme="fire"]   .diag-history-item *,
+[data-shop-theme="fire"]   .profile-detail { color: #334155 !important; }
 
 /* Растягиваем .profile-page за пределы padding-а .dashboard-main (40/48),
    чтобы фоновый layer покрывал весь main-блок, а не оставлял белую рамку.
