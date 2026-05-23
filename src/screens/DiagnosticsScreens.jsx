@@ -399,8 +399,8 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
     {equippedBg && (
       <div aria-hidden="true" style={{
         position:'fixed', inset:0, zIndex:-1,
-        // Центр темнее (фокус на условие задачи), края — прозрачнее (виден wallpaper).
-        backgroundImage:`radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 50%, transparent 100%), url(${equippedBg.file})`,
+        // Центр светлее (виден wallpaper), края темнее (фокус взгляда внутрь).
+        backgroundImage:`radial-gradient(ellipse at center, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.75) 100%), url(${equippedBg.file})`,
         backgroundSize:'cover', backgroundPosition:'center', pointerEvents:'none',
       }}/>
     )}

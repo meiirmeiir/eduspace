@@ -137,11 +137,18 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
             {(isEditing?editForm.avatarUrl:user?.avatarUrl)
               ? <img src={isEditing?editForm.avatarUrl:user.avatarUrl} alt="avatar"
                   style={{
-                    width:120, height:120, borderRadius:"50%", objectFit:"cover",
-                    border: `3px solid ${THEME.accent}`,
+                    width: isEditing ? 120 : 200,
+                    height: isEditing ? 120 : 200,
+                    borderRadius:"50%", objectFit:"cover",
+                    border: `${isEditing ? 3 : 5}px solid ${THEME.accent}`,
                     ...(frameStyle || {}),
                   }}/>
-              : <div className="profile-avatar" style={{...(frameStyle || {}), width:120, height:120, fontSize:40}}>
+              : <div className="profile-avatar" style={{
+                  ...(frameStyle || {}),
+                  width: isEditing ? 120 : 200,
+                  height: isEditing ? 120 : 200,
+                  fontSize: isEditing ? 40 : 56,
+                }}>
                   {(isEditing?editForm.firstName:user?.firstName)?.[0]}{(isEditing?editForm.lastName:user?.lastName)?.[0]}
                 </div>
             }
