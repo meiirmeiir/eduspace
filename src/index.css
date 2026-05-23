@@ -1100,6 +1100,14 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-shop-theme="fire"]   .page-themed { background: #1a0a00 !important; color: #fed7aa !important; }
 [data-shop-theme="sakura"] .page-themed { background: #fff0f5 !important; color: #831843 !important; }
 
+/* has-bg (wallpaper надет) — page-themed должен быть прозрачным независимо
+   от shop-темы. Селектор с двумя классами + атрибутом (спец. 0,3,0) перебивает
+   shop-theme rules выше (спец. 0,2,0) при равной важности (!important). */
+[data-shop-theme="galaxy"] .page-themed.has-bg,
+[data-shop-theme="matrix"] .page-themed.has-bg,
+[data-shop-theme="fire"]   .page-themed.has-bg,
+[data-shop-theme="sakura"] .page-themed.has-bg { background: transparent !important; }
+
 /* Cards */
 [data-shop-theme="galaxy"] .theme-card { background: #1e1b4b !important; color: #e2e8f0 !important; border-color: #312e81 !important; }
 [data-shop-theme="matrix"] .theme-card { background: #0d1f0d !important; color: #22c55e !important; border-color: #14532d !important; }
