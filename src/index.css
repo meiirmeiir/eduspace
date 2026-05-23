@@ -119,6 +119,29 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-theme="dark"] textarea::placeholder {
   color:#6e7681 !important;
 }
+
+/* Shop-themes inputs — переопределяют [data-theme="dark"] .input-field
+   когда активна shop-тема (специфичность 0,2,0 > 0,1,1 [data-theme] .class). */
+[data-shop-theme="galaxy"] .input-field,
+[data-shop-theme="galaxy"] select.input-field {
+  background:#1a1a2e !important; color:#e2e8f0 !important; color-scheme: dark;
+  border-color:rgba(255,255,255,0.12) !important;
+}
+[data-shop-theme="matrix"] .input-field,
+[data-shop-theme="matrix"] select.input-field {
+  background:#0d1f0d !important; color:#86efac !important; color-scheme: dark;
+  border-color:rgba(34,197,94,0.25) !important;
+}
+[data-shop-theme="fire"] .input-field,
+[data-shop-theme="fire"] select.input-field {
+  background:#2d1000 !important; color:#fed7aa !important; color-scheme: dark;
+  border-color:rgba(254,215,170,0.2) !important;
+}
+[data-shop-theme="sakura"] .input-field,
+[data-shop-theme="sakura"] select.input-field {
+  background:#fff0f5 !important; color:#831843 !important; color-scheme: light;
+  border-color:rgba(131,24,67,0.2) !important;
+}
 /* Buttons that were white-on-light */
 [data-theme="dark"] .conf-btn,
 [data-theme="dark"] .add-btn[disabled],
@@ -964,19 +987,21 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 }
 
 /* LeaderboardScreen — анимированный градиентный фон когда нет wallpaper.
-   5 stop'ов с разными цветами indigo/violet для заметной анимации. */
+   4 stop'а с контрастными цветами navy/violet/blue для заметной анимации.
+   Keyframes ходят по диагонали 0,0 → 100,0 → 100,100 → 0,0. */
 .page-themed.leaderboard-bg {
-  background: linear-gradient(135deg, #0f172a 0%, #312e81 25%, #1e1b4b 50%, #4c1d95 75%, #0f172a 100%) !important;
-  background-size: 400% 400% !important;
-  animation: gradientShift 6s ease infinite !important;
+  background: linear-gradient(135deg, #0f172a 0%, #4c1d95 33%, #1e3a8a 66%, #0f172a 100%) !important;
+  background-size: 300% 300% !important;
+  animation: gradientShift 5s ease infinite !important;
 }
 .page-themed.has-bg {
   background: transparent !important;
 }
 @keyframes gradientShift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0%   { background-position: 0% 0%; }
+  33%  { background-position: 100% 0%; }
+  66%  { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
 }
 
 /* default .theme-row (для leaderboard-bg тёмного градиента) — полупрозрачный
