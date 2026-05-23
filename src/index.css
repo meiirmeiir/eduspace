@@ -1010,11 +1010,20 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 .page-themed.has-bg {
   background: transparent !important;
 }
-/* Wallpaper активен → текст в карточках и заголовках принудительно светлый
-   (read-on-dark-photo). Минимальный набор селекторов — без агрессии на все *. */
-.page-themed.has-bg .theme-row { color: #e2e8f0 !important; }
-.page-themed.has-bg h1 { color: #e2e8f0 !important; }
-.page-themed.has-bg p  { color: rgba(226,232,240,0.7) !important; }
+/* Wallpaper активен → текст принудительно светлый + text-shadow подложка
+   на случай светлых пятен в обоях (anime-city.jpg и т.п.). */
+.page-themed.has-bg .theme-row {
+  color: #e2e8f0 !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.5) !important;
+}
+.page-themed.has-bg h1 {
+  color: #e2e8f0 !important;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.9) !important;
+}
+.page-themed.has-bg p {
+  color: rgba(226,232,240,0.9) !important;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8) !important;
+}
 @keyframes gradientShift {
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }
@@ -1024,19 +1033,19 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 /* default .theme-row — полупрозрачный тёмный фон над gradient ::before. */
 .theme-row { background: rgba(15,23,42,0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 
-/* Через wallpaper: карточки строк — alpha 0.35-0.5 чтобы wallpaper читался
-   как картинка под ними. backdrop-filter убран — blur(8px) превращал
-   wallpaper в кашу даже при низкой alpha. */
+/* Через wallpaper: карточки строк — alpha 0.6-0.75 для надёжного контраста
+   текста на любых пятнах wallpaper. backdrop-filter убран — blur превращал
+   wallpaper в кашу. Тёмная подложка + text-shadow в правилах выше дают
+   читаемость даже на светлых участках обоев типа anime-city. */
 .page-themed.has-bg .theme-row {
-  background: rgba(255,255,255,0.15) !important;
+  background: rgba(0,0,0,0.6) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-[data-theme="dark"] .page-themed.has-bg .theme-row { background: rgba(0,0,0,0.35) !important; }
-[data-shop-theme="galaxy"] .page-themed.has-bg .theme-row { background: rgba(30,27,75,0.4) !important; }
-[data-shop-theme="matrix"] .page-themed.has-bg .theme-row { background: rgba(13,31,13,0.4) !important; }
-[data-shop-theme="fire"]   .page-themed.has-bg .theme-row { background: rgba(45,16,0,0.4) !important; }
-[data-shop-theme="sakura"] .page-themed.has-bg .theme-row { background: rgba(255,240,245,0.5) !important; }
+[data-shop-theme="galaxy"] .page-themed.has-bg .theme-row { background: rgba(15,10,30,0.65) !important; }
+[data-shop-theme="matrix"] .page-themed.has-bg .theme-row { background: rgba(10,15,10,0.65) !important; }
+[data-shop-theme="fire"]   .page-themed.has-bg .theme-row { background: rgba(26,10,0,0.65) !important; }
+[data-shop-theme="sakura"] .page-themed.has-bg .theme-row { background: rgba(255,240,245,0.75) !important; }
 
 /* Hero и stats — slight transparency overrides на wallpaper. */
 .page-themed.has-bg .leaderboard-hero {
