@@ -104,7 +104,7 @@ function getTimeUntilReset() {
 }
 
 export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile }) {
-  const { theme: THEME } = useTheme();
+  const { theme: THEME, shopTheme } = useTheme();
   const [tab, setTab] = useState('all');
   const [allEntries, setAllEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +112,9 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
   const [timeLeft, setTimeLeft] = useState(() => getTimeUntilReset());
   const [prevPoints, setPrevPoints] = useState(null);
   const weekId = getWeekId();
+  // Кастомный wallpaper из equipped.background ученика. Если есть — рисуем
+  // фиксированный слой и помечаем .has-bg чтобы page-themed стала transparent.
+  const equippedBg = user?.equipped?.background ? getShopItem(user.equipped.background) : null;
 
   // Таймер до сброса рейтинга — тик каждую секунду (показываем минуты).
   useEffect(() => {
@@ -205,7 +208,8 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         style={{
           display:'flex', alignItems:'center', gap:0,
           padding:'14px 16px', borderRadius:14, marginBottom:10,
-          background: mine ? 'rgba(212,175,55,0.12)' : THEME.surface,
+          background: mine ? `${THEME.accent}20` : `${THEME.surface}cc`,
+          backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)',
           border: `1px solid ${mine ? THEME.accent : (topBorder || THEME.border)}`,
           boxShadow: topShadow || 'none',
           cursor: clickable ? 'pointer' : 'default',
@@ -270,7 +274,16 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
   };
 
   return (
-    <div className="page-themed" style={{minHeight:'100vh', background:`linear-gradient(180deg, ${THEME.primary}15 0%, ${THEME.bg} 100%)`, paddingBottom:80}}>
+    <div className={`page-themed${equippedBg ? ' has-bg' : ' leaderboard-bg'}`} style={{minHeight:'100vh', paddingBottom:80, ...(equippedBg ? { background:'transparent' } : {})}}>
+      {equippedBg && (
+        <div aria-hidden="true" style={{
+          position:'fixed', inset:0, zIndex:-1,
+          backgroundImage:`url(${equippedBg.file})`,
+          backgroundSize:'cover', backgroundPosition:'center',
+          opacity: shopTheme === 'sakura' ? 0.25 : 0.5,
+          pointerEvents:'none',
+        }}/>
+      )}
       <div style={{background:THEME.primary, padding:'0 24px', display:'flex', alignItems:'center', justifyContent:'space-between', height:64}}>
         <Logo size={32} light/>
         <button onClick={onBack} style={{background:'transparent', border:`1px solid ${THEME.onPrimary ?? 'rgba(255,255,255,0.2)'}33`, color:THEME.onPrimary ?? '#fff', borderRadius:8, padding:'8px 16px', cursor:'pointer', fontSize:13, fontFamily:"'Inter',sans-serif"}}>← Назад</button>
@@ -278,8 +291,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
 
       <div style={{maxWidth:720, margin:'0 auto', padding:'24px 16px'}}>
         <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color:THEME.primary, marginBottom:6}}>🏆 Рейтинг</h1>
-        <p style={{fontSize:13, color:THEME.textLight, marginBottom:6}}>Неделя {weekId} · обновляется в реальном времени</p>
-        <p style={{fontSize:13, color:THEME.textLight, marginBottom:18}}>⏳ До сброса: <b style={{color:THEME.text}}>{timeLeft.days} дн {timeLeft.hours} ч {timeLeft.minutes} мин</b></p>
+        <p style={{fontSize:13, color:THEME.textLight, marginBottom:18}}>Неделя {weekId} · обновляется в реальном времени</p>
 
         <div style={{display:'flex', gap:6, marginBottom:18, flexWrap:'wrap'}}>
           {TABS.map(t => (
@@ -291,6 +303,23 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
               border: `1px solid ${tab===t.id ? THEME.primary : THEME.border}`,
             }}>{t.icon} {t.label}</button>
           ))}
+        </div>
+
+        {/* Hero-блок с приглашением + таймер до сброса */}
+        <div style={{
+          background:`linear-gradient(135deg, ${THEME.primary}40, ${THEME.accent}20)`,
+          borderRadius:20, padding:'24px', marginBottom:24,
+          border:`1px solid ${THEME.accent}30`,
+          backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)',
+          textAlign:'center',
+        }}>
+          <div style={{fontSize:48, lineHeight:1}}>🏆</div>
+          <div style={{fontFamily:"'Montserrat',sans-serif", fontSize:14, color:THEME.textLight, marginTop:8}}>
+            Соревнуйся с лучшими учениками платформы
+          </div>
+          <div style={{fontSize:13, color:THEME.textLight, marginTop:8}}>
+            ⏳ До сброса: <b style={{color:THEME.text}}>{timeLeft.days} дн {timeLeft.hours} ч {timeLeft.minutes} мин</b>
+          </div>
         </div>
 
         {loading && <div style={{textAlign:'center', color:THEME.textLight, padding:'40px 0'}}>Загрузка...</div>}
@@ -326,15 +355,16 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
                 const clickable = !!onOpenPublicProfile;
                 return (
                   <div onClick={() => clickable && onOpenPublicProfile(entry.uid)} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', cursor: clickable?'pointer':'default'}}>
+                    {rank === 1 && <div style={{fontSize:20, marginBottom:4, letterSpacing:4}}>✨⭐✨</div>}
                     <div style={{fontSize:28, marginBottom:6}}>{medal}</div>
                     {entry.avatarUrl
-                      ? <img src={entry.avatarUrl} alt="" style={{width:avSize, height:avSize, borderRadius:'50%', objectFit:'cover', border:`3px solid ${accent}`, ...(frameStyle || {})}}/>
-                      : <div style={{width:avSize, height:avSize, borderRadius:'50%', background:'linear-gradient(135deg,#6366f1,#a78bfa)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:rank===1?22:18, border:`3px solid ${accent}`, ...(frameStyle || {})}}>{initials}</div>
+                      ? <img src={entry.avatarUrl} alt="" style={{width:avSize, height:avSize, borderRadius:'50%', objectFit:'cover', border:`3px solid ${accent}`, boxShadow:`0 0 20px ${accent}66`, ...(frameStyle || {})}}/>
+                      : <div style={{width:avSize, height:avSize, borderRadius:'50%', background:'linear-gradient(135deg,#6366f1,#a78bfa)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:rank===1?22:18, border:`3px solid ${accent}`, boxShadow:`0 0 20px ${accent}66`, ...(frameStyle || {})}}>{initials}</div>
                     }
                     <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:rank===1?16:14, color:THEME.text, marginTop:8, textAlign:'center'}}>{initials}{isMine?' (вы)':''}</div>
                     <div style={{fontWeight:700, fontSize:14, color:accent, marginTop:2}}>{entry.points.toLocaleString('ru-RU')} очк.</div>
-                    {/* пьедестал-подножие */}
-                    <div style={{width:'100%', height, background:`linear-gradient(180deg, ${accent}30, ${accent}10)`, borderRadius:'12px 12px 0 0', border:`1px solid ${accent}`, marginTop:8, display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:8, fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:24, color:accent}}>#{rank}</div>
+                    {/* пьедестал-подножие — насыщенный градиент */}
+                    <div style={{width:'100%', height, background:`linear-gradient(180deg, ${accent}, ${accent}55)`, borderRadius:'12px 12px 0 0', border:`1px solid ${accent}`, marginTop:8, display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:8, fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:24, color:'#fff', textShadow:`0 2px 4px rgba(0,0,0,0.4)`}}>#{rank}</div>
                   </div>
                 );
               };

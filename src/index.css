@@ -963,6 +963,21 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   .profile-info-grid { grid-template-columns: 1fr !important; }
 }
 
+/* LeaderboardScreen — анимированный градиентный фон когда нет wallpaper. */
+.page-themed.leaderboard-bg {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease infinite;
+}
+.page-themed.has-bg {
+  background: transparent !important;
+}
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 /* Тёмные shop-темы перебивают .has-bg-белый фон карточек — иначе светлый
    THEME.text (e2e8f0 / fed7aa / etc.) теряется на white-translucent. */
 [data-shop-theme="galaxy"] .has-bg .dashboard-section { background: rgba(30,27,75,0.82) !important; }
