@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useTheme } from "../ThemeContext.jsx";
-import { getWeekId } from "../lib/pointsUtils.js";
+import { getWeekId, getLeague } from "../lib/pointsUtils.js";
 import { getToken } from 'firebase/app-check';
 import { auth, app } from "../lib/firebase.js";
 import Logo from "../components/ui/Logo.jsx";
@@ -148,8 +148,13 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
     const frameStyle = e.equippedFrame ? (FRAME_STYLES[e.equippedFrame] || null) : null;
     const titleItem = e.equippedTitle ? getShopItem(e.equippedTitle) : null;
     const titleText = titleItem?.value || '';
+    const league = getLeague(e.points).current;
+    const avatarSize = rank <= 3 ? 48 : 32;
     const clickable = !!onOpenPublicProfile;
     const handleOpen = () => clickable && onOpenPublicProfile(e.uid);
+    // FACEIT-стиль выделение топ-3: золотой/серебряный/бронзовый glow + border.
+    const topBorder = rank === 1 ? '#fbbf24' : rank === 2 ? '#94a3b8' : rank === 3 ? '#b45309' : null;
+    const topShadow = rank === 1 ? '0 2px 12px rgba(212,175,55,0.3)' : rank === 2 ? '0 2px 8px rgba(148,163,184,0.3)' : rank === 3 ? '0 2px 8px rgba(180,83,9,0.3)' : null;
     return (
       <div
         key={`${e.uid}_${rank}`}
@@ -161,14 +166,15 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         style={{
           display:'flex', alignItems:'center', gap:12,
           padding:'10px 14px', borderRadius:12,
-          background: mine ? 'rgba(212,175,55,0.12)' : '#fff',
-          border: `1px solid ${mine ? THEME.accent : THEME.border}`,
+          background: mine ? 'rgba(212,175,55,0.12)' : THEME.surface,
+          border: `1px solid ${mine ? THEME.accent : (topBorder || THEME.border)}`,
+          boxShadow: topShadow || 'none',
           marginBottom:8,
           cursor: clickable ? 'pointer' : 'default',
           transition: 'transform 0.1s, box-shadow 0.15s',
         }}
-        onMouseEnter={clickable ? (ev) => { ev.currentTarget.style.boxShadow = '0 4px 14px rgba(15,23,42,0.08)'; } : undefined}
-        onMouseLeave={clickable ? (ev) => { ev.currentTarget.style.boxShadow = ''; } : undefined}
+        onMouseEnter={clickable ? (ev) => { ev.currentTarget.style.boxShadow = topShadow || '0 4px 14px rgba(15,23,42,0.08)'; } : undefined}
+        onMouseLeave={clickable ? (ev) => { ev.currentTarget.style.boxShadow = topShadow || ''; } : undefined}
       >
         <div style={{
           minWidth:36, textAlign:'center', fontWeight:800, fontSize:medal?22:14,
@@ -176,18 +182,24 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
           fontFamily:"'Montserrat',sans-serif",
         }}>{medal || `#${rank}`}</div>
 
-        {/* Аватар 32×32 — фото или круглый chip с инициалами «АК», с CSS-рамкой */}
+        {/* Лига (Бронза/Серебро/Золото/Алмаз) — иконка лиги по сумме очков */}
+        <div style={{minWidth:36, textAlign:'center', fontSize:18}} title={league.name}>
+          {league.icon}
+        </div>
+
+        {/* Аватар: 48×48 для топ-3, иначе 32×32. Фото или fallback с инициалами. */}
         {e.avatarUrl
           ? <img src={e.avatarUrl} alt="" style={{
-              width:32, height:32, borderRadius:'50%', objectFit:'cover',
+              width:avatarSize, height:avatarSize, borderRadius:'50%', objectFit:'cover',
               border: `2px solid ${THEME.accent}`, flexShrink:0,
               ...(frameStyle || {}),
             }}/>
           : <div style={{
-              width:32, height:32, borderRadius:'50%', flexShrink:0,
+              width:avatarSize, height:avatarSize, borderRadius:'50%', flexShrink:0,
               background:'linear-gradient(135deg, #6366f1, #a78bfa)',
               color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-              fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12,
+              fontFamily:"'Montserrat',sans-serif", fontWeight:800,
+              fontSize: rank<=3 ? 16 : 12,
               border: `2px solid ${THEME.accent}`,
               ...(frameStyle || {}),
             }}>{initials}</div>
@@ -219,7 +231,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
   };
 
   return (
-    <div className="page-themed" style={{minHeight:'100vh', background:THEME.bg, paddingBottom:80}}>
+    <div className="page-themed" style={{minHeight:'100vh', background:`linear-gradient(180deg, ${THEME.primary}15 0%, ${THEME.bg} 100%)`, paddingBottom:80}}>
       <div style={{background:THEME.primary, padding:'0 24px', display:'flex', alignItems:'center', justifyContent:'space-between', height:64}}>
         <Logo size={32} light/>
         <button onClick={onBack} style={{background:'transparent', border:`1px solid ${THEME.onPrimary ?? 'rgba(255,255,255,0.2)'}33`, color:THEME.onPrimary ?? '#fff', borderRadius:8, padding:'8px 16px', cursor:'pointer', fontSize:13, fontFamily:"'Inter',sans-serif"}}>← Назад</button>
@@ -254,6 +266,14 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
 
         {!loading && !err && top.length > 0 && (
           <div>
+            {/* Заголовочная строка таблицы (FACEIT-стиль) */}
+            <div style={{display:'flex', alignItems:'center', gap:12, padding:'6px 14px', marginBottom:4, opacity:0.6, color:THEME.text}}>
+              <div style={{minWidth:36, fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5}}>Место</div>
+              <div style={{minWidth:36, fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5}}>Лига</div>
+              <div style={{width:36, fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5}}>Игрок</div>
+              <div style={{flex:1, fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5}}>Имя</div>
+              <div style={{fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5}}>Очки</div>
+            </div>
             {top.map((e, i) => renderRow(e, i))}
             {!myInTop && myEntry && (
               <>
