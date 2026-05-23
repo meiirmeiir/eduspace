@@ -851,7 +851,7 @@ function AppInner() {
         .type-badge.type-multiple{background:rgba(16,185,129,0.1);color:#065f46;}
         .type-badge.type-matching{background:rgba(245,158,11,0.1);color:#92400e;}
         .question-text{font-family:'Montserrat',sans-serif;font-size:26px;font-weight:800;line-height:1.4;margin-bottom:40px;color:${THEME.primary};}
-        .options-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:32px;}
+        .options-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:24px;background:${THEME.surface}dd;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.3);padding:20px 24px;}
         .option-card{display:flex;align-items:center;padding:18px 22px;background:${THEME.surface};border:1px solid ${THEME.border};border-radius:12px;cursor:pointer;transition:all 0.2s;color:${THEME.text};}
         .option-card:hover:not(.disabled){border-color:${THEME.primary};background:${THEME.bg};}
         .option-card.selected{border-color:${THEME.primary};background:${THEME.bg};border-width:2px;}
@@ -860,7 +860,7 @@ function AppInner() {
         .option-card.disabled{opacity:0.5;pointer-events:none;}
         .option-letter{width:36px;height:36px;background:${THEME.bg};border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;margin-right:20px;flex-shrink:0;}
         .option-content{font-size:16px;font-weight:600;flex:1;}
-        .confidence-section{background:${THEME.surface};border:1px solid ${THEME.border};padding:28px;border-radius:16px;margin-bottom:24px;color:${THEME.text};}
+        .confidence-section{background:${THEME.surface}dd;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid ${THEME.border};padding:28px;border-radius:16px;margin-bottom:24px;color:${THEME.text};box-shadow:0 4px 24px rgba(0,0,0,0.3);}
         .confidence-grid{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
         .conf-btn{flex:1;padding:12px 8px;border:1px solid ${THEME.border};border-radius:10px;background:${THEME.surface};color:${THEME.text};cursor:pointer;font-weight:600;font-family:'Inter',sans-serif;min-width:100px;}
         .report-container{max-width:760px;margin:40px auto;padding:0 20px 40px;}

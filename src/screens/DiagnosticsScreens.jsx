@@ -399,9 +399,9 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
     {equippedBg && (
       <div aria-hidden="true" style={{
         position:'fixed', inset:0, zIndex:-1,
-        // Вертикальная тёмная полоса по центру (под боксами вопроса/вариантов)
-        // для читаемости; левый и правый края прозрачны — wallpaper виден.
-        backgroundImage:`linear-gradient(to right, transparent 0%, rgba(0,0,0,0.65) 25%, rgba(0,0,0,0.75) 50%, rgba(0,0,0,0.65) 75%, transparent 100%), url(${equippedBg.file})`,
+        // Чистый wallpaper, без градиента — читаемость обеспечивается
+        // полупрозрачными карточками вопроса/вариантов/уверенности.
+        backgroundImage:`url(${equippedBg.file})`,
         backgroundSize:'cover', backgroundPosition:'center', pointerEvents:'none',
       }}/>
     )}
@@ -419,9 +419,15 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
       <div className="question-meta" style={{justifyContent:"flex-end"}}>
         <span style={{color:THEME.textLight,fontSize:14}}>{adaptiveMode?`Вопрос ${qNum}`:`Вопрос ${qNum} из ${total}`}</span>
       </div>
-      <h2 className="question-text">{question.latex?<LatexText text={resolvedQ.text}/>:<MathText text={resolvedQ.text}/>}</h2>
-      {resolvedQ.image&&<div style={{margin:"12px 0 16px"}}><img src={resolvedQ.image} alt="question" onClick={()=>setLightboxSrc(resolvedQ.image)} style={{maxWidth:"100%",maxHeight:400,borderRadius:12,border:`1px solid ${THEME.border}`,cursor:"zoom-in",display:"block",objectFit:"contain"}}/></div>}
-      {resolvedQ.conditionChart&&<div style={{margin:"8px 0 20px",display:"flex",justifyContent:"center",background:THEME.surface,borderRadius:12,padding:"14px 10px",border:`1px solid ${THEME.border}`,overflowX:"auto"}}><ChartRenderer chart={resolvedQ.conditionChart} vars={resolvedQ._vars||{}}/></div>}
+      <div style={{
+        background:`${THEME.surface}dd`, backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)',
+        borderRadius:16, boxShadow:'0 4px 24px rgba(0,0,0,0.3)',
+        padding:'24px 28px', marginBottom:24,
+      }}>
+        <h2 className="question-text" style={{marginBottom:0}}>{question.latex?<LatexText text={resolvedQ.text}/>:<MathText text={resolvedQ.text}/>}</h2>
+        {resolvedQ.image&&<div style={{margin:"12px 0 0"}}><img src={resolvedQ.image} alt="question" onClick={()=>setLightboxSrc(resolvedQ.image)} style={{maxWidth:"100%",maxHeight:400,borderRadius:12,border:`1px solid ${THEME.border}`,cursor:"zoom-in",display:"block",objectFit:"contain"}}/></div>}
+        {resolvedQ.conditionChart&&<div style={{margin:"12px 0 0",display:"flex",justifyContent:"center",background:THEME.surface,borderRadius:12,padding:"14px 10px",border:`1px solid ${THEME.border}`,overflowX:"auto"}}><ChartRenderer chart={resolvedQ.conditionChart} vars={resolvedQ._vars||{}}/></div>}
+      </div>
 
       {/* ── MCQ (includes resolved generated) ── */}
       {qType==="mcq" && (
