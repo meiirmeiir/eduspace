@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useTheme } from '../ThemeContext.jsx';
-import { getLeague } from '../lib/pointsUtils.js';
+import { getLeague, getWeekId } from '../lib/pointsUtils.js';
 import { FRAME_STYLES, getShopItem } from '../lib/shopItems.js';
 import AppTopbar from '../components/AppTopbar.jsx';
 import { getToken } from 'firebase/app-check';
@@ -49,6 +49,7 @@ export default function PublicProfileScreen({ uid, onBack }) {
   const [medals, setMedals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+  const [history, setHistory] = useState(null); // null = loading; [] = пусто; [{weekId, points}]
 
   useEffect(() => {
     if (!uid) return;
@@ -108,6 +109,47 @@ export default function PublicProfileScreen({ uid, onBack }) {
 
     return () => { cancelled = true; };
   }, [uid]);
+
+  // Загрузка истории рейтинга — последние 5 недель.
+  // Для каждой недели grab leaderboard/{weekId}/entries/{uid}. 404 → 0 очков.
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const H = await _headers();
+        const weekIds = Array.from({length:5}, (_,i) => getWeekId(new Date(Date.now() - i*7*86400000))).reverse();
+        const results = await Promise.all(weekIds.map(async wid => {
+          try {
+            const r = await fetch(`${BASE()}/leaderboard/${wid}/entries/${encodeURIComponent(uid)}?key=${KEY()}`, { headers: H });
+            if (!r.ok) return { weekId: wid, points: 0 };
+            const doc = fromFsDoc(await r.json());
+            return { weekId: wid, points: Number(doc.points || 0) };
+          } catch { return { weekId: wid, points: 0 }; }
+        }));
+        if (!cancelled) setHistory(results);
+      } catch {
+        if (!cancelled) setHistory([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [uid]);
+
+  // Стабильность: 100% − (std/avg)*100. Категории по диапазонам.
+  const stability = useMemo(() => {
+    if (!history || history.length === 0) return null;
+    const pts = history.map(h => h.points);
+    const avg = pts.reduce((a,b) => a+b, 0) / pts.length;
+    if (avg === 0) return null; // нет очков ни за одну неделю
+    const std = Math.sqrt(pts.map(p => (p-avg)**2).reduce((a,b) => a+b, 0) / pts.length);
+    const pct = Math.max(0, Math.min(100, Math.round(100 - (std/avg)*100)));
+    let label, emoji, color;
+    if (pct >= 90)      { label='Железная стабильность'; emoji='🔒'; color='#10b981'; }
+    else if (pct >= 70) { label='Стабильный игрок';      emoji='✅'; color='#3b82f6'; }
+    else if (pct >= 50) { label='Непостоянный';          emoji='⚡'; color='#f59e0b'; }
+    else                { label='Нестабильный';          emoji='❌'; color='#ef4444'; }
+    return { pct, label, emoji, color };
+  }, [history]);
 
   // ── Derived ──
   const equipped     = profile?.equipped || {};
@@ -230,6 +272,55 @@ export default function PublicProfileScreen({ uid, onBack }) {
           </div>
           <div style={{ fontSize:32 }}>📖</div>
         </div>
+
+        {/* История рейтинга — последние 5 недель + индекс стабильности */}
+        {history && history.length > 0 && (() => {
+          const W = 720, H = 120;
+          const padL = 36, padR = 20, padT = 22, padB = 32;
+          const chartW = W - padL - padR;
+          const chartH = H - padT - padB;
+          const pts = history.map(h => h.points);
+          const maxPts = Math.max(1, ...pts);
+          const xOf = i => padL + (history.length === 1 ? chartW/2 : (i * chartW / (history.length - 1)));
+          const yOf = p => padT + chartH - (p / maxPts) * chartH;
+          const path = history.map((h, i) => `${i === 0 ? 'M' : 'L'} ${xOf(i)},${yOf(h.points)}`).join(' ');
+          const leagueColor = league.current.color;
+          return (
+            <div className="dashboard-section" style={{ padding:'18px 22px', marginBottom:18 }}>
+              <div className="section-title" style={{ fontFamily:"'Montserrat',sans-serif", fontSize:15, fontWeight:800, color:THEME.primary, marginBottom:14 }}>
+                📈 История рейтинга
+              </div>
+              <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display:'block', overflow:'visible' }} preserveAspectRatio="none">
+                <text x={padL-8} y={yOf(0)+4} fontSize="10" fill={THEME.textLight} textAnchor="end">0</text>
+                <text x={padL-8} y={yOf(maxPts)+4} fontSize="10" fill={THEME.textLight} textAnchor="end">{maxPts}</text>
+                <line x1={padL} y1={yOf(0)} x2={W-padR} y2={yOf(0)} stroke={THEME.border} strokeWidth="1"/>
+                <path d={path} fill="none" stroke={leagueColor} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+                {history.map((h, i) => (
+                  <g key={h.weekId}>
+                    <circle cx={xOf(i)} cy={yOf(h.points)} r="5" fill={THEME.surface} stroke={leagueColor} strokeWidth="2.5"/>
+                    <text x={xOf(i)} y={yOf(h.points)-10} fontSize="11" fill={THEME.text} fontWeight="700" textAnchor="middle">{h.points}</text>
+                    <text x={xOf(i)} y={H-10} fontSize="10" fill={THEME.textLight} textAnchor="middle">Нед. {h.weekId.split('-W')[1] || '?'}</text>
+                  </g>
+                ))}
+              </svg>
+              {stability && (
+                <>
+                  <div style={{ marginTop:14, fontSize:13, color:THEME.text }}>
+                    📊 Стабильность: <b style={{color: stability.color}}>{stability.pct}%</b> — {stability.label} {stability.emoji}
+                  </div>
+                  <div style={{ height:6, background:THEME.bg, borderRadius:99, overflow:'hidden', marginTop:8, border:`1px solid ${THEME.border}` }}>
+                    <div style={{ width:`${stability.pct}%`, height:'100%', background:stability.color, transition:'width 0.4s' }}/>
+                  </div>
+                </>
+              )}
+              {!stability && (
+                <div style={{ marginTop:14, fontSize:13, color:THEME.textLight, fontStyle:'italic' }}>
+                  Недостаточно данных для оценки стабильности.
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Медали */}
         <div className="dashboard-section" style={{ padding:'18px 22px' }}>
