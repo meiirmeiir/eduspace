@@ -381,12 +381,15 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
       <button
         key={c.v}
         className={`conf-btn confidence-btn ${isActive?"active selected":""}`}
-        style={isActive?{borderColor:c.color,background:c.color+"10",color:c.color}:{}}
+        style={isActive
+          ? {borderColor:c.color, background:c.color+"22", color:c.color}
+          : {background:THEME.surface, color:THEME.text, borderColor:THEME.border}
+        }
         onClick={()=>setConf(c)}
       >
         <span className="confidence-emoji">{CONF_EMOJI[c.v]}</span>
-        <span className="confidence-short">{CONF_SHORT[c.v]}</span>
-        <span className="confidence-label">{c.label}</span>
+        <span className="confidence-short" style={{color: isActive ? c.color : THEME.textLight}}>{CONF_SHORT[c.v]}</span>
+        <span className="confidence-label" style={{color: isActive ? c.color : THEME.text}}>{c.label}</span>
       </button>
     );
   };
@@ -396,7 +399,8 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
     {equippedBg && (
       <div aria-hidden="true" style={{
         position:'fixed', inset:0, zIndex:-1,
-        backgroundImage:`radial-gradient(ellipse at center, transparent 20%, rgba(0,0,0,0.65) 100%), url(${equippedBg.file})`,
+        // Центр темнее (фокус на условие задачи), края — прозрачнее (виден wallpaper).
+        backgroundImage:`radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 50%, transparent 100%), url(${equippedBg.file})`,
         backgroundSize:'cover', backgroundPosition:'center', pointerEvents:'none',
       }}/>
     )}

@@ -860,9 +860,9 @@ function AppInner() {
         .option-card.disabled{opacity:0.5;pointer-events:none;}
         .option-letter{width:36px;height:36px;background:${THEME.bg};border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;margin-right:20px;flex-shrink:0;}
         .option-content{font-size:16px;font-weight:600;flex:1;}
-        .confidence-section{background:#fff;border:1px solid ${THEME.border};padding:28px;border-radius:16px;margin-bottom:24px;}
+        .confidence-section{background:${THEME.surface};border:1px solid ${THEME.border};padding:28px;border-radius:16px;margin-bottom:24px;color:${THEME.text};}
         .confidence-grid{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
-        .conf-btn{flex:1;padding:12px 8px;border:1px solid ${THEME.border};border-radius:10px;background:#fff;cursor:pointer;font-weight:600;font-family:'Inter',sans-serif;min-width:100px;}
+        .conf-btn{flex:1;padding:12px 8px;border:1px solid ${THEME.border};border-radius:10px;background:${THEME.surface};color:${THEME.text};cursor:pointer;font-weight:600;font-family:'Inter',sans-serif;min-width:100px;}
         .report-container{max-width:760px;margin:40px auto;padding:0 20px 40px;}
         .report-header-card{background:#fff;padding:32px;border-radius:16px;border:1px solid ${THEME.border};margin-bottom:32px;}
         .report-hero-compact{display:flex;align-items:center;gap:24px;}

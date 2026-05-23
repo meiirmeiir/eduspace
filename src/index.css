@@ -797,7 +797,9 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
     padding:6px 2px !important;
     border-radius:16px !important;
     font-size:24px !important;
-    background:var(--bg-card, #ffffff) !important;
+    /* background теперь приходит из inline-style renderConfBtn (THEME.surface)
+       — fallback transparent чтобы родительский .confidence-section просвечивал. */
+    background:transparent !important;
     border:1.5px solid var(--border, rgba(0,0,0,0.1)) !important;
     cursor:pointer !important;
     transition:transform 0.1s, border-color 0.15s, background 0.15s !important;
