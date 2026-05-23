@@ -1010,6 +1010,11 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 .page-themed.has-bg {
   background: transparent !important;
 }
+/* Wallpaper активен → текст в карточках и заголовках принудительно светлый
+   (read-on-dark-photo). Минимальный набор селекторов — без агрессии на все *. */
+.page-themed.has-bg .theme-row { color: #e2e8f0 !important; }
+.page-themed.has-bg h1 { color: #e2e8f0 !important; }
+.page-themed.has-bg p  { color: rgba(226,232,240,0.7) !important; }
 @keyframes gradientShift {
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }
