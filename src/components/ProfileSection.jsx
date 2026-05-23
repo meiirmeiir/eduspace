@@ -214,7 +214,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
               <>
                 <div className="profile-info-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 12px', width:'100%'}}>
                   {/* Левый столбец: имя, титул, статус, цель — с отступом от аватара */}
-                  <div style={{paddingLeft:16}}>
+                  <div style={{paddingLeft:32}}>
                     <div className="profile-name" style={{marginBottom:6, fontSize:22}}>{user?.firstName} {user?.lastName}</div>
                     {titleItem && (
                       <div style={{
@@ -238,10 +238,18 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                     <div className="profile-date">📅 Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
                   </div>
                 </div>
-                {/* Кнопки под обоими столбцами, по центру */}
-                <div style={{display:'flex', gap:12, marginTop:16, justifyContent:'center', flexWrap:'wrap'}}>
-                  <button onClick={()=>setIsEditing(true)} style={{background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.text, borderRadius:8, padding:'8px 18px', fontWeight:600, fontSize:13, cursor:'pointer'}}>✏️ Редактировать профиль</button>
-                  <ChangePasswordInline />
+                {/* Кнопки под обоими столбцами, по центру. Обе обёрнуты в
+                    одинаковые контейнеры minWidth:160 для симметрии. */}
+                <div style={{display:'flex', gap:12, marginTop:16, justifyContent:'center', flexWrap:'wrap', alignItems:'center'}}>
+                  <button onClick={()=>setIsEditing(true)} style={{
+                    padding:'10px 20px', fontSize:13, fontWeight:600,
+                    borderRadius:10, border:`1px solid ${THEME.border}`,
+                    background:'transparent', color:THEME.text,
+                    cursor:'pointer', whiteSpace:'nowrap', minWidth:160,
+                  }}>✏️ Редактировать профиль</button>
+                  <div style={{minWidth:160}}>
+                    <ChangePasswordInline />
+                  </div>
                 </div>
                 <label style={{display:'flex', alignItems:'center', gap:10, marginTop:16, fontSize:13, color:THEME.textLight, cursor:'pointer'}}>
                   <input type="checkbox" checked={npcOn} onChange={e=>{setNpcOn(e.target.checked);setNpcEnabled(uid,e.target.checked);}} style={{width:16,height:16,cursor:'pointer'}}/>

@@ -45,10 +45,15 @@ export default function ChangePasswordInline() {
   };
 
   return (
-    <div style={{marginTop:8}}>
+    <div>
       {!open ? (
         <button onClick={()=>setOpen(true)} data-tour="change-password"
-          style={{background:'transparent',border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:'6px 16px',fontWeight:600,fontSize:12,cursor:'pointer',marginTop:4}}>
+          style={{
+            padding:'10px 20px', fontSize:13, fontWeight:600,
+            borderRadius:10, border:`1px solid ${THEME.border}`,
+            background:'transparent', color:THEME.text,
+            cursor:'pointer', whiteSpace:'nowrap', width:'100%',
+          }}>
           🔑 Сменить пароль
         </button>
       ) : (
