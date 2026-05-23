@@ -137,11 +137,11 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
             {(isEditing?editForm.avatarUrl:user?.avatarUrl)
               ? <img src={isEditing?editForm.avatarUrl:user.avatarUrl} alt="avatar"
                   style={{
-                    width:72, height:72, borderRadius:"50%", objectFit:"cover",
+                    width:96, height:96, borderRadius:"50%", objectFit:"cover",
                     border: `3px solid ${THEME.accent}`,
                     ...(frameStyle || {}),
                   }}/>
-              : <div className="profile-avatar" style={frameStyle || undefined}>
+              : <div className="profile-avatar" style={{...(frameStyle || {}), width:96, height:96, fontSize:32}}>
                   {(isEditing?editForm.firstName:user?.firstName)?.[0]}{(isEditing?editForm.lastName:user?.lastName)?.[0]}
                 </div>
             }
@@ -201,38 +201,47 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                   <button onClick={()=>{setIsEditing(false);setEditForm({firstName:user?.firstName||"",lastName:user?.lastName||"",goalKey:user?.goalKey||"",details:user?.details||"",region:user?.region||"",avatarUrl:user?.avatarUrl||""});}} style={{background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"8px 16px",fontWeight:600,fontSize:13,cursor:"pointer"}}>Отмена</button>
                 </div>
               </div>
-            ):(
+            ):(() => {
+              const titleItem = user?.equipped?.title ? getShopItem(user.equipped.title) : null;
+              return (
               <>
-                <div className="profile-name">{user?.firstName} {user?.lastName}</div>
-                {(() => {
-                  const t = user?.equipped?.title ? getShopItem(user.equipped.title) : null;
-                  if (!t) return null;
-                  return (
-                    <div style={{
-                      display:'inline-block', marginBottom:6,
-                      background:'linear-gradient(135deg, #1e1b4b, #312e81)',
-                      color:'#d4af37', fontFamily:"'Montserrat',sans-serif", fontWeight:700,
-                      fontSize:12, padding:'4px 12px', borderRadius:99,
-                      border:'1px solid rgba(212,175,55,0.3)',
-                    }}>🏆 {t.value}</div>
-                  );
-                })()}
-                <div className="profile-phone">{user?.phone}</div>
-                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:10}}>
-                  <span style={{display:"inline-block",background:statusObj.color,color:"#fff",fontWeight:700,fontSize:12,padding:"4px 14px",borderRadius:99,border:`1px solid ${statusObj.color}`}}>{statusObj.label}</span>
-                  <span style={{display:"inline-block",background:"transparent",color:THEME.textLight,fontWeight:600,fontSize:12,padding:"4px 12px",borderRadius:6,border:`1px solid ${THEME.border}`}}>{user?.goal}</span>
+                <div className="profile-info-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 24px', width:'100%'}}>
+                  {/* Левый столбец: имя, титул, статус, цель */}
+                  <div>
+                    <div className="profile-name" style={{marginBottom:6}}>{user?.firstName} {user?.lastName}</div>
+                    {titleItem && (
+                      <div style={{
+                        display:'inline-block', marginBottom:8,
+                        background:'linear-gradient(135deg, #1e1b4b, #312e81)',
+                        color:'#d4af37', fontFamily:"'Montserrat',sans-serif", fontWeight:700,
+                        fontSize:12, padding:'4px 12px', borderRadius:99,
+                        border:'1px solid rgba(212,175,55,0.3)',
+                      }}>🏆 {titleItem.value}</div>
+                    )}
+                    <div className="profile-phone" style={{marginBottom:8}}>{user?.phone}</div>
+                    <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                      <span style={{display:'inline-block', background:statusObj.color, color:'#fff', fontWeight:700, fontSize:12, padding:'4px 14px', borderRadius:99, border:`1px solid ${statusObj.color}`}}>{statusObj.label}</span>
+                      {user?.goal && <span style={{display:'inline-block', background:'transparent', color:THEME.textLight, fontWeight:600, fontSize:12, padding:'4px 12px', borderRadius:6, border:`1px solid ${THEME.border}`}}>{user.goal}</span>}
+                    </div>
+                  </div>
+                  {/* Правый столбец: класс, область, дата, кнопки */}
+                  <div>
+                    {user?.details && <div className="profile-detail" style={{marginBottom:6}}>📚 {user.details}</div>}
+                    {user?.region && <div className="profile-detail" style={{marginBottom:6}}>📍 {user.region}</div>}
+                    <div className="profile-date" style={{marginBottom:12}}>📅 Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
+                    <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
+                      <button onClick={()=>setIsEditing(true)} style={{background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.textLight, borderRadius:8, padding:'6px 14px', fontWeight:600, fontSize:12, cursor:'pointer'}}>✏️ Редактировать</button>
+                      <ChangePasswordInline />
+                    </div>
+                  </div>
                 </div>
-                <div className="profile-detail">{user?.details}</div>
-                {user?.region&&<div className="profile-detail">📍 {user.region}</div>}
-                <div className="profile-date">Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
-                <button onClick={()=>setIsEditing(true)} style={{marginTop:10,background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"6px 16px",fontWeight:600,fontSize:12,cursor:"pointer"}}>✏️ Редактировать профиль</button>
-                <ChangePasswordInline />
-                <label style={{display:"flex",alignItems:"center",gap:10,marginTop:12,fontSize:13,color:THEME.textLight,cursor:"pointer"}}>
-                  <input type="checkbox" checked={npcOn} onChange={e=>{setNpcOn(e.target.checked);setNpcEnabled(uid,e.target.checked);}} style={{width:16,height:16,cursor:"pointer"}}/>
+                <label style={{display:'flex', alignItems:'center', gap:10, marginTop:16, fontSize:13, color:THEME.textLight, cursor:'pointer'}}>
+                  <input type="checkbox" checked={npcOn} onChange={e=>{setNpcOn(e.target.checked);setNpcEnabled(uid,e.target.checked);}} style={{width:16,height:16,cursor:'pointer'}}/>
                   Показывать подсказки помощника
                 </label>
               </>
-            )}
+              );
+            })()}
           </div>
         </div>
       </div>

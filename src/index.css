@@ -955,6 +955,12 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-shop-theme="sakura"] .dashboard-layout.has-bg .dashboard-section { background: rgba(255,240,245,0.90) !important; }
 [data-shop-theme="sakura"] .dashboard-layout.has-bg .dashboard-sidebar { background: rgba(255,240,245,0.95) !important; }
 
+/* Profile header — двухколоночный grid справа от аватарки. На узких
+   экранах схлопывается в одну колонку. */
+@media (max-width: 480px) {
+  .profile-info-grid { grid-template-columns: 1fr !important; }
+}
+
 /* Тёмные shop-темы перебивают .has-bg-белый фон карточек — иначе светлый
    THEME.text (e2e8f0 / fed7aa / etc.) теряется на white-translucent. */
 [data-shop-theme="galaxy"] .has-bg .dashboard-section { background: rgba(30,27,75,0.82) !important; }
