@@ -952,7 +952,8 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-shop-theme="galaxy"] .dashboard-layout.has-bg .dashboard-section { background: rgba(30,27,75,0.85) !important; }
 [data-shop-theme="matrix"] .dashboard-layout.has-bg .dashboard-section { background: rgba(13,31,13,0.85) !important; }
 [data-shop-theme="fire"]   .dashboard-layout.has-bg .dashboard-section { background: rgba(45,16,0,0.85) !important; }
-[data-shop-theme="sakura"] .dashboard-layout.has-bg .dashboard-section { background: rgba(252,231,243,0.85) !important; }
+[data-shop-theme="sakura"] .dashboard-layout.has-bg .dashboard-section { background: rgba(255,240,245,0.90) !important; }
+[data-shop-theme="sakura"] .dashboard-layout.has-bg .dashboard-sidebar { background: rgba(255,240,245,0.95) !important; }
 
 /* Тёмные shop-темы перебивают .has-bg-белый фон карточек — иначе светлый
    THEME.text (e2e8f0 / fed7aa / etc.) теряется на white-translucent. */

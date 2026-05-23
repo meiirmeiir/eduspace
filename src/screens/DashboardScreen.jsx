@@ -28,7 +28,7 @@ function pluralize(n, [one, few, many]) {
 export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onOpenShop, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
   const { startTourIfNew, showNpcMessage } = useNpc();
   const { profile } = useAuth();
-  const { theme: THEME } = useTheme();
+  const { theme: THEME, shopTheme } = useTheme();
   /* If App passes activeSection/setActiveSection — use them (allows
      external navigation, e.g. mobile bottom-nav). Otherwise fall back
      to local state for backwards compatibility. */
@@ -374,7 +374,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
         position:'fixed', inset:0, zIndex:-1,
         backgroundImage:`url(${equippedBg.file})`,
         backgroundSize:'cover', backgroundPosition:'center',
-        opacity:0.5, pointerEvents:'none',
+        // sakura — светлая тема, тёмный wallpaper заглушает розовое UI.
+        // Снижаем opacity до 0.25, чтобы текст карточек оставался читаемым.
+        opacity: shopTheme === 'sakura' ? 0.25 : 0.5, pointerEvents:'none',
       }}/>
     )}
     <div className={`dashboard-layout${equippedBg ? ' has-bg' : ''}`}>
