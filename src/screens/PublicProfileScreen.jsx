@@ -9,6 +9,8 @@ import { useTheme } from '../ThemeContext.jsx';
 import { getLeague, getWeekId } from '../lib/pointsUtils.js';
 import { FRAME_STYLES, getShopItem } from '../lib/shopItems.js';
 import AppTopbar from '../components/AppTopbar.jsx';
+import Medal from '../components/Medal.jsx';
+import Medal3DModal from '../components/Medal3DModal.jsx';
 import { getToken } from 'firebase/app-check';
 import { auth, app } from '../lib/firebase.js';
 
@@ -47,6 +49,7 @@ export default function PublicProfileScreen({ uid, onBack }) {
   const [profile, setProfile] = useState(null);
   const [masteredCount, setMasteredCount] = useState(null);
   const [medals, setMedals] = useState([]);
+  const [selectedMedal, setSelectedMedal] = useState(null); // открытая 3D-модалка
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [history, setHistory] = useState(null); // null = loading; [] = пусто; [{weekId, points}]
@@ -329,27 +332,31 @@ export default function PublicProfileScreen({ uid, onBack }) {
           </div>
           {medals.length === 0
             ? <div style={{ color:THEME.textLight, fontSize:13 }}>Пока без медалей. Попади в топ-10 рейтинга недели.</div>
-            : <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-                {medals.slice(0, 12).map(m => {
-                  const icon = m.type === 'gold' ? '🥇' : m.type === 'silver' ? '🥈' : '🥉';
-                  const catLabel = m.category === 'global' ? 'Мир' : m.category === 'grade' ? 'Класс' : 'Область';
-                  return (
-                    <div key={m.id} title={`${m.weekId} · ${catLabel} · #${m.position}`} style={{
-                      display:'flex', alignItems:'center', gap:6,
-                      background:'rgba(212,175,55,0.08)', border:'1px solid rgba(212,175,55,0.3)',
-                      borderRadius:10, padding:'6px 10px', fontSize:12, fontWeight:600, color:THEME.primary,
-                    }}>
-                      <span style={{ fontSize:16 }}>{icon}</span>
-                      <span>{catLabel} #{m.position}</span>
-                    </div>
-                  );
-                })}
+            : <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(84px, 1fr))', gap:12 }}>
+                {medals.slice(0, 12).map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelectedMedal(m)}
+                    title="Открыть 3D"
+                    style={{
+                      display:'flex', justifyContent:'center', alignItems:'center',
+                      background:'transparent', border:'none', padding:6, borderRadius:12,
+                      cursor:'pointer', transition:'transform 0.15s, background 0.15s',
+                    }}
+                    onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.background='rgba(212,175,55,0.08)'; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.transform=''; e.currentTarget.style.background='transparent'; }}
+                  >
+                    <Medal type={m.type} category={m.category} weekId={m.weekId} position={m.position} size={72} />
+                  </button>
+                ))}
                 {medals.length > 12 && (
-                  <div style={{ fontSize:12, color:THEME.textLight, padding:'6px 10px' }}>+{medals.length - 12}</div>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color:THEME.textLight }}>+{medals.length - 12}</div>
                 )}
               </div>
           }
         </div>
+
+        {selectedMedal && <Medal3DModal medal={selectedMedal} onClose={() => setSelectedMedal(null)} />}
       </div>
     </div>
   );
