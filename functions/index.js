@@ -98,6 +98,57 @@ function rankEntries(entries) {
   return [...entries].sort((a, b) => (b.points || 0) - (a.points || 0));
 }
 
+// ── Достижения ──────────────────────────────────────────────────────────────
+// Пороги ДУБЛИРУЮТСЯ из src/lib/achievements.js (functions — отдельный пакет,
+// не импортирует src/). При изменении — синхронизировать.
+const ACH = {
+  scholar:  { tiers: ['bronze', 'silver', 'gold'], crystals: [25, 75, 150], thresholds: [1, 5, 15] },
+  streak:   { tiers: ['bronze', 'silver', 'gold'], crystals: [25, 75, 150], thresholds: [3, 14, 30] },
+  accuracy: { tiers: ['bronze', 'silver', 'gold'], crystals: [25, 75, 150], thresholds: [70, 80, 90] },
+  wealth:   { tiers: ['bronze', 'silver', 'gold'], crystals: [25, 75, 150], thresholds: [100, 500, 2000] },
+  ranking:  { tiers: ['bronze', 'silver', 'gold'], crystals: [25, 75, 150] }, // пороги = перцентиль (в awardWeeklyMedals)
+};
+const CREATOR_UID = 'TQR8qCK1qdPRWX5AvrugemGxw6G3';
+
+// Строит кандидатов всех уровней threshold-достижения, где value >= порога.
+function leveledCandidates(achievementId, value) {
+  const def = ACH[achievementId];
+  const out = [];
+  def.thresholds.forEach((th, i) => {
+    if (value >= th) out.push({ achievementId, level: i + 1, tier: def.tiers[i], crystals: def.crystals[i] });
+  });
+  return out;
+}
+
+// Идемпотентная выдача: проверяет существование, пишет ОДНИМ батчем только
+// новые достижения + инкремент crystals + arrayUnion pendingAchievements.
+// Не выдаёт повторно (повторный триггер → fresh пуст → no-op → рекурсия сходится).
+async function commitAchievements(uid, candidates) {
+  if (!uid || !candidates || !candidates.length) return;
+  const userRef = db.collection('users').doc(uid);
+  const achCol = userRef.collection('achievements');
+  const snaps = await Promise.all(candidates.map(c => achCol.doc(`${c.achievementId}_${c.level}`).get()));
+  const fresh = candidates.filter((_, i) => !snaps[i].exists);
+  if (!fresh.length) return;
+
+  const batch = db.batch();
+  const awardedAt = new Date().toISOString();
+  const keys = [];
+  let crystalsTotal = 0;
+  for (const c of fresh) {
+    batch.set(achCol.doc(`${c.achievementId}_${c.level}`), {
+      achievementId: c.achievementId, level: c.level, tier: c.tier, crystals: c.crystals, awardedAt,
+    }, { merge: true });
+    keys.push(`${c.achievementId}_${c.level}`);
+    crystalsTotal += Number(c.crystals) || 0;
+  }
+  const userUpdate = { pendingAchievements: FieldValue.arrayUnion(...keys) };
+  if (crystalsTotal > 0) userUpdate.crystals = FieldValue.increment(crystalsTotal);
+  batch.set(userRef, userUpdate, { merge: true });
+  await batch.commit();
+  logger.info('achievements awarded', { uid, keys, crystalsTotal });
+}
+
 // ── Cloud Function: зеркало публичных полей профиля ────────────────────────
 // users/{uid} → publicProfiles/{uid}. Только публичные поля, чтобы клиент
 // мог открыть чужой профиль с разрешением `read: if isSignedIn()` без утечки
@@ -127,6 +178,85 @@ exports.mirrorUserToPublicProfile = onDocumentWritten(
       updatedAt:   new Date().toISOString(),
     };
     await ref.set(publicData, { merge: true });
+  }
+);
+
+// ── Достижения по освоению навыков: scholar (1/5/15) + master (весь план) ────
+exports.onSkillMasteryWrite = onDocumentWritten(
+  { document: 'skillMastery/{uid}', region: 'us-central1', memory: '256MiB' },
+  async (event) => {
+    const uid = event.params.uid;
+    const after = event.data?.after;
+    if (!after?.exists) return;
+    const skills = after.data()?.skills || {};
+    const masteredIds = Object.entries(skills)
+      .filter(([, s]) => Number(s?.stagesCompleted || 0) >= 3)
+      .map(([id]) => id);
+
+    const candidates = leveledCandidates('scholar', masteredIds.length);
+
+    // master: все навыки из individualPlans/{uid}.modules[].skills_list[] освоены
+    try {
+      const planSnap = await db.collection('individualPlans').doc(uid).get();
+      if (planSnap.exists) {
+        const modules = planSnap.data()?.modules || [];
+        const planSkillIds = [...new Set(modules.flatMap(m => (m && m.skills_list) || []))];
+        if (planSkillIds.length > 0) {
+          const masteredSet = new Set(masteredIds);
+          if (planSkillIds.every(id => masteredSet.has(id))) {
+            candidates.push({ achievementId: 'master', level: 1, tier: 'exclusive', crystals: 300 });
+          }
+        }
+      }
+    } catch (e) { logger.error('master check failed', { uid, err: String(e) }); }
+
+    await commitAchievements(uid, candidates);
+  }
+);
+
+// ── Достижения по полям users: streak, wealth, accuracy, creator ─────────────
+// ВНИМАНИЕ: commitAchievements пишет в users (crystals/pendingAchievements) →
+// этот триггер сработает повторно; идемпотентность гасит рекурсию (fresh пуст).
+exports.onUserWrite = onDocumentWritten(
+  { document: 'users/{uid}', region: 'us-central1', memory: '256MiB' },
+  async (event) => {
+    const uid = event.params.uid;
+    const after = event.data?.after;
+    if (!after?.exists) return;
+    const d = after.data() || {};
+    const candidates = [];
+
+    candidates.push(...leveledCandidates('streak', Number(d.streak || 0)));
+    candidates.push(...leveledCandidates('wealth', Number(d.crystals || 0)));
+
+    // accuracy — только при полном окне (>=50 ответов)
+    const ra = Array.isArray(d.recentAnswers) ? d.recentAnswers : [];
+    if (ra.length >= 50) {
+      const window = ra.slice(-50);
+      const pct = Math.round((window.filter(Boolean).length / window.length) * 100);
+      candidates.push(...leveledCandidates('accuracy', pct));
+    }
+
+    if (uid === CREATOR_UID) {
+      candidates.push({ achievementId: 'creator', level: 1, tier: 'exclusive', crystals: 0 });
+    }
+
+    await commitAchievements(uid, candidates);
+  }
+);
+
+// ── Достижение oracle: диагностика с результатом 90%+ ────────────────────────
+exports.onDiagnosticWrite = onDocumentWritten(
+  { document: 'diagnosticResults/{docId}', region: 'us-central1', memory: '256MiB' },
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) return;
+    const d = after.data() || {};
+    const uid = d.userId;
+    if (!uid) return;
+    if (Number(d.score || 0) >= 90) {
+      await commitAchievements(uid, [{ achievementId: 'oracle', level: 1, tier: 'exclusive', crystals: 300 }]);
+    }
   }
 );
 
@@ -220,6 +350,31 @@ exports.awardWeeklyMedals = onSchedule(
       } catch (e) {
         logger.error('topOneCount update failed', { uid: globalTopUid, err: String(e) });
       }
+    }
+
+    // ── Достижения рейтинга: champion (#1), ranking (топ 50/25/10%), legend ──
+    try {
+      const total = globalRanked.length;
+      const top50 = Math.max(1, Math.ceil(total * 0.50));
+      const top25 = Math.max(1, Math.ceil(total * 0.25));
+      const top10 = Math.max(1, Math.ceil(total * 0.10));
+      const achPromises = [];
+      globalRanked.forEach((e, i) => {
+        const pos = i + 1;
+        const c = [];
+        if (pos <= top50) c.push({ achievementId: 'ranking', level: 1, tier: 'bronze', crystals: 25 });
+        if (pos <= top25) c.push({ achievementId: 'ranking', level: 2, tier: 'silver', crystals: 75 });
+        if (pos <= top10) c.push({ achievementId: 'ranking', level: 3, tier: 'gold', crystals: 150 });
+        if (pos === 1)    c.push({ achievementId: 'champion', level: 1, tier: 'exclusive', crystals: 300 });
+        if (c.length) achPromises.push(commitAchievements(e.uid, c));
+      });
+      await Promise.all(achPromises);
+      // legend — глобальный топ-1 с 3+ победами всего
+      if (topOneAlert && topOneAlert.newCount >= 3) {
+        await commitAchievements(topOneAlert.uid, [{ achievementId: 'legend', level: 1, tier: 'exclusive', crystals: 300 }]);
+      }
+    } catch (e) {
+      logger.error('ranking achievements failed', { weekId, err: String(e) });
     }
 
     logger.info('awardWeeklyMedals done', {

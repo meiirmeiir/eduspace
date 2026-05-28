@@ -32,6 +32,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const [streak,   setStreak]   = useState(0); // consecutive correct answers (for NPC encouragement)
   const questionStartRef = useRef(0);
   const streak3AwardedRef = useRef(false);
+  const sessionAnswersRef = useRef([]); // bool на каждый ответ сессии → recentAnswers батчем
 
   const shuf = arr => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
 
@@ -114,6 +115,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     setChosen(optIdx);
     setRevealed(true);
     const isCorrect = current.task.correct === optIdx;
+    sessionAnswersRef.current.push(isCorrect); // для recentAnswers (accuracy-достижение)
     if (isCorrect) {
       setCorrect(p => new Set([...p, current.skillId]));
       setLastWrongWasDanger(false);
@@ -200,6 +202,15 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       const userRef  = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
       const data     = userSnap.exists() ? userSnap.data() : {};
+
+      // recentAnswers — батч за сессию (для accuracy-достижения), последние 50 (FIFO).
+      const sessionAns = sessionAnswersRef.current;
+      if (sessionAns.length) {
+        const merged = [...(Array.isArray(data.recentAnswers) ? data.recentAnswers : []), ...sessionAns].slice(-50);
+        try { await updateDoc(userRef, { recentAnswers: merged }); }
+        catch (e) { console.error('recentAnswers update:', e); }
+        sessionAnswersRef.current = [];
+      }
       const today     = getAlmatyDateStr(0);
       const yesterday = getAlmatyDateStr(-1);
       const lastActive    = data.lastActiveDate;

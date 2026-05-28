@@ -64,6 +64,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Достижения (субколлекция users/{uid}/achievements/{achId}) ──────────
+    // Пишет только Cloud Functions (awardAchievement, Admin SDK обходит rules).
+    // Читают — все залогиненные (достижения видны в профиле).
+    match /users/{userId}/achievements/{achId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
     // ── Настройки — только admin ──────────────────────────────────────────────
     match /settings/{docId} {
       allow read, write: if isAdmin();
