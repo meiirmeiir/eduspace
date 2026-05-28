@@ -6,6 +6,7 @@ import { auth, app } from "../lib/firebase.js";
 import Logo from "../components/ui/Logo.jsx";
 import { FRAME_STYLES, getShopItem } from "../lib/shopItems.js";
 import { getLevelInfo } from "../lib/levelUtils.js";
+import Podium3D from "../components/Podium3D.jsx";
 
 const PROJECT = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
 const KEY     = () => import.meta.env.VITE_FIREBASE_API_KEY;
@@ -374,8 +375,11 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
               {myEntry && filtered.length > 0 && <div>📊 Топ <b style={{color: forceLightText || !equippedBg ? '#e2e8f0' : lt}}>{Math.max(1, Math.ceil((myRank / filtered.length) * 100))}%</b></div>}
             </div>
 
-            {/* Блок 3 — Подиум топ-3 (показывается даже если 1-2 чел.; пустые слоты — пробел) */}
-            {(() => {
+            {/* Блок 3 — 3D-подиум топ-3 (фолбэк на CSS-подиум при сбое Three.js) */}
+            <Podium3D
+              top3={top.slice(0, 3)}
+              onOpenPublicProfile={onOpenPublicProfile}
+              fallbackRender={() => {
               const renderPodium = (entry, rank, height) => {
                 if (!entry) return <div style={{flex:1, height, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end'}}><div style={{width:'100%', height:height*0.4, background:THEME.surface, borderRadius:'12px 12px 0 0', border:`1px dashed ${THEME.border}`, opacity:0.4}}/></div>;
                 const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
@@ -407,7 +411,8 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
                   {renderPodium(top[2], 3, 60)}
                 </div>
               );
-            })()}
+              }}
+            />
 
             {/* Блок 2 — карточка «Твоя позиция» */}
             {myEntry && (() => {
