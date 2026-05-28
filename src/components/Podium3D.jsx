@@ -10,8 +10,18 @@ import { FRAME_STYLES } from '../lib/shopItems.js';
 // через камеру (camera.project) → аватары «приклеены» к качающимся тумбам.
 // Клик по аватару → onOpenPublicProfile. При сбое Three.js → fallbackRender().
 
-const ACCENT_HEX = ['#fbbf24', '#94a3b8', '#b45309'];   // rank 1/2/3
-const ACCENT_NUM = [0xfbbf24, 0x94a3b8, 0xb45309];
+const ACCENT_HEX = ['#fbbf24', '#94a3b8', '#b45309'];   // rank 1/2/3 — для CSS-аватаров/подписей
+const METAL_NUM = [0xd4af37, 0x94a3b8, 0xb45309];        // 3D-металл: глубокое золото / серебро / бронза
+const ROYAL_ACCENT = 0x4c1d95;                           // пурпурный королевский акцент (рамка плашки + врезка)
+// Ярусы постамента: доли высоты slot.h (сумма = 1) + ширина footprint (мир).
+const TIERS = [
+  { wf: 2.05, hf: 0.14, accent: false },                 // основание (нижняя плита)
+  { wf: 1.85, hf: 0.10, accent: false },                 // ступень/фаска
+  { wf: 1.55, hf: 0.58, accent: false, column: true },   // основной столб
+  { wf: 1.72, hf: 0.04, accent: true },                  // пурпурная врезка
+  { wf: 1.95, hf: 0.14, accent: false },                 // карниз (выступ под аватаром)
+];
+const COLUMN_WF = 1.55;
 const SLOTS = [{ x: 0, h: 2.2 }, { x: -2.4, h: 1.5 }, { x: 2.4, h: 1.0 }]; // #1 центр, #2 лево, #3 право
 const H = 360;
 const SWAY_AMP = 0.26;    // ~15° в радианах
@@ -55,7 +65,7 @@ function makeEnvCube(THREE) {
     const c = document.createElement('canvas'); c.width = c.height = S;
     const ctx = c.getContext('2d');
     const g = ctx.createLinearGradient(0, 0, 0, S);
-    g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, '#c8cdd6'); g.addColorStop(1, '#2b3340');
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, '#dfe6f2'); g.addColorStop(1, '#3a4658'); // ярче медали
     ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
     faces.push(c);
   }
@@ -75,6 +85,39 @@ function makeAuraCanvas() {
   g.addColorStop(1, 'rgba(251,191,36,0)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
   return c;
+}
+
+// 2D-shape скруглённого прямоугольника (footprint яруса).
+function roundedRectShape(THREE, w, d, r) {
+  const hw = w / 2, hd = d / 2;
+  const s = new THREE.Shape();
+  s.moveTo(-hw + r, -hd);
+  s.lineTo(hw - r, -hd);
+  s.quadraticCurveTo(hw, -hd, hw, -hd + r);
+  s.lineTo(hw, hd - r);
+  s.quadraticCurveTo(hw, hd, hw - r, hd);
+  s.lineTo(-hw + r, hd);
+  s.quadraticCurveTo(-hw, hd, -hw, hd - r);
+  s.lineTo(-hw, -hd + r);
+  s.quadraticCurveTo(-hw, -hd, -hw + r, -hd);
+  return s;
+}
+
+// Вертикальный ярус постамента с фасками: ExtrudeGeometry скруглённого
+// прямоугольника + bevel, выдавливание вдоль Y, низ на y=0. bevel/r клампятся
+// под тонкие ярусы (врезка), чтобы depth не ушёл в минус.
+function makeTierGeo(THREE, w, d, h, opts = {}) {
+  const bevel = Math.min(opts.bevel ?? 0.04, h * 0.3, w * 0.08, d * 0.08);
+  const r = Math.max(0.01, Math.min(opts.r ?? 0.1, w / 2 - bevel - 0.02, d / 2 - bevel - 0.02));
+  const shape = roundedRectShape(THREE, w, d, r);
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: Math.max(0.005, h - bevel * 2),
+    bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, steps: 1, curveSegments: 8,
+  });
+  geo.rotateX(-Math.PI / 2);          // ось выдавливания Z → вертикаль Y
+  geo.computeBoundingBox();
+  geo.translate(0, -geo.boundingBox.min.y, 0); // низ яруса на y=0
+  return geo;
 }
 
 export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRender }) {
@@ -140,33 +183,57 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
       const ground = new THREE.Mesh(groundGeo, groundMat); ground.receiveShadow = true;
       scene.add(ground); geos.push(groundGeo); mats.push(groundMat);
 
-      // ── Тумбы ────────────────────────────────────────────────────────────────
+      // ── Постаменты (многоуровневые «королевские» пьедесталы) ─────────────────
+      const bevelOpts = { r: 0.1, bevel: 0.04 };
       top3.forEach((entry, i) => {
         if (!entry || i > 2) return;
         const slot = SLOTS[i];
 
-        const boxGeo = new THREE.BoxGeometry(1.7, slot.h, 1.7);
+        // Глубокий металл (золото/серебро/бронза) + пурпурный акцент.
         const metalMat = new THREE.MeshStandardMaterial({
-          color: ACCENT_NUM[i], metalness: 0.9, roughness: 0.2,
-          envMap: envCube, envMapIntensity: 1.0,
+          color: METAL_NUM[i], metalness: 0.95, roughness: 0.15,
+          envMap: envCube, envMapIntensity: 1.6,
+          emissive: METAL_NUM[i], emissiveIntensity: 0.12,
         });
+        const accentMat = new THREE.MeshStandardMaterial({
+          color: ROYAL_ACCENT, metalness: 0.6, roughness: 0.35,
+          envMap: envCube, envMapIntensity: 0.8,
+          emissive: ROYAL_ACCENT, emissiveIntensity: 0.1,
+        });
+        mats.push(metalMat, accentMat);
+
+        // Стопка ярусов снизу вверх; верх карниза = slot.h (сумма hf = 1).
+        let cum = 0, columnBottom = 0, columnH = 0;
+        TIERS.forEach((t) => {
+          const h = t.hf * slot.h;
+          const geo = makeTierGeo(THREE, t.wf, t.wf, h, bevelOpts);
+          const mesh = new THREE.Mesh(geo, t.accent ? accentMat : metalMat);
+          mesh.position.set(slot.x, cum, 0);
+          mesh.castShadow = true; mesh.receiveShadow = true;
+          group.add(mesh); geos.push(geo);
+          if (t.column) { columnBottom = cum; columnH = h; }
+          cum += h;
+        });
+
+        // Гравированная плашка номера на передней грани столба: металл + bumpMap,
+        // боковые грани — пурпурная рамка.
+        const pw = 0.9, ph = Math.max(0.3, columnH * 0.5), pd = 0.1;
+        const plaqueGeo = new THREE.BoxGeometry(pw, ph, pd);
         const numBump = new THREE.CanvasTexture(makeNumberBumpCanvas(i + 1));
         const numMat = new THREE.MeshStandardMaterial({
-          color: ACCENT_NUM[i], metalness: 0.9, roughness: 0.2,
-          envMap: envCube, envMapIntensity: 1.0,
-          bumpMap: numBump, bumpScale: 0.06,
+          color: METAL_NUM[i], metalness: 0.95, roughness: 0.15,
+          envMap: envCube, envMapIntensity: 1.6, bumpMap: numBump, bumpScale: 0.06,
         });
-        texs.push(numBump);
+        texs.push(numBump); mats.push(numMat);
         // BoxGeometry материалы: [+X,-X,+Y,-Y,+Z,-Z] → передняя грань = +Z = index 4
-        const box = new THREE.Mesh(boxGeo, [metalMat, metalMat, metalMat, metalMat, numMat, metalMat]);
-        box.position.set(slot.x, slot.h / 2, 0);
-        box.castShadow = true; box.receiveShadow = true;
-        group.add(box);
-        geos.push(boxGeo); mats.push(metalMat, numMat);
+        const plaque = new THREE.Mesh(plaqueGeo, [accentMat, accentMat, accentMat, accentMat, numMat, accentMat]);
+        plaque.position.set(slot.x, columnBottom + columnH / 2, COLUMN_WF / 2 + pd / 2 + 0.01);
+        plaque.castShadow = true;
+        group.add(plaque); geos.push(plaqueGeo);
 
-        // Якорь верха тумбы — для проекции экранной позиции аватара (с учётом sway).
+        // Якорь верха карниза — проекция экранной позиции аватара (с учётом sway).
         const anchor = new THREE.Object3D();
-        anchor.position.set(slot.x, slot.h + 0.2, 0);
+        anchor.position.set(slot.x, slot.h + 0.18, 0);
         group.add(anchor);
         anchors.push({ i, anchor });
       });
