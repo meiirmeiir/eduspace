@@ -5,6 +5,7 @@ import { useTheme } from "../ThemeContext.jsx";
 import { getAlmatyDateStr, SRS_INTERVALS } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
 import { addCrystals } from "../lib/crystalsUtils.js";
+import { updateQuestProgress } from "../lib/questsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
@@ -124,6 +125,10 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       const elapsed = questionStartRef.current ? Date.now() - questionStartRef.current : Infinity;
       addPoints(user.uid, 'daily_correct', user);
       addCrystals(user.uid, 1, 'daily_correct');
+      // Квесты: счётчики верных ответов (день/неделя) + «зашёл и решил» (target 1).
+      updateQuestProgress(user.uid, 'daily_correct', 1, user);
+      updateQuestProgress(user.uid, 'weekly_correct', 1, user);
+      updateQuestProgress(user.uid, 'login_answer', 1, user);
       if (elapsed < 10000) addPoints(user.uid, 'fast_answer', user);
       if (nextStreak === 3 && !streak3AwardedRef.current) {
         streak3AwardedRef.current = true;
@@ -204,6 +209,8 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       if (newStreak !== currentStreak || lastActive !== today) {
         await updateDoc(userRef, { streak: newStreak, lastActiveDate: today });
       }
+      // Квест «7 дней подряд»: прогресс = текущий стрик (set, не инкремент).
+      updateQuestProgress(user.uid, 'streak_7', Math.min(newStreak, 7), user, 'set');
       // day_streak_7: один раз навсегда при первом достижении 7 дней подряд.
       // Общий флаг bonusesAwarded.streak7 покрывает и +200 очков, и +50 кристаллов.
       const awarded7 = data?.bonusesAwarded?.streak7 === true;

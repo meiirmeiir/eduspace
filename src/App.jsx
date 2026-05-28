@@ -50,6 +50,7 @@ import PublicProfileScreen from "./screens/PublicProfileScreen.jsx";
 import ShopScreen from "./screens/ShopScreen.jsx";
 import { addPoints } from "./lib/pointsUtils.js";
 import { addCrystals } from "./lib/crystalsUtils.js";
+import { initDailyQuests, initWeeklyQuests } from "./lib/questsUtils.js";
 import { getShopItem } from "./lib/shopItems.js";
 
 
@@ -392,6 +393,28 @@ function AppInner() {
       const completedToday=hasMastered&&!hasDueToday&&mastered.some(ms=>ms?.lastReviewedAt===today);
       setMasteryStatus({hasMastered,masteredCount,hasDueToday,completedToday});
     }).catch(()=>{});
+  },[firebaseUser?.uid]);
+
+  // Инициализация квестов при логине: сброс dailyQuests при смене дня (UTC+5) и
+  // weeklyQuests при смене недели. Читаем свежий doc, чтобы решение о сбросе не
+  // зависело от устаревшего localStorage, затем мёрджим в user-стейт.
+  useEffect(()=>{
+    const uid=firebaseUser?.uid; if(!uid) return;
+    (async()=>{
+      try{
+        const snap=await getDoc(doc(db,"users",uid));
+        const data=snap.exists()?snap.data():{};
+        const base={...(user||{}),dailyQuests:data.dailyQuests,weeklyQuests:data.weeklyQuests};
+        let u=await initDailyQuests(uid,base);
+        u=await initWeeklyQuests(uid,u);
+        setUser(prev=>{
+          const next={...(prev||{}),dailyQuests:u.dailyQuests,weeklyQuests:u.weeklyQuests};
+          try{localStorage.setItem("aapa_user",JSON.stringify(next));}catch{}
+          return next;
+        });
+      }catch(e){console.warn("init quests:",e);}
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[firebaseUser?.uid]);
 
   // Попытка открыть Daily — если ни одного освоенного навыка нет, открываем

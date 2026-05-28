@@ -10,6 +10,7 @@ import { getMyWeeklyRank, getLeague } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
+import QuestsWidget from "../components/QuestsWidget.jsx";
 import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
@@ -718,6 +719,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                 </div>
               );
             })()}
+
+            {/* Задания дня/недели — для учеников. */}
+            {!isTeacher && <QuestsWidget user={user} onUpdateUser={onUpdateUser} />}
 
             {/* Блок 2: прогресс по индивидуальному плану. Скрыт для teacher/admin. */}
             {!isTeacher && (

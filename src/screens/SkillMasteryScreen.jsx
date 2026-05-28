@@ -4,6 +4,7 @@ import { useTheme } from "../ThemeContext.jsx";
 import { isStageUnlocked, getAlmatyDateStr, SRS_INTERVALS, getAlmatyNextMidnightAfter, fmtCountdown } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
 import { addCrystals } from "../lib/crystalsUtils.js";
+import { updateQuestProgress } from "../lib/questsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import { useNpc } from "../NpcContext.jsx";
@@ -83,6 +84,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
     setSaving(true);
     try {
       const newCompleted = Math.max(mastery.stagesCompleted, completedStage);
+      const stageAdvanced = newCompleted > mastery.stagesCompleted; // завершён новый этап
       const now_ = new Date().toISOString();
       const skillUpdate = { stagesCompleted: newCompleted, currentStage: Math.min(newCompleted+1,3), lastStageCompletedAt: now_, updatedAt: now_ };
       // When fully mastered, schedule first SRS review (tomorrow Almaty)
@@ -94,9 +96,13 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
       }
       await setDoc(doc(db,'skillMastery',user.uid), { skills: { [skillId]: skillUpdate } }, { merge: true });
       setMastery({ stagesCompleted: newCompleted, currentStage: Math.min(newCompleted+1,3), lastStageCompletedAt: now_, pointsAwarded: mastery.pointsAwarded || firstMastery });
+      // Квест «Пройди этап навыка» — на каждый вновь завершённый этап (1/2/3).
+      if (stageAdvanced) updateQuestProgress(user.uid, 'skill_stage', 1, user);
       if (firstMastery) {
         addPoints(user.uid, 'skill_mastered', user);
         addCrystals(user.uid, 10, 'skill_mastered');
+        // Квест «Освой 3 навыка за неделю» — на полное освоение навыка.
+        updateQuestProgress(user.uid, 'weekly_mastered', 1, user);
       }
     } catch(e) { console.error(e); }
     setSaving(false);
