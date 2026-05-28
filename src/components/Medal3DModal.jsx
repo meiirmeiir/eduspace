@@ -3,7 +3,6 @@ import { loadThree } from '../lib/loadThree.js';
 import Medal from './Medal.jsx';
 
 const TYPE_COLOR = { gold: 0xfbbf24, silver: 0x94a3b8, bronze: 0xb45309 };
-const TYPE_HEX   = { gold: '#fbbf24', silver: '#94a3b8', bronze: '#b45309' };
 const TYPE_EMOJI = { gold: '🥇', silver: '🥈', bronze: '🥉' };
 const CAT_EMOJI  = { global: '🌍', grade: '📚', region: '📍' };
 const CAT_LABEL  = { global: 'Глобальный рейтинг', grade: 'Рейтинг класса', region: 'Рейтинг области' };
@@ -12,6 +11,76 @@ const SIZE = 300;
 function parseWeekId(weekId) {
   const m = /^(\d{4})-W(\d{1,2})$/.exec(weekId || '');
   return m ? { year: Number(m[1]), weekNum: Number(m[2]) } : { year: 0, weekNum: 0 };
+}
+
+// Весь канвас → grayscale (яркость = высота для bumpMap).
+function luminancePass(ctx, S) {
+  const img = ctx.getImageData(0, 0, S, S);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const l = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+    d[i] = d[i + 1] = d[i + 2] = l; d[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// Лицевой bump-канвас: нейтральный фон + канавка у края + приподнятый бортик +
+// концентрические кольца + символ категории в центре → всё в luminance.
+function makeFaceBumpCanvas(category) {
+  const S = 512;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  const cx = S / 2, cy = S / 2;
+  ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, S, S); // высота 0
+  // вдавленная канавка у самого края
+  ctx.lineWidth = S * 0.03; ctx.strokeStyle = '#3a3a3a';
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.46, 0, Math.PI * 2); ctx.stroke();
+  // приподнятый внешний бортик (имитация фаски)
+  ctx.lineWidth = S * 0.05; ctx.strokeStyle = '#d4d4d4';
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.42, 0, Math.PI * 2); ctx.stroke();
+  // тонкие концентрические кольца — чеканка
+  ctx.lineWidth = Math.max(1, S * 0.006);
+  [0.36, 0.32, 0.28].forEach((r, i) => {
+    ctx.strokeStyle = i % 2 ? '#9a9a9a' : '#c0c0c0';
+    ctx.beginPath(); ctx.arc(cx, cy, S * r, 0, Math.PI * 2); ctx.stroke();
+  });
+  // символ категории в центре
+  ctx.font = `${Math.round(S * 0.42)}px serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(CAT_EMOJI[category] || CAT_EMOJI.global, cx, cy + S * 0.02);
+  luminancePass(ctx, S);
+  return c;
+}
+
+// Боковой bump-канвас: вертикальные полосы → радиальные рёбра (reeded edge).
+function makeSideBumpCanvas() {
+  const W = 1024, H = 16;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  const stripes = 120;
+  for (let i = 0; i < stripes; i++) {
+    ctx.fillStyle = (i % 2 === 0) ? '#ffffff' : '#404040';
+    ctx.fillRect(Math.round(i * W / stripes), 0, Math.ceil(W / stripes), H);
+  }
+  return c;
+}
+
+// Простой процедурный env-куб (6 граней с вертикальным градиентом) — даёт
+// металлу отражения/блеск без внешних ассетов.
+function makeEnvCube(THREE) {
+  const faces = [];
+  for (let i = 0; i < 6; i++) {
+    const S = 64;
+    const c = document.createElement('canvas'); c.width = c.height = S;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 0, S);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, '#c8cdd6'); g.addColorStop(1, '#2b3340');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+    faces.push(c);
+  }
+  const tex = new THREE.CubeTexture(faces);
+  tex.needsUpdate = true;
+  return tex;
 }
 
 export default function Medal3DModal({ medal, onClose }) {
@@ -23,7 +92,7 @@ export default function Medal3DModal({ medal, onClose }) {
   const { year, weekNum } = parseWeekId(medal?.weekId);
 
   useEffect(() => {
-    let renderer, scene, camera, mesh, geometry, faceTexture, frameId;
+    let renderer, scene, camera, mesh, geometry, faceBump, sideBump, envCube, frameId;
     let mats = [];
     let cancelled = false;
     const mount = mountRef.current;
@@ -51,31 +120,33 @@ export default function Medal3DModal({ medal, onClose }) {
       camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
       camera.position.set(0, 0, 4);
 
-      // Текстура лицевой грани: фон цвета уровня + эмодзи категории.
-      const canvas = document.createElement('canvas');
-      canvas.width = canvas.height = 256;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = TYPE_HEX[type] || TYPE_HEX.gold;
-      ctx.fillRect(0, 0, 256, 256);
-      ctx.font = '150px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(CAT_EMOJI[category] || CAT_EMOJI.global, 128, 138);
-      faceTexture = new THREE.CanvasTexture(canvas);
+      // ── Рельеф через bumpMap (чеканный металл, без цветного символа) ─────────
+      faceBump = new THREE.CanvasTexture(makeFaceBumpCanvas(category));
+      sideBump = new THREE.CanvasTexture(makeSideBumpCanvas());
+      envCube  = makeEnvCube(THREE);
 
-      const bodyMat = new THREE.MeshStandardMaterial({ color: TYPE_COLOR[type] || TYPE_COLOR.gold, metalness: 0.8, roughness: 0.3 });
-      const faceMat = new THREE.MeshStandardMaterial({ map: faceTexture, metalness: 0.5, roughness: 0.4 });
+      const metalColor = TYPE_COLOR[type] || TYPE_COLOR.gold;
+      const sideMat = new THREE.MeshStandardMaterial({
+        color: metalColor, metalness: 0.9, roughness: 0.25,
+        bumpMap: sideBump, bumpScale: 0.04, envMap: envCube, envMapIntensity: 1.0,
+      });
+      const faceMat = new THREE.MeshStandardMaterial({
+        color: metalColor, metalness: 0.9, roughness: 0.25,
+        bumpMap: faceBump, bumpScale: 0.05, envMap: envCube, envMapIntensity: 1.0,
+      });
       // Порядок материалов CylinderGeometry: [боковая, верхняя крышка, нижняя].
-      mats = [bodyMat, faceMat, faceMat];
+      mats = [sideMat, faceMat, faceMat];
 
-      geometry = new THREE.CylinderGeometry(1, 1, 0.18, 64);
+      geometry = new THREE.CylinderGeometry(1, 1, 0.2, 128);
       geometry.rotateX(Math.PI / 2); // плоские грани смотрят на камеру
       mesh = new THREE.Mesh(geometry, mats);
       scene.add(mesh);
 
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-      const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(2, 3, 4); scene.add(key);
-      const rim = new THREE.DirectionalLight(0xffffff, 0.4); rim.position.set(-2, -1, 2); scene.add(rim);
+      // Свет: env даёт базовый металлический отклик, directional + point — блики.
+      scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+      const key  = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(3, 4, 5);  scene.add(key);
+      const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(-3, -1, 2); scene.add(fill);
+      const pt   = new THREE.PointLight(0xffffff, 0.6); pt.position.set(-1.5, 2, 3); scene.add(pt);
 
       const el = renderer.domElement;
       el.addEventListener('pointerdown', onDown);
@@ -108,7 +179,9 @@ export default function Medal3DModal({ medal, onClose }) {
       }
       if (geometry) geometry.dispose();
       mats.forEach((m) => m && m.dispose && m.dispose());
-      if (faceTexture) faceTexture.dispose();
+      if (faceBump) faceBump.dispose();
+      if (sideBump) sideBump.dispose();
+      if (envCube) envCube.dispose();
     };
   }, [medal?.id, type, category, onClose]);
 
