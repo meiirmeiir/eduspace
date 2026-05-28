@@ -420,8 +420,6 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
           <div style={{flex:1,minWidth:0}}>
             <div className="sidebar-user-name">{user?.firstName} {user?.lastName}</div>
             <div className="sidebar-user-role" style={{color:statusObj.color+"cc"}}>{isAdmin?"Администратор":isTeacher?"Преподаватель":statusObj.label}</div>
-            {/* Полоса опыта — только для учеников (как ESR/квесты). */}
-            {!isTeacher && <div style={{marginTop:6}}><XpBar xp={user?.xp ?? 0} /></div>}
             {/* Кристаллы — видны всем ролям, в том числе admin/teacher (ESR-виджет от них скрыт). */}
             {(user?.crystals ?? 0) > 0 && (
               <div style={{fontSize:13, color:'#a78bfa', fontWeight:700, marginTop:4}}>
@@ -462,6 +460,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                 <span style={{background:statusObj.color+"18",color:statusObj.color,fontWeight:700,fontSize:13,padding:"6px 16px",borderRadius:99,border:`1px solid ${statusObj.color}30`,alignSelf:"center"}}>{statusObj.label}</span>
               </div>
             </div>
+
+            {/* Полоса опыта — крупно под приветствием, для учеников. */}
+            {!isTeacher && <div style={{marginBottom:24}}><XpBar xp={user?.xp ?? 0} large /></div>}
 
             {isTrial&&!isTeacher&&(
               <div style={{background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.35)",borderRadius:12,padding:"14px 18px",marginBottom:20,display:"flex",alignItems:"center",gap:12}}>
