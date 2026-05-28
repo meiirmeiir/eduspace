@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import { NpcProvider } from './NpcContext.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import './index.css'
 
 // BUG-13: apply saved dark theme before first render.
@@ -17,10 +18,12 @@ try {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <AuthProvider>
-      <NpcProvider>
-        <App />
-      </NpcProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <NpcProvider>
+          <App />
+        </NpcProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 )
