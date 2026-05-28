@@ -9,6 +9,7 @@ import { doc, getDoc, updateDoc, db } from '../firestore-rest.js';
 import { getWeekId } from './pointsUtils.js';
 import { getAlmatyDateStr } from './srsUtils.js';
 import { addCrystals } from './crystalsUtils.js';
+import { addXp, XP_REWARDS } from './levelUtils.js';
 import { DAILY_QUESTS, WEEKLY_QUESTS } from './quests.js';
 
 export const getTodayAlmaty   = () => getAlmatyDateStr(0);
@@ -91,6 +92,8 @@ export async function updateQuestProgress(uid, questType, value, _user, mode = '
 
     if (completed) {
       await addCrystals(uid, def.crystals, 'quest_' + def.id);
+      const isDaily = bucket === 'dailyQuests';
+      addXp(uid, isDaily ? XP_REWARDS.daily_quest : XP_REWARDS.weekly_quest, isDaily ? 'daily_quest' : 'weekly_quest', _user);
       return { completed: true, awarded: def.crystals };
     }
     return { completed: false, awarded: 0 };

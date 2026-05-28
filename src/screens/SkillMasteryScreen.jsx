@@ -4,6 +4,7 @@ import { useTheme } from "../ThemeContext.jsx";
 import { isStageUnlocked, getAlmatyDateStr, SRS_INTERVALS, getAlmatyNextMidnightAfter, fmtCountdown } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
 import { addCrystals } from "../lib/crystalsUtils.js";
+import { addXp, XP_REWARDS } from "../lib/levelUtils.js";
 import { updateQuestProgress } from "../lib/questsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
@@ -97,10 +98,14 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
       await setDoc(doc(db,'skillMastery',user.uid), { skills: { [skillId]: skillUpdate } }, { merge: true });
       setMastery({ stagesCompleted: newCompleted, currentStage: Math.min(newCompleted+1,3), lastStageCompletedAt: now_, pointsAwarded: mastery.pointsAwarded || firstMastery });
       // Квест «Пройди этап навыка» — на каждый вновь завершённый этап (1/2/3).
-      if (stageAdvanced) updateQuestProgress(user.uid, 'skill_stage', 1, user);
+      if (stageAdvanced) {
+        updateQuestProgress(user.uid, 'skill_stage', 1, user);
+        addXp(user.uid, XP_REWARDS.skill_stage, 'skill_stage', user);
+      }
       if (firstMastery) {
         addPoints(user.uid, 'skill_mastered', user);
         addCrystals(user.uid, 10, 'skill_mastered');
+        addXp(user.uid, XP_REWARDS.skill_mastered, 'skill_mastered', user);
         // Квест «Освой 3 навыка за неделю» — на полное освоение навыка.
         updateQuestProgress(user.uid, 'weekly_mastered', 1, user);
       }

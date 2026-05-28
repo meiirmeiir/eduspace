@@ -42,6 +42,16 @@ service cloud.firestore {
                           && request.resource.data.crystals <= resource.data.get('crystals', 0) + 200
                         )
                       )
+                      // XP — целое, только растёт; верхняя граница `old + 500`
+                      // обрезает тривиальный DevTools-абюз (одно действие ≤ 200 XP).
+                      && (
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['xp'])
+                        || (
+                          request.resource.data.xp is int
+                          && request.resource.data.xp >= resource.data.get('xp', 0)
+                          && request.resource.data.xp <= resource.data.get('xp', 0) + 500
+                        )
+                      )
                     );
       allow delete: if false;
     }

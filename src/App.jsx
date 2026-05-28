@@ -50,6 +50,7 @@ import PublicProfileScreen from "./screens/PublicProfileScreen.jsx";
 import ShopScreen from "./screens/ShopScreen.jsx";
 import { addPoints } from "./lib/pointsUtils.js";
 import { addCrystals } from "./lib/crystalsUtils.js";
+import { addXp, XP_REWARDS } from "./lib/levelUtils.js";
 import { initDailyQuests, initWeeklyQuests } from "./lib/questsUtils.js";
 import { getShopItem } from "./lib/shopItems.js";
 
@@ -586,6 +587,7 @@ function AppInner() {
       if(user?.uid){
         addPoints(user.uid,'diagnostic_done',user);
         addCrystals(user.uid,20,'diagnostic_done');
+        addXp(user.uid,XP_REWARDS.diagnostic_section,'diagnostic_section',user);
       }
     }catch(e){console.error("section results save:",e);}
 
@@ -667,6 +669,7 @@ function AppInner() {
         if(user?.uid && !pendingSection?._smartDiag){
           addPoints(user.uid,'diagnostic_done',user);
           addCrystals(user.uid,20,'diagnostic_done');
+          addXp(user.uid,XP_REWARDS.diagnostic_section,'diagnostic_section',user);
         }
         // Если умная диагностика — генерируем дорожную карту и помечаем как пройденную
         if((next.some(a=>a.verticalId)||pendingSection?._smartDiag) && user?.uid){

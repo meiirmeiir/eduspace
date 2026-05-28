@@ -5,6 +5,7 @@ import { useTheme } from "../ThemeContext.jsx";
 import { getAlmatyDateStr, SRS_INTERVALS } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
 import { addCrystals } from "../lib/crystalsUtils.js";
+import { addXp, XP_REWARDS } from "../lib/levelUtils.js";
 import { updateQuestProgress } from "../lib/questsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
@@ -125,6 +126,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       const elapsed = questionStartRef.current ? Date.now() - questionStartRef.current : Infinity;
       addPoints(user.uid, 'daily_correct', user);
       addCrystals(user.uid, 1, 'daily_correct');
+      addXp(user.uid, XP_REWARDS.correct_answer, 'correct_answer', user);
       // Квесты: счётчики верных ответов (день/неделя) + «зашёл и решил» (target 1).
       updateQuestProgress(user.uid, 'daily_correct', 1, user);
       updateQuestProgress(user.uid, 'weekly_correct', 1, user);
