@@ -51,8 +51,10 @@ import ShopScreen from "./screens/ShopScreen.jsx";
 import { addPoints } from "./lib/pointsUtils.js";
 import { addCrystals } from "./lib/crystalsUtils.js";
 import { addXp, XP_REWARDS, subscribeXp } from "./lib/levelUtils.js";
-import { initDailyQuests, initWeeklyQuests } from "./lib/questsUtils.js";
+import { findAchievement } from "./lib/achievements.js";
+import { initDailyQuests, initWeeklyQuests, subscribeQuest } from "./lib/questsUtils.js";
 import LevelUpModal from "./components/LevelUpModal.jsx";
+import RewardChest from "./components/RewardChest.jsx";
 import { getShopItem } from "./lib/shopItems.js";
 
 
@@ -378,7 +380,11 @@ function AppInner() {
   // и потому доступна на любом экране — например, при тапе Daily из Theory).
   const [masteryStatus,setMasteryStatus]=useState({ hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false });
   const [lockModalOpen,setLockModalOpen]=useState(false);
-  const [pendingLevelUp,setPendingLevelUp]=useState([]); // очередь level-up, показывается на дашборде
+  // Единая очередь наград (level-up + достижения + квесты). Рендерится ТОЛЬКО
+  // голова (rewardCurrent) — два оверлея физически невозможны.
+  const [rewardCurrent,setRewardCurrent]=useState(null);
+  const [rewardQueue,setRewardQueue]=useState([]);
+  const seenAchKeysRef=useRef(new Set());
 
   const openFaq=(key)=>{setFaqInitial(key||null);navigate("faq");};
 
@@ -436,8 +442,25 @@ function AppInner() {
     }).catch(()=>{});
   },[firebaseUser?.uid]);
 
-  // Подписка на XP-события (addXp эмитит после каждого начисления): живо
-  // обновляем user.xp (реактивный XpBar) и копим level-up для показа на дашборде.
+  // ── Единая очередь наград ───────────────────────────────────────────────
+  const REWARD_PRIORITY={levelup:0,achievement:1,quest:2};
+  const enqueueReward=(item)=>setRewardQueue(q=>[...q,item].sort((a,b)=>(REWARD_PRIORITY[a.type]??9)-(REWARD_PRIORITY[b.type]??9)));
+  const dismissReward=async()=>{
+    const it=rewardCurrent; setRewardCurrent(null);
+    // Достижение показано → убрать его ключ из pendingAchievements (read-modify-write:
+    // firestore-rest не поддерживает arrayRemove-transform; перечитываем свежий массив,
+    // чтобы не затереть начисленное во время сессии).
+    if(it && it.type==='achievement' && firebaseUser?.uid){
+      try{
+        const ref=doc(db,"users",firebaseUser.uid);
+        const snap=await getDoc(ref);
+        const arr=Array.isArray(snap.data()?.pendingAchievements)?snap.data().pendingAchievements:[];
+        if(arr.includes(it.key)) await updateDoc(ref,{pendingAchievements:arr.filter(k=>k!==it.key)});
+      }catch(e){console.warn("clear pendingAchievements:",e);}
+    }
+  };
+
+  // XP-события: живо обновляем user.xp (реактивный XpBar) + level-up в очередь.
   useEffect(()=>{
     const unsub=subscribeXp((p)=>{
       setUser(prev=>{
@@ -446,10 +469,43 @@ function AppInner() {
         try{localStorage.setItem("aapa_user",JSON.stringify(next));}catch{}
         return next;
       });
-      if(p.leveledUp) setPendingLevelUp(q=>[...q,p]);
+      if(p.leveledUp) enqueueReward({type:'levelup', info:p});
     });
     return unsub;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
+
+  // Выполненные квесты → сундук в очередь.
+  useEffect(()=>{
+    const unsub=subscribeQuest((q)=> enqueueReward({type:'quest', quest:q}));
+    return unsub;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+
+  // Достижения: читаем pendingAchievements при входе на дашборд (и логине),
+  // дедуп по ref, маппим ключи в сундуки.
+  useEffect(()=>{
+    const _uid=firebaseUser?.uid; if(!_uid || screen!=='dashboard') return;
+    getDoc(doc(db,"users",_uid)).then(snap=>{
+      const keys=Array.isArray(snap.data()?.pendingAchievements)?snap.data().pendingAchievements:[];
+      for(const key of keys){
+        if(seenAchKeysRef.current.has(key)) continue;
+        const found=findAchievement(key);
+        if(!found) continue;
+        seenAchKeysRef.current.add(key);
+        enqueueReward({type:'achievement', key, ach:found.ach, level:found.level});
+      }
+    }).catch(()=>{});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[screen, firebaseUser?.uid]);
+
+  // Берём следующую награду, когда на дашборде и ничего не показано.
+  useEffect(()=>{
+    if(screen==='dashboard' && !rewardCurrent && rewardQueue.length>0){
+      setRewardCurrent(rewardQueue[0]);
+      setRewardQueue(q=>q.slice(1));
+    }
+  },[screen, rewardCurrent, rewardQueue]);
 
   // Попытка открыть Daily — если ни одного освоенного навыка нет, открываем
   // lock-модалку (то же поведение, что у sidebar в DashboardScreen).
@@ -1179,9 +1235,12 @@ function AppInner() {
         onViewPlan={()=>{setLockModalOpen(false);viewPlan();}}
         onOpenFaq={(key)=>{setLockModalOpen(false);openFaq(key);}}
       />
-      {/* Level-up показываем только на дашборде — не прерываем задачи/диагностику. */}
-      {screen==="dashboard" && pendingLevelUp.length>0 && (
-        <LevelUpModal info={pendingLevelUp[0]} onClose={()=>setPendingLevelUp(q=>q.slice(1))} />
+      {/* Единая очередь наград — рендерим ТОЛЬКО голову, только на дашборде.
+          Два оверлея одновременно физически невозможны. */}
+      {screen==="dashboard" && rewardCurrent && (
+        rewardCurrent.type==='levelup'
+          ? <LevelUpModal info={rewardCurrent.info} onClose={dismissReward} />
+          : <RewardChest item={rewardCurrent} onClose={dismissReward} />
       )}
     </>
   );

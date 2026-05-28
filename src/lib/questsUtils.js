@@ -15,6 +15,16 @@ import { DAILY_QUESTS, WEEKLY_QUESTS } from './quests.js';
 export const getTodayAlmaty   = () => getAlmatyDateStr(0);
 export const getCurrentWeekId = () => getWeekId();
 
+// ── Мини-эмиттер выполненных квестов (мост updateQuestProgress → App для сундука) ─
+const _questListeners = new Set();
+export function subscribeQuest(cb) {
+  _questListeners.add(cb);
+  return () => _questListeners.delete(cb);
+}
+function emitQuest(payload) {
+  for (const cb of _questListeners) { try { cb(payload); } catch (e) { console.warn('[quest] listener error', e); } }
+}
+
 function freshBucket(defs, keyField, keyValue) {
   const b = { [keyField]: keyValue };
   for (const q of defs) b[q.id] = { progress: 0, completed: false };
@@ -94,6 +104,8 @@ export async function updateQuestProgress(uid, questType, value, _user, mode = '
       await addCrystals(uid, def.crystals, 'quest_' + def.id);
       const isDaily = bucket === 'dailyQuests';
       addXp(uid, isDaily ? XP_REWARDS.daily_quest : XP_REWARDS.weekly_quest, isDaily ? 'daily_quest' : 'weekly_quest', _user);
+      // Сундук-награда (визуализация; кристаллы уже начислены выше).
+      emitQuest({ id: def.id, icon: def.icon, title: def.title, crystals: def.crystals });
       return { completed: true, awarded: def.crystals };
     }
     return { completed: false, awarded: 0 };

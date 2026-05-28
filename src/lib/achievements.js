@@ -46,3 +46,14 @@ export const ACHIEVEMENTS = [
 ];
 
 export const TIER_COLORS = { bronze: '#cd7f32', silver: '#94a3b8', gold: '#fbbf24', exclusive: '#a78bfa' };
+
+// Ключ вида 'wealth_2' / 'creator_1' → { ach, level } (или null). id без '_'.
+export function findAchievement(key) {
+  const m = /^(.+)_(\d+)$/.exec(key || '');
+  if (!m) return null;
+  const ach = ACHIEVEMENTS.find(a => a.id === m[1]);
+  if (!ach) return null;
+  const level = ach.levels.find(l => l.level === Number(m[2]));
+  if (!level) return null;
+  return { ach, level };
+}
