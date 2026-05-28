@@ -140,8 +140,11 @@ export async function addPoints(uid, action, userProfile) {
     equippedTitle: { stringValue: equipped.title || '' },
     grade:         { stringValue: grade },
     region:        { stringValue: region },
+    // XP денормализуем для бейджа уровня в строках лидерборда. Обновляется при
+    // начислении очков (addPoints), поэтому может слегка отставать от users/{uid}.xp.
+    xp:            { integerValue: String(Number(userProfile?.xp || 0)) },
   };
-  const lbUpdateMask = ['uid', 'displayName', 'firstName', 'lastName', 'avatarUrl', 'equippedFrame', 'equippedTitle', 'grade', 'region'];
+  const lbUpdateMask = ['uid', 'displayName', 'firstName', 'lastName', 'avatarUrl', 'equippedFrame', 'equippedTitle', 'grade', 'region', 'xp'];
 
   if (needReset) {
     lbUpdateFields.points = { integerValue: String(delta) };

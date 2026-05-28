@@ -8,9 +8,11 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useTheme } from '../ThemeContext.jsx';
 import { getLeague, getWeekId } from '../lib/pointsUtils.js';
 import { FRAME_STYLES, getShopItem } from '../lib/shopItems.js';
+import { getLevelInfo } from '../lib/levelUtils.js';
 import AppTopbar from '../components/AppTopbar.jsx';
 import Medal from '../components/Medal.jsx';
 import Medal3DModal from '../components/Medal3DModal.jsx';
+import LevelRing from '../components/LevelRing.jsx';
 import { getToken } from 'firebase/app-check';
 import { auth, app } from '../lib/firebase.js';
 
@@ -208,21 +210,7 @@ export default function PublicProfileScreen({ uid, onBack }) {
 
         {/* Карточка профиля */}
         <div className="dashboard-section" style={{ display:'flex', alignItems:'center', gap:18, padding:'24px 22px', marginBottom:18 }}>
-          {profile.avatarUrl
-            ? <img src={profile.avatarUrl} alt="" style={{
-                width:96, height:96, borderRadius:'50%', objectFit:'cover',
-                border:`3px solid ${THEME.accent}`, flexShrink:0,
-                ...(frameStyle || {}),
-              }}/>
-            : <div style={{
-                width:96, height:96, borderRadius:'50%', flexShrink:0,
-                background:'linear-gradient(135deg, #6366f1, #a78bfa)',
-                color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-                fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:32,
-                border:`3px solid ${THEME.accent}`,
-                ...(frameStyle || {}),
-              }}>{initials}</div>
-          }
+          <LevelRing xp={profile.xp ?? 0} avatarUrl={profile.avatarUrl} equippedFrame={equipped.frame} size={96} label={initials} />
           <div style={{ flex:1, minWidth:0 }}>
             {/* Заголовок — только инициалы «ИИ»; полное имя в публичном профиле не показываем */}
             <h1 style={{
@@ -241,6 +229,11 @@ export default function PublicProfileScreen({ uid, onBack }) {
             <div style={{ fontSize:13, color:THEME.textLight, fontFamily:"'Inter',sans-serif" }}>
               {[profile.details, profile.region].filter(Boolean).join(' · ') || '—'}
             </div>
+            {(() => { const li = getLevelInfo(profile.xp ?? 0); return (
+              <div style={{ marginTop:8, display:'inline-flex', alignItems:'center', gap:6, fontSize:13, fontWeight:700, color:li.tier.color, background:`${li.tier.color}1a`, border:`1px solid ${li.tier.color}55`, borderRadius:99, padding:'3px 12px' }}>
+                Уровень {li.level} · {li.tier.name}
+              </div>
+            ); })()}
           </div>
         </div>
 

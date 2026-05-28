@@ -50,8 +50,9 @@ import PublicProfileScreen from "./screens/PublicProfileScreen.jsx";
 import ShopScreen from "./screens/ShopScreen.jsx";
 import { addPoints } from "./lib/pointsUtils.js";
 import { addCrystals } from "./lib/crystalsUtils.js";
-import { addXp, XP_REWARDS } from "./lib/levelUtils.js";
+import { addXp, XP_REWARDS, subscribeXp } from "./lib/levelUtils.js";
 import { initDailyQuests, initWeeklyQuests } from "./lib/questsUtils.js";
+import LevelUpModal from "./components/LevelUpModal.jsx";
 import { getShopItem } from "./lib/shopItems.js";
 
 
@@ -377,6 +378,7 @@ function AppInner() {
   // и потому доступна на любом экране — например, при тапе Daily из Theory).
   const [masteryStatus,setMasteryStatus]=useState({ hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false });
   const [lockModalOpen,setLockModalOpen]=useState(false);
+  const [pendingLevelUp,setPendingLevelUp]=useState([]); // очередь level-up, показывается на дашборде
 
   const openFaq=(key)=>{setFaqInitial(key||null);navigate("faq");};
 
@@ -417,6 +419,37 @@ function AppInner() {
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[firebaseUser?.uid]);
+
+  // Загрузка текущего XP при логине (для XpBar/LevelRing на старте).
+  useEffect(()=>{
+    const _uid=firebaseUser?.uid; if(!_uid) return;
+    getDoc(doc(db,"users",_uid)).then(snap=>{
+      if(!snap.exists()) return;
+      const x=snap.data().xp;
+      if(typeof x!=='number') return;
+      setUser(prev=>{
+        if(!prev||prev.xp===x) return prev;
+        const next={...prev,xp:x};
+        try{localStorage.setItem("aapa_user",JSON.stringify(next));}catch{}
+        return next;
+      });
+    }).catch(()=>{});
+  },[firebaseUser?.uid]);
+
+  // Подписка на XP-события (addXp эмитит после каждого начисления): живо
+  // обновляем user.xp (реактивный XpBar) и копим level-up для показа на дашборде.
+  useEffect(()=>{
+    const unsub=subscribeXp((p)=>{
+      setUser(prev=>{
+        if(!prev||prev.xp===p.totalXp) return prev;
+        const next={...prev,xp:p.totalXp};
+        try{localStorage.setItem("aapa_user",JSON.stringify(next));}catch{}
+        return next;
+      });
+      if(p.leveledUp) setPendingLevelUp(q=>[...q,p]);
+    });
+    return unsub;
+  },[]);
 
   // Попытка открыть Daily — если ни одного освоенного навыка нет, открываем
   // lock-модалку (то же поведение, что у sidebar в DashboardScreen).
@@ -1146,6 +1179,10 @@ function AppInner() {
         onViewPlan={()=>{setLockModalOpen(false);viewPlan();}}
         onOpenFaq={(key)=>{setLockModalOpen(false);openFaq(key);}}
       />
+      {/* Level-up показываем только на дашборде — не прерываем задачи/диагностику. */}
+      {screen==="dashboard" && pendingLevelUp.length>0 && (
+        <LevelUpModal info={pendingLevelUp[0]} onClose={()=>setPendingLevelUp(q=>q.slice(1))} />
+      )}
     </>
   );
 }

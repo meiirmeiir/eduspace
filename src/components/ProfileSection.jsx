@@ -9,6 +9,8 @@ import ExpertReportView from "../screens/ExpertReportView.jsx";
 import ErrorCard from "./ui/ErrorCard.jsx";
 import Medal from "./Medal.jsx";
 import { getShopItem, FRAME_STYLES } from "../lib/shopItems.js";
+import LevelRing from "./LevelRing.jsx";
+import XpBar from "./XpBar.jsx";
 
 export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser }) {
   const { firebaseUser } = useAuth();
@@ -143,23 +145,15 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
         <div className="profile-card">
           {/* Avatar (CSS-frame применяется inline, перекрывая дефолтный gold-border) */}
           <div style={{position:"relative",flexShrink:0}}>
-            {(isEditing?editForm.avatarUrl:user?.avatarUrl)
-              ? <img src={isEditing?editForm.avatarUrl:user.avatarUrl} alt="avatar"
-                  style={{
-                    width: isEditing ? 120 : 200,
-                    height: isEditing ? 120 : 200,
-                    borderRadius:"50%", objectFit:"cover",
-                    border: `${isEditing ? 3 : 5}px solid ${THEME.accent}`,
-                    ...(frameStyle || {}),
-                  }}/>
-              : <div className="profile-avatar" style={{
-                  ...(frameStyle || {}),
-                  width: isEditing ? 120 : 200,
-                  height: isEditing ? 120 : 200,
-                  fontSize: isEditing ? 40 : 56,
-                }}>
-                  {(isEditing?editForm.firstName:user?.firstName)?.[0]}{(isEditing?editForm.lastName:user?.lastName)?.[0]}
-                </div>
+            {!isEditing
+              ? <LevelRing xp={user?.xp ?? 0} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
+                  size={200} label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} />
+              : (editForm.avatarUrl
+                  ? <img src={editForm.avatarUrl} alt="avatar"
+                      style={{ width:120, height:120, borderRadius:"50%", objectFit:"cover", border:`3px solid ${THEME.accent}`, ...(frameStyle || {}) }}/>
+                  : <div className="profile-avatar" style={{ ...(frameStyle || {}), width:120, height:120, fontSize:40 }}>
+                      {editForm.firstName?.[0]}{editForm.lastName?.[0]}
+                    </div>)
             }
             {isEditing&&(
               <>
@@ -239,6 +233,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                       <span style={{display:'inline-block', background:statusObj.color, color:'#fff', fontWeight:700, fontSize:12, padding:'4px 14px', borderRadius:99, border:`1px solid ${statusObj.color}`}}>{statusObj.label}</span>
                       {user?.goal && <span style={{display:'inline-block', background:'transparent', color:THEME.textLight, fontWeight:600, fontSize:12, padding:'4px 12px', borderRadius:6, border:`1px solid ${THEME.border}`}}>{user.goal}</span>}
                     </div>
+                    <div style={{marginTop:14, maxWidth:300}}><XpBar xp={user?.xp ?? 0} /></div>
                   </div>
                   {/* Правый столбец: класс, область, дата, npc-toggle */}
                   <div>

@@ -5,6 +5,7 @@ import { getToken } from 'firebase/app-check';
 import { auth, app } from "../lib/firebase.js";
 import Logo from "../components/ui/Logo.jsx";
 import { FRAME_STYLES, getShopItem } from "../lib/shopItems.js";
+import { getLevelInfo } from "../lib/levelUtils.js";
 
 const PROJECT = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
 const KEY     = () => import.meta.env.VITE_FIREBASE_API_KEY;
@@ -43,6 +44,7 @@ async function fetchPublicProfilesByUids(uids) {
         avatarUrl:     f.avatarUrl?.stringValue || '',
         equippedFrame: f.equipped?.mapValue?.fields?.frame?.stringValue || '',
         equippedTitle: f.equipped?.mapValue?.fields?.title?.stringValue || '',
+        xp:            f.xp ? Number(f.xp.integerValue || 0) : null,
       };
     }
   } catch (e) { console.warn('[leaderboard] batchGet publicProfiles failed', e); }
@@ -78,6 +80,7 @@ async function fetchEntries(weekId) {
       equippedTitle: f.equippedTitle?.stringValue || '',
       grade:         f.grade?.stringValue  || '',
       region:        f.region?.stringValue || '',
+      xp:            f.xp ? Number(f.xp.integerValue || 0) : null, // null = старая запись без xp
     };
   });
 }
@@ -169,6 +172,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
             e.avatarUrl     = e.avatarUrl     || pp.avatarUrl;
             e.equippedFrame = e.equippedFrame || pp.equippedFrame;
             e.equippedTitle = e.equippedTitle || pp.equippedTitle;
+            if (e.xp == null && pp.xp != null) e.xp = pp.xp;
           }
         }
         if (!cancelled) { setAllEntries(list); setLoading(false); }
@@ -234,22 +238,38 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
 
         {/* Ученик — аватар + инициалы + титул/класс */}
         <div style={{flex:1, display:'flex', alignItems:'center', gap:12, minWidth:0}}>
-          {e.avatarUrl
-            ? <img src={e.avatarUrl} alt="" style={{
-                width:avatarSize, height:avatarSize, borderRadius:'50%', objectFit:'cover',
-                border: `2px solid ${THEME.accent}`, flexShrink:0,
-                ...(frameStyle || {}),
-              }}/>
-            : <div style={{
-                width:avatarSize, height:avatarSize, borderRadius:'50%', flexShrink:0,
-                background:'linear-gradient(135deg, #6366f1, #a78bfa)',
-                color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-                fontFamily:"'Montserrat',sans-serif", fontWeight:800,
-                fontSize: rank<=3 ? 16 : 12,
-                border: `2px solid ${THEME.accent}`,
-                ...(frameStyle || {}),
-              }}>{initials}</div>
-          }
+          <div style={{position:'relative', flexShrink:0}}>
+            {e.avatarUrl
+              ? <img src={e.avatarUrl} alt="" style={{
+                  width:avatarSize, height:avatarSize, borderRadius:'50%', objectFit:'cover',
+                  border: `2px solid ${THEME.accent}`, display:'block',
+                  ...(frameStyle || {}),
+                }}/>
+              : <div style={{
+                  width:avatarSize, height:avatarSize, borderRadius:'50%',
+                  background:'linear-gradient(135deg, #6366f1, #a78bfa)',
+                  color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+                  fontFamily:"'Montserrat',sans-serif", fontWeight:800,
+                  fontSize: rank<=3 ? 16 : 12,
+                  border: `2px solid ${THEME.accent}`,
+                  ...(frameStyle || {}),
+                }}>{initials}</div>
+            }
+            {/* Бейдж уровня — только если xp денормализован (старые записи без xp пропускаем). */}
+            {e.xp != null && (() => {
+              const li = getLevelInfo(e.xp);
+              const b = rank<=3 ? 22 : 18;
+              return (
+                <div title={`Уровень ${li.level} · ${li.tier.name}`} style={{
+                  position:'absolute', right:-3, bottom:-3,
+                  minWidth:b, height:b, borderRadius:b, padding:'0 3px', boxSizing:'border-box',
+                  background:li.tier.color, color:'#0f172a', border:`2px solid ${THEME.surface}`,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize: rank<=3?11:10, lineHeight:1,
+                }}>{li.level}</div>
+              );
+            })()}
+          </div>
           <div style={{minWidth:0, overflow:'hidden'}}>
             <div style={{fontWeight:700, fontSize:15, color:lt, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
               {initials}{mine ? ' (вы)' : ''}

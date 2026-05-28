@@ -11,6 +11,8 @@ import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
 import QuestsWidget from "../components/QuestsWidget.jsx";
+import LevelRing from "../components/LevelRing.jsx";
+import XpBar from "../components/XpBar.jsx";
 import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
@@ -413,13 +415,13 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
           })}
         </nav>
         <div className="sidebar-user">
-          {user?.avatarUrl
-            ? <img src={user.avatarUrl} alt="avatar" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(255,255,255,0.2)",flexShrink:0}}/>
-            : <div className="sidebar-user-avatar">{user?.firstName?.[0]}{user?.lastName?.[0]}</div>
-          }
+          <LevelRing xp={user?.xp ?? 0} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
+            size={40} label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} showLevel={!isTeacher} />
           <div style={{flex:1,minWidth:0}}>
             <div className="sidebar-user-name">{user?.firstName} {user?.lastName}</div>
             <div className="sidebar-user-role" style={{color:statusObj.color+"cc"}}>{isAdmin?"Администратор":isTeacher?"Преподаватель":statusObj.label}</div>
+            {/* Полоса опыта — только для учеников (как ESR/квесты). */}
+            {!isTeacher && <div style={{marginTop:6}}><XpBar xp={user?.xp ?? 0} /></div>}
             {/* Кристаллы — видны всем ролям, в том числе admin/teacher (ESR-виджет от них скрыт). */}
             {(user?.crystals ?? 0) > 0 && (
               <div style={{fontSize:13, color:'#a78bfa', fontWeight:700, marginTop:4}}>

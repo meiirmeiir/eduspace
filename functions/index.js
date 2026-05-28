@@ -121,6 +121,7 @@ exports.mirrorUserToPublicProfile = onDocumentWritten(
       equipped:    d.equipped    || {},
       totalPoints: Number(d.totalPoints || 0),
       weekPoints:  Number(d.weekPoints  || 0),
+      xp:          Number(d.xp          || 0),
       details:     d.details     || '',
       region:      d.region      || '',
       updatedAt:   new Date().toISOString(),

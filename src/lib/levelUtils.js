@@ -55,6 +55,16 @@ export function getLevelInfo(totalXp) {
   return { level, currentLevelXp, nextLevelXp, progress, tier: tierForLevel(level) };
 }
 
+// ── Мини-эмиттер: мост addXp → App (для живого XpBar и очереди level-up) ─────
+const _xpListeners = new Set();
+export function subscribeXp(cb) {
+  _xpListeners.add(cb);
+  return () => _xpListeners.delete(cb);
+}
+function emitXp(payload) {
+  for (const cb of _xpListeners) { try { cb(payload); } catch (e) { console.warn('[xp] listener error', e); } }
+}
+
 // ── REST helpers (как в crystalsUtils.js) ────────────────────────────────────
 const PROJECT = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
 const KEY     = () => import.meta.env.VITE_FIREBASE_API_KEY;
@@ -109,13 +119,16 @@ export async function addXp(uid, amount, reason, _user) {
     const oldXp = Math.max(0, newXp - amount);
     const before = getLevelInfo(oldXp);
     const after = getLevelInfo(newXp);
-    return {
+    const result = {
       totalXp: newXp,
       newLevel: after.level,
       leveledUp: after.level > before.level,
       newTier: after.tier,
       tierChanged: after.tier.tier !== before.tier.tier,
     };
+    // Сообщаем подписчикам (App): живое обновление user.xp + очередь level-up.
+    emitXp(result);
+    return result;
   } catch (e) {
     console.error('[xp] FAILED', reason, 'exception:', e?.message || e);
     return null;
