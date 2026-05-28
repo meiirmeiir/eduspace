@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import ParticleBurst3D from './ParticleBurst3D.jsx';
 
 // Полноэкранная анимация повышения уровня. info = { newLevel, tierChanged, newTier }.
 const CONFETTI = Array.from({ length: 44 }, (_, i) => ({
@@ -10,6 +11,7 @@ const CONFETTI = Array.from({ length: 44 }, (_, i) => ({
 }));
 
 export default function LevelUpModal({ info, onClose }) {
+  const [useCss, setUseCss] = useState(false); // фолбэк на CSS-конфетти при сбое Three.js
   if (!info) return null;
   const color = info.newTier?.color || '#fbbf24';
   return (
@@ -23,7 +25,9 @@ export default function LevelUpModal({ info, onClose }) {
         @keyframes luGlow { 0%,100%{filter:drop-shadow(0 0 14px var(--lc))} 50%{filter:drop-shadow(0 0 36px var(--lc))} }
       `}</style>
 
-      {CONFETTI.map((c, i) => (
+      {/* 3D-взрыв частиц поверх фона, ЗА контентом (zIndex 0). Фолбэк — CSS-конфетти. */}
+      {!useCss && <ParticleBurst3D color={color} onFail={() => setUseCss(true)} />}
+      {useCss && CONFETTI.map((c, i) => (
         <span key={i} aria-hidden style={{
           position: 'absolute', top: -24, left: `${c.left}%`, width: 9, height: 14,
           background: c.color, borderRadius: 2, transform: `rotate(${c.rot}deg)`,
@@ -31,7 +35,7 @@ export default function LevelUpModal({ info, onClose }) {
         }} />
       ))}
 
-      <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative', textAlign: 'center', color: '#fff', padding: '0 24px', animation: 'luPop 0.6s cubic-bezier(0.2,0.8,0.2,1) both' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative', zIndex: 1, textAlign: 'center', color: '#fff', padding: '0 24px', animation: 'luPop 0.6s cubic-bezier(0.2,0.8,0.2,1) both' }}>
         <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color, marginBottom: 8 }}>
           Новый уровень
         </div>
