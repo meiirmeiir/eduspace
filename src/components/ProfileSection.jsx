@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { collection, doc, getDocs, query, updateDoc, where, db } from "../firestore-rest.js";
+import { collection, doc, getDoc, getDocs, query, updateDoc, where, db } from "../firestore-rest.js";
 import { REG_GOALS, getSpecificList, KZ_REGIONS } from "../lib/appConstants.js";
 import { useTheme } from "../ThemeContext.jsx";
 import { isNpcEnabled, setNpcEnabled } from "../NpcContext.jsx";
@@ -11,6 +11,7 @@ import Medal from "./Medal.jsx";
 import { getShopItem, FRAME_STYLES } from "../lib/shopItems.js";
 import LevelRing from "./LevelRing.jsx";
 import XpBar from "./XpBar.jsx";
+import AchievementsGrid from "./AchievementsGrid.jsx";
 
 export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser }) {
   const { firebaseUser } = useAuth();
@@ -33,6 +34,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   const [viewingPhotos,setViewingPhotos]=useState([]);
   const [medals,setMedals]=useState([]);
   const [rankMedals,setRankMedals]=useState([]);
+  const [masteredCount,setMasteredCount]=useState(0);
   const [isEditing,setIsEditing]=useState(false);
   const [editForm,setEditForm]=useState({
     firstName:user?.firstName||"",
@@ -90,12 +92,15 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
     const _uid=user?.uid||user?.id; if (!_uid) return;
     setLoading(true); setFetchError(false);
     try{
-      const [resSnap,repSnap,medalSnap,rankMedalSnap]=await Promise.all([
+      const [resSnap,repSnap,medalSnap,rankMedalSnap,masterySnap]=await Promise.all([
         getDocs(query(collection(db,"diagnosticResults"),where("userId","==",_uid))),
         getDocs(query(collection(db,"expertReports"),where("userId","==",_uid))),
         getDocs(query(collection(db,"medals"),where("userId","==",_uid))),
         getDocs(collection(db,`users/${_uid}/medals`)),
+        getDoc(doc(db,"skillMastery",_uid)),
       ]);
+      const mskills=masterySnap.exists()?(masterySnap.data()?.skills||{}):{};
+      setMasteredCount(Object.values(mskills).filter(s=>Number(s?.stagesCompleted||0)>=3).length);
       const mine=resSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.completedAt?.localeCompare(a.completedAt));
       setResults(mine);
       const map={};
@@ -271,6 +276,18 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
         <div className="stat-card"><div className="stat-icon">📋</div><div style={{minWidth:0}}><div className="stat-value">{totalDiag}</div><div className="stat-label">диагностик пройдено</div></div></div>
         <div className="stat-card"><div className="stat-icon">⏱️</div><div style={{minWidth:0}}><div className="stat-value" style={{fontSize:totalHr>0?14:18,wordBreak:"break-word"}}>{totalDiag>0?timeLabel:"—"}</div><div className="stat-label">всего потрачено</div></div></div>
         <div className="stat-card"><div className="stat-icon">💎</div><div style={{minWidth:0}}><div className="stat-value">{(user?.crystals??0).toLocaleString('ru-RU')}</div><div className="stat-label">{(()=>{const n=user?.crystals??0,m=Math.abs(n)%100,b=m%10;if(m>10&&m<20)return 'кристаллов';if(b>1&&b<5)return 'кристалла';if(b===1)return 'кристалл';return 'кристаллов';})()}</div></div></div>
+      </div>
+
+      {/* Достижения — свой профиль, с живым прогрессом X/Y */}
+      <div style={{marginBottom:24}}>
+        <AchievementsGrid uid={uid} progress={{
+          scholar:  masteredCount,
+          streak:   Number(user?.streak || 0),
+          wealth:   Number(user?.crystals || 0),
+          accuracy: (Array.isArray(user?.recentAnswers) && user.recentAnswers.length)
+            ? Math.round(user.recentAnswers.filter(Boolean).length / user.recentAnswers.length * 100)
+            : undefined,
+        }}/>
       </div>
 
       {/* Medals */}

@@ -13,6 +13,7 @@ import AppTopbar from '../components/AppTopbar.jsx';
 import Medal from '../components/Medal.jsx';
 import Medal3DModal from '../components/Medal3DModal.jsx';
 import LevelRing from '../components/LevelRing.jsx';
+import AchievementsGrid from '../components/AchievementsGrid.jsx';
 import { getToken } from 'firebase/app-check';
 import { auth, app } from '../lib/firebase.js';
 
@@ -347,6 +348,11 @@ export default function PublicProfileScreen({ uid, onBack }) {
                 )}
               </div>
           }
+        </div>
+
+        {/* Достижения — публично: заработанные + текст следующего уровня (без живого X/Y) */}
+        <div style={{ marginTop:18 }}>
+          <AchievementsGrid uid={uid} />
         </div>
 
         {selectedMedal && <Medal3DModal medal={selectedMedal} onClose={() => setSelectedMedal(null)} />}
