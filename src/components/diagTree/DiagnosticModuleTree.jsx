@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { ReactFlow, Background, Controls, useNodesState, useEdgesState } from "@xyflow/react";
+import React, { useState, useEffect, useMemo } from "react";
+import { ReactFlow, Controls, useNodesState, useEdgesState } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import CustomNode from "../../CustomNode.jsx";
 import MagicEdge from "../../MagicEdge.jsx";
+import MapBackground from "./MapBackground.jsx";
 import { GRADES_LIST } from "../../lib/appConstants.js";
 import { useTheme } from "../../ThemeContext.jsx";
 import { fmtCountdown, getAlmatyNextMidnightAfter } from "../../lib/srsUtils.js";
@@ -422,32 +423,55 @@ function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {} }) 
   const [rfNodes, setRFNodes, onNodesChange] = useNodesState([]);
   const [rfEdges, setRFEdges, onEdgesChange] = useEdgesState([]);
   const [popup, setPopup] = useState(null);
+  const [hoveredId, setHoveredId] = useState(null);
+
+  // Прогресс (доля освоенных модулей) — для тёплого подсвета фона.
+  const progress = useMemo(() => {
+    const mods = diagData?.modules || [];
+    return mods.length ? mods.filter(m => m.mastery >= 100).length / mods.length : 0;
+  }, [diagData]);
 
   useEffect(() => {
     if (!diagData?.modules?.length) return;
     const { nodes, edges } = buildDiagModuleLayout(diagData.modules, diagData.edges);
-    // Enrich nodes with skillMastery data
-    const enriched = nodes.map(n =>
-      n.type === 'diagModuleNode' ? { ...n, data: { ...n.data, skillMastery } } : n
-    );
+    // appearDelay — stagger появления снизу вверх (по этажу-классу); позиции НЕ меняем.
+    const gradesAsc = [...new Set(nodes.filter(n => n.type === 'diagModuleNode').map(n => n.data.grade))]
+      .sort((a, b) => GRADES_LIST.indexOf(a) - GRADES_LIST.indexOf(b));
+    const perFloor = {};
+    const enriched = nodes.map(n => {
+      if (n.type !== 'diagModuleNode') return n;
+      const fi = gradesAsc.indexOf(n.data.grade);
+      const within = (perFloor[n.data.grade] = (perFloor[n.data.grade] || 0) + 1) - 1;
+      return { ...n, data: { ...n.data, skillMastery, appearDelay: fi * 0.14 + within * 0.05 } };
+    });
     setRFNodes(enriched);
     setRFEdges(edges);
   }, [diagData, skillMastery]);
 
+  // Hover: подсветка входящих/исходящих рёбер (обновление только по событию).
+  useEffect(() => {
+    setRFEdges(prev => prev.map(e => {
+      const conn = hoveredId && (e.source === hoveredId || e.target === hoveredId);
+      return { ...e, data: { ...e.data, highlight: !!conn, dim: !!hoveredId && !conn } };
+    }));
+  }, [hoveredId, setRFEdges]);
+
   return (
     <div style={{ position:'relative', width:'100%', height:'76vh', borderRadius:12, overflow:'hidden', border:'1px solid #1a1a2e', boxShadow:'0 2px 16px rgba(0,0,0,0.08)' }}>
-      <div style={{ position:'absolute', inset:0 }}>
+      <MapBackground progress={progress} />
+      <div style={{ position:'absolute', inset:0, zIndex:1 }}>
         <ReactFlow
           nodes={rfNodes} edges={rfEdges}
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
           nodeTypes={DIAG_MOD_NODE_TYPES} edgeTypes={DIAG_MOD_EDGE_TYPES}
           onNodeClick={(_, node) => { if(node.type==='diagModuleNode'&&node.data?.skills?.length) setPopup(node.data); }}
+          onNodeMouseEnter={(_, node) => { if(node.type==='diagModuleNode') setHoveredId(node.id); }}
+          onNodeMouseLeave={() => setHoveredId(null)}
           fitView fitViewOptions={{ padding:0.20 }}
           nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
           proOptions={{ hideAttribution:true }}
         >
           <Controls style={{ background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:8 }}/>
-          <Background color="#1e2a4a" gap={24} size={1}/>
         </ReactFlow>
       </div>
       {popup && <DiagModulePopup module={popup} onClose={() => setPopup(null)} onStartTraining={onStartTraining} skillMastery={skillMastery}/>}

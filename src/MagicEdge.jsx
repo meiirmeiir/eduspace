@@ -42,6 +42,10 @@ export default function MagicEdge({
   // Уникальный id фильтра чтобы не конфликтовали между рёбрами
   const filterId = `mglow-${id}`;
 
+  // Подсветка связанных путей при наведении на узел (highlight/dim из data).
+  const hi = !!data.highlight;
+  const dim = data.dim ? 0.32 : 1;
+
   // ── Заблокировано: тусклая пунктирная линия без анимации ──
   if (locked) {
     return (
@@ -49,9 +53,10 @@ export default function MagicEdge({
         d={d}
         fill="none"
         stroke="#3f4759"
-        strokeWidth={2}
+        strokeWidth={hi ? 2.5 : 2}
         strokeDasharray="5 10"
-        opacity={0.45}
+        opacity={hi ? 0.7 : (data.dim ? 0.18 : 0.45)}
+        style={{ transition: 'opacity 0.2s' }}
       />
     );
   }
@@ -70,9 +75,10 @@ export default function MagicEdge({
         d={d}
         fill="none"
         stroke="#16a34a"
-        strokeWidth={12}
-        opacity={0.22}
+        strokeWidth={hi ? 16 : 12}
+        opacity={(hi ? 0.34 : 0.22) * dim}
         filter={`url(#${filterId})`}
+        style={{ transition: 'opacity 0.2s' }}
       />
 
       {/* Слой 2 — Ядро (тонкая яркая) — зелёное */}
@@ -80,9 +86,10 @@ export default function MagicEdge({
         d={d}
         fill="none"
         stroke="#4ade80"
-        strokeWidth={3}
-        opacity={0.92}
+        strokeWidth={hi ? 4 : 3}
+        opacity={(hi ? 1 : 0.92) * dim}
         strokeLinecap="round"
+        style={{ transition: 'opacity 0.2s' }}
       />
 
       {/* Слой 3 — Бегущий свет — золотой */}
@@ -93,8 +100,9 @@ export default function MagicEdge({
         strokeWidth={2}
         strokeLinecap="round"
         strokeDasharray="8 24"
-        opacity={0.9}
+        opacity={(hi ? 1 : 0.9) * dim}
         className="magic-pulse"
+        style={{ transition: 'opacity 0.2s' }}
       />
     </g>
   );

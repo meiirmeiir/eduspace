@@ -63,10 +63,22 @@
   transform: translate(-1px, -2px);
 }
 
-/* ── Фон карты ────────────────────────────────────────────── */
+/* ── Фон карты — прозрачный (рисует MapBackground под ReactFlow) ── */
 .react-flow__pane {
-  background: radial-gradient(circle at center, #1a1a2e 0%, #05050f 100%) !important;
+  background: transparent !important;
 }
+
+/* Дрейфующие звёзды атмосферного фона */
+.map-stars { position: absolute; top: 0; left: 0; width: 1px; height: 1px; border-radius: 50%; }
+.map-stars-a { animation: mapStarDriftA 24s ease-in-out infinite, mapStarTwinkle 5s ease-in-out infinite; }
+.map-stars-b { width: 2px; height: 2px; animation: mapStarDriftB 32s ease-in-out infinite, mapStarTwinkle 7s ease-in-out infinite; }
+@keyframes mapStarDriftA { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-14px,-22px); } }
+@keyframes mapStarDriftB { 0%,100% { transform: translate(0,0); } 50% { transform: translate(12px,-16px); } }
+@keyframes mapStarTwinkle { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+/* Появление рёбер при загрузке (один раз) */
+.react-flow__edge { animation: mapEdgeAppear 0.7s ease 0.25s both; }
+@keyframes mapEdgeAppear { from { opacity: 0; } to { opacity: 1; } }
 
 /* ── Магические рёбра ──────────────────────────────────────── */
 @keyframes magic-pulse {
@@ -96,23 +108,46 @@
   50%     { box-shadow: 0 0 28px rgba(34,197,94,0.75); }
 }
 
+/* Появление узла при загрузке (fade + scale), один раз; delay — stagger снизу вверх */
+.skill-node-appear { animation: skillNodeAppear 0.5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes skillNodeAppear {
+  from { opacity: 0; transform: translateY(14px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* Искры вокруг освоенных узлов */
+.mastered-spark {
+  position: absolute; width: 5px; height: 5px; border-radius: 50%;
+  background: radial-gradient(circle, #fff6 0%, #fbbf24 70%, transparent 100%);
+  box-shadow: 0 0 6px #fbbf24; pointer-events: none;
+  animation: masteredSpark 3s ease-in-out infinite;
+}
+@keyframes masteredSpark {
+  0%,100% { opacity: 0; transform: translate(0,0) scale(0.6); }
+  30%     { opacity: 1; }
+  100%    { opacity: 0; transform: translate(var(--dx,0), var(--dy,-14px)) scale(1); }
+}
+
 /* ── Подпись этажа (класса) ────────────────────────────────── */
 .grade-banner {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 5px 20px;
+  gap: 12px;
+  padding: 7px 28px;
+  border-radius: 999px;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(99,102,241,0.10) 15%,
-    rgba(99,102,241,0.22) 50%,
-    rgba(99,102,241,0.10) 85%,
+    rgba(129,140,248,0.16) 18%,
+    rgba(167,139,250,0.30) 50%,
+    rgba(129,140,248,0.16) 82%,
     transparent 100%
   );
-  border-top:    1px solid rgba(99,102,241,0.45);
-  border-bottom: 1px solid rgba(99,102,241,0.45);
+  /* чёткий светящийся разделитель между этажами */
+  border-top:    1px solid rgba(167,139,250,0.55);
+  border-bottom: 1px solid rgba(99,102,241,0.30);
+  box-shadow: 0 0 18px rgba(129,140,248,0.30), inset 0 1px 0 rgba(255,255,255,0.08);
   pointer-events: none;
   white-space: nowrap;
 }
