@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { ReactFlow, Background, Controls, useNodesState, useEdgesState, Handle, Position } from "@xyflow/react";
+import React, { useState, useEffect } from "react";
+import { ReactFlow, Background, Controls, useNodesState, useEdgesState } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import CustomNode from "../../CustomNode.jsx";
 import MagicEdge from "../../MagicEdge.jsx";
 import { GRADES_LIST } from "../../lib/appConstants.js";
 import { useTheme } from "../../ThemeContext.jsx";
-import { fmtCountdown } from "../../lib/srsUtils.js";
+import { fmtCountdown, getAlmatyNextMidnightAfter } from "../../lib/srsUtils.js";
 
 // ── ИНДИВИДУАЛЬНЫЙ ПЛАН ОБУЧЕНИЯ ──────────────────────────────────────────────
 // ── DIAGNOSTIC MODULE TREE ────────────────────────────────────────────────────
@@ -14,6 +14,25 @@ import { fmtCountdown } from "../../lib/srsUtils.js";
  * Maps gap skills from the individual plan to modules via crossGradeLinks,
  * computes mastery per module, and determines locked/unlocked state.
  */
+// Человекочитаемое имя навыка из его id (фолбэк, если нет в skillHierarchies).
+function _fmtSkillId(id, vertical) {
+  if (!id) return '???';
+  let s = String(id);
+  const vpfx = (vertical || '').toLowerCase();
+  if (s.toLowerCase().startsWith(vpfx + '_')) s = s.slice(vpfx.length + 1);
+  else if (s.toLowerCase().startsWith(vpfx)) s = s.slice(vpfx.length);
+  s = s.replace(/^[_-]*(g\d+|grade_?\d+|\d{1,2})[_-]?/gi, '');
+  s = s.replace(/[_-]*(g\d+|grade_?\d+|\d{1,2}кл?)[_-]*/gi, ' ');
+  s = s.replace(/[_-]+/g, ' ').trim();
+  if (!s || s.length < 2) {
+    const parts = String(id).split(/[_-]/);
+    s = parts.slice(-2).join(' ');
+  }
+  return s.split(' ').filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 function buildDiagModuleTree(plan, skillProgress, crossGradeLinks, skillNamesMap={}, skillMasteryData={}) {
   const modules = plan?.modules || plan?.roadmap || [];
 
@@ -90,6 +109,11 @@ function buildDiagModuleTree(plan, skillProgress, crossGradeLinks, skillNamesMap
 
   const allModules = [...Object.values(modMap), ...Object.values(virtualMap)];
 
+  // Детерминированный порядок — одинаковая раскладка при каждом входе
+  // (порядок map-полей by_vertical/grade_modules из Firestore не гарантирован).
+  allModules.sort((a, b) => a.gradeNum - b.gradeNum || a.id.localeCompare(b.id, 'ru'));
+  for (const m of allModules) m.skills.sort((a, b) => a.id.localeCompare(b.id, 'ru'));
+
   // 4. Compute mastery per module (average lastScore of its skills)
   for (const mod of allModules) {
     mod.mastery = mod.skills.length > 0
@@ -116,6 +140,8 @@ function buildDiagModuleTree(plan, skillProgress, crossGradeLinks, skillNamesMap
     });
   }
 
+  edges.sort((a, b) => (a.src + '→' + a.tgt).localeCompare(b.src + '→' + b.tgt, 'ru'));
+
   return { modules: allModules, edges };
 }
 
@@ -129,6 +155,8 @@ function buildDiagModuleLayout(diagModules, diagEdges) {
     if (!gradeMap[mod.grade]) gradeMap[mod.grade] = [];
     gradeMap[mod.grade].push(mod);
   }
+  // Стабильный порядок модулей в ряду (детерминированная раскладка).
+  for (const g in gradeMap) gradeMap[g].sort((a, b) => a.id.localeCompare(b.id, 'ru'));
   const sortedGrades = Object.keys(gradeMap).sort((a,b) => GRADES_LIST.indexOf(a) - GRADES_LIST.indexOf(b));
   if (!sortedGrades.length) return { nodes:[], edges:[] };
 
@@ -274,128 +302,6 @@ function buildDiagModuleLayout(diagModules, diagEdges) {
   return { nodes, edges: rfEdges };
 }
 
-// ── Pixel game background (grass + trees + rocks + stream) ────────────────────
-function StarryNightBackground() {
-  const stars = useMemo(() => {
-    const s = []; let seed = 42;
-    const rng = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
-    for (let i = 0; i < 90; i++) s.push({ x: rng()*100, y: rng()*100, r: rng()*1.3+0.4, op: rng()*0.55+0.35 });
-    return s;
-  }, []);
-  return (
-    <div style={{ position:'absolute', inset:0, overflow:'hidden', zIndex:0, pointerEvents:'none' }}>
-      <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg,#030818 0%,#050d28 40%,#0a1540 75%,#060c20 100%)' }}/>
-      <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%' }} aria-hidden="true">
-        {stars.map((s,i) => <circle key={i} cx={`${s.x.toFixed(2)}%`} cy={`${s.y.toFixed(2)}%`} r={s.r} fill="#fff" opacity={s.op}/>)}
-        <circle cx="86%" cy="11%" r="22" fill="#f8f4e0" opacity="0.9"/>
-        <circle cx="86%" cy="11%" r="26" fill="#fffde8" opacity="0.12"/>
-        <circle cx="80%" cy="8%" r="4" fill="#eae8cc" opacity="0.4"/>
-        <circle cx="91%" cy="16%" r="3" fill="#eae8cc" opacity="0.3"/>
-        <ellipse cx="25%" cy="30%" rx="18%" ry="8%" fill="#1a0060" opacity="0.09"/>
-        <ellipse cx="65%" cy="55%" rx="14%" ry="6%" fill="#000080" opacity="0.08"/>
-      </svg>
-    </div>
-  );
-}
-
-function PixelGameBackground() {
-  return (
-    <div style={{ position:'absolute', inset:0, overflow:'hidden', zIndex:0, pointerEvents:'none' }}>
-      <div style={{ position:'absolute', inset:0, background:'#2d5a1b' }}/>
-      <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0.38 }} aria-hidden="true">
-        <defs>
-          <pattern id="pgGrassPat" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-            <rect x="0"  y="0"  width="8" height="8" fill="#3a7a28" opacity="0.6"/>
-            <rect x="16" y="16" width="8" height="8" fill="#3a7a28" opacity="0.6"/>
-            <rect x="8"  y="0"  width="8" height="8" fill="#4a6b25" opacity="0.3"/>
-            <rect x="0"  y="16" width="8" height="8" fill="#4a6b25" opacity="0.3"/>
-            <rect x="4"  y="4"  width="4" height="4" fill="#2d5a1b" opacity="0.5"/>
-            <rect x="16" y="4"  width="4" height="4" fill="#4a9a34" opacity="0.28"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#pgGrassPat)"/>
-      </svg>
-      <div style={{ position:'absolute', inset:0, background:'radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.48) 100%)' }}/>
-      {/* Trees */}
-      <svg style={{ position:'absolute', left:'2%', top:'4%' }} width="56" height="76" aria-hidden="true">
-        <rect x="20" y="48" width="16" height="28" fill="#3d2a1a"/><rect x="24" y="48" width="8" height="28" fill="#5a3f28"/>
-        <rect x="6" y="34" width="44" height="16" fill="#1a3d0a"/><rect x="10" y="20" width="36" height="16" fill="#2d5a1b"/>
-        <rect x="16" y="6" width="24" height="16" fill="#3a7a28"/><rect x="20" y="8" width="10" height="4" fill="#5aaa3a" opacity="0.7"/>
-      </svg>
-      <svg style={{ position:'absolute', right:'3%', top:'6%' }} width="52" height="70" aria-hidden="true">
-        <rect x="18" y="44" width="14" height="26" fill="#3d2a1a"/><rect x="22" y="44" width="7" height="26" fill="#5a3f28"/>
-        <rect x="5" y="31" width="40" height="15" fill="#1a3d0a"/><rect x="9" y="18" width="32" height="15" fill="#2d5a1b"/>
-        <rect x="14" y="5" width="22" height="15" fill="#3a7a28"/><rect x="17" y="7" width="9" height="4" fill="#5aaa3a" opacity="0.6"/>
-      </svg>
-      <svg style={{ position:'absolute', left:'0.5%', bottom:'7%' }} width="60" height="80" aria-hidden="true">
-        <rect x="22" y="50" width="16" height="30" fill="#3d2a1a"/><rect x="26" y="50" width="8" height="30" fill="#5a3f28"/>
-        <rect x="8" y="36" width="44" height="16" fill="#1a3d0a"/><rect x="12" y="22" width="36" height="16" fill="#2d5a1b"/>
-        <rect x="18" y="6" width="24" height="18" fill="#3a7a28"/><rect x="22" y="8" width="10" height="5" fill="#5aaa3a" opacity="0.65"/>
-      </svg>
-      <svg style={{ position:'absolute', right:'1.5%', bottom:'5%' }} width="52" height="68" aria-hidden="true">
-        <rect x="18" y="42" width="15" height="26" fill="#3d2a1a"/><rect x="22" y="42" width="7" height="26" fill="#5a3f28"/>
-        <rect x="4" y="29" width="44" height="15" fill="#1a3d0a"/><rect x="8" y="16" width="36" height="15" fill="#2d5a1b"/>
-        <rect x="14" y="4" width="24" height="14" fill="#3a7a28"/>
-      </svg>
-      <svg style={{ position:'absolute', left:'6%', top:'38%' }} width="44" height="60" aria-hidden="true">
-        <rect x="15" y="36" width="13" height="24" fill="#3d2a1a"/><rect x="18" y="36" width="7" height="24" fill="#5a3f28"/>
-        <rect x="3" y="24" width="37" height="14" fill="#1a3d0a"/><rect x="6" y="13" width="31" height="13" fill="#2d5a1b"/>
-        <rect x="11" y="3" width="21" height="12" fill="#3a7a28"/>
-      </svg>
-      <svg style={{ position:'absolute', right:'5%', top:'42%' }} width="48" height="64" aria-hidden="true">
-        <rect x="17" y="40" width="14" height="24" fill="#3d2a1a"/><rect x="20" y="40" width="7" height="24" fill="#5a3f28"/>
-        <rect x="4" y="27" width="40" height="15" fill="#1a3d0a"/><rect x="7" y="14" width="33" height="15" fill="#2d5a1b"/>
-        <rect x="12" y="4" width="23" height="12" fill="#3a7a28"/>
-      </svg>
-      {/* Rocks */}
-      <svg style={{ position:'absolute', left:'9%', top:'47%' }} width="46" height="30" aria-hidden="true">
-        <rect x="2" y="8" width="38" height="20" fill="#525252" rx="2"/><rect x="0" y="14" width="23" height="16" fill="#666" rx="2"/>
-        <rect x="23" y="10" width="23" height="18" fill="#484848" rx="2"/><rect x="2" y="8" width="38" height="5" fill="#7a7a7a" rx="2"/>
-      </svg>
-      <svg style={{ position:'absolute', right:'8%', top:'52%' }} width="40" height="26" aria-hidden="true">
-        <rect x="2" y="6" width="32" height="18" fill="#525252" rx="2"/><rect x="0" y="11" width="20" height="14" fill="#666" rx="2"/>
-        <rect x="20" y="8" width="20" height="16" fill="#484848" rx="2"/><rect x="2" y="6" width="32" height="5" fill="#7a7a7a" rx="2"/>
-      </svg>
-      <svg style={{ position:'absolute', left:'47%', bottom:'13%' }} width="36" height="22" aria-hidden="true">
-        <rect x="2" y="4" width="28" height="16" fill="#525252" rx="2"/><rect x="0" y="9" width="17" height="13" fill="#666" rx="2"/>
-        <rect x="17" y="6" width="17" height="14" fill="#484848" rx="2"/><rect x="2" y="4" width="28" height="4" fill="#7a7a7a" rx="2"/>
-      </svg>
-      {/* Pixel stream */}
-      <svg style={{ position:'absolute', bottom:'17%', left:0, width:'100%', height:'30px', opacity:0.78 }} aria-hidden="true">
-        <defs>
-          <pattern id="pgStreamPat" x="0" y="0" width="48" height="30" patternUnits="userSpaceOnUse">
-            <rect width="48" height="30" fill="#1a4878"/>
-            <rect x="0" y="7"  width="48" height="8" fill="#2468a0"/>
-            <rect x="0" y="15" width="48" height="8" fill="#1a5a90"/>
-            <rect x="6"  y="3"  width="10" height="4" fill="#4090c8" opacity="0.55"/>
-            <rect x="28" y="19" width="10" height="4" fill="#4090c8" opacity="0.55"/>
-            <rect x="14" y="11" width="8"  height="3" fill="#6ab0e0" opacity="0.4"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#pgStreamPat)"/>
-        <rect width="100%" height="3" y="9" fill="#5aaada" opacity="0.5"/>
-      </svg>
-    </div>
-  );
-}
-
-// ── CrystalGem ─────────────────────────────────────────────────────────────────
-function CrystalGem({ stage }) {
-  // stage: 0=gray, 1=dull green, 2=yellow, 3=bright gold
-  const cfg = [
-    { fill:'#475569', stroke:'#334155', glow:false },
-    { fill:'#4ade80', stroke:'#16a34a', glow:false },
-    { fill:'#fbbf24', stroke:'#d97706', glow:false },
-    { fill:'#f59e0b', stroke:'#b45309', glow:true  },
-  ][stage] || { fill:'#475569', stroke:'#334155', glow:false };
-  return (
-    <svg width="13" height="17" viewBox="0 0 13 17" style={{ filter: cfg.glow ? 'drop-shadow(0 0 4px #f59e0b)' : 'none', flexShrink:0 }}>
-      <polygon points="6.5,0 13,5 9.5,17 3.5,17 0,5" fill={cfg.fill} stroke={cfg.stroke} strokeWidth="0.8"/>
-      <polygon points="6.5,1 10,5 8.5,5 5.8,1" fill="rgba(255,255,255,0.38)"/>
-    </svg>
-  );
-}
-
 // ── DiagFloorLabelNode — grade banner above each floor ────────────────────
 function DiagFloorLabelNode({ data }) {
   const { grade, icon, totalW = 280 } = data;
@@ -407,74 +313,6 @@ function DiagFloorLabelNode({ data }) {
         <span className="grade-banner-icon">{icon}</span>
       </div>
     </div>
-  );
-}
-
-// ── DiagModuleCard ─────────────────────────────────────────────────────────────
-function DiagModuleCard({ data }) {
-  const { label, mastery, isLocked, grade } = data;
-
-  const statusColor = isLocked ? '#94a3b8' : mastery >= 100 ? '#22c55e' : mastery > 0 ? '#f59e0b' : '#6366f1';
-  const statusLabel = isLocked ? '🔒 Заблокировано' : mastery >= 100 ? '✅ Освоен' : mastery > 0 ? '⚡ В процессе' : '▶ Начать';
-  const bgColor     = isLocked ? '#f8fafc' : mastery >= 100 ? '#f0fdf4' : mastery > 0 ? '#fffbeb' : '#f5f3ff';
-  const borderColor = isLocked ? '#cbd5e1' : mastery >= 100 ? '#86efac' : mastery > 0 ? '#fcd34d' : '#c4b5fd';
-
-  return (
-    <div style={{ width: DM_NODE_W, height: DM_NODE_H, position: 'relative', userSelect: 'none', cursor: 'pointer', zIndex: 10 }}>
-      <Handle type="target" position={Position.Bottom} style={{ opacity: 0 }}/>
-      <Handle type="source" position={Position.Top}    style={{ opacity: 0 }}/>
-      <div style={{
-        width: '100%', height: '100%', boxSizing: 'border-box',
-        background: bgColor,
-        border: `1.5px solid ${borderColor}`,
-        borderLeft: `4px solid ${statusColor}`,
-        borderRadius: 8,
-        padding: '8px 10px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-      }}>
-        <div>
-          <div style={{ fontFamily:"'Inter',sans-serif", fontWeight: 700, fontSize: 11, color: '#1e293b', lineHeight: 1.35, marginBottom: 2, wordBreak: 'break-word' }}>{label}</div>
-          <div style={{ fontSize: 10, color: '#64748b', fontFamily:"'Inter',sans-serif" }}>{grade}</div>
-        </div>
-        <div>
-          <div style={{ height: 4, background: '#e2e8f0', borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
-            <div style={{ height: '100%', width: `${mastery}%`, background: statusColor, borderRadius: 2, transition: 'width 0.3s' }}/>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 10, color: statusColor, fontFamily:"'Inter',sans-serif", fontWeight: 600 }}>{statusLabel}</span>
-            <span style={{ fontSize: 10, color: '#64748b', fontFamily:"'Inter',sans-serif" }}>{mastery}%</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── DiagModuleArrow ─────────────────────────────────────────────────────────────
-function DiagModuleArrow({ id, data }) {
-  const { waypoints=[], isUnlocked } = data||{};
-  if (waypoints.length < 2) return null;
-
-  const color = isUnlocked ? '#4ade80' : '#cbd5e1';
-  const mid   = `dma-${id}`;
-  const d     = waypoints.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.y}`).join(' ');
-
-  return (
-    <g>
-      <defs>
-        <marker id={mid} markerWidth={6} markerHeight={5} refX={5} refY={2.5} orient="auto">
-          <polygon points="0 0, 6 2.5, 0 5" fill={color}/>
-        </marker>
-      </defs>
-      {/* Main line — тонкая, без glow */}
-      <path d={d} fill="none" stroke={color} strokeWidth={1.5}
-        strokeDasharray={isUnlocked ? 'none' : '5 5'}
-        strokeLinecap="round" strokeLinejoin="round"
-        markerEnd={`url(#${mid})`}
-        opacity={isUnlocked ? 0.7 : 0.35}
-      />
-    </g>
   );
 }
 
