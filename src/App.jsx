@@ -1047,7 +1047,7 @@ function AppInner() {
         .stat-icon-fire { display:inline-block; transform-origin:center; animation: fire-flicker 1.8s ease-in-out infinite; }
         .stat-icon-muted { opacity:0.45; filter:grayscale(0.4); }
         .dashboard-section{background:#fff;border-radius:16px;border:1px solid ${THEME.border};padding:28px 32px;margin-bottom:28px;}
-        .progress-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;margin-bottom:14px;}
+        .progress-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;margin-bottom:14px;}
         .progress-grid .pg-col{display:flex;flex-direction:column;gap:14px;min-width:0;}
         @media(max-width:767px){.progress-grid{grid-template-columns:1fr;}}
         .section-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}

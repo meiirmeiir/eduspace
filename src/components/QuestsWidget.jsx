@@ -81,7 +81,7 @@ export default function QuestsWidget({ user, onUpdateUser }) {
     const partial = q.target > 1 && !st.completed;
     return (
       <div style={{
-        display: "flex", alignItems: "center", gap: 10, padding: "8px 0",
+        display: "flex", alignItems: "center", gap: 10, padding: "7px 0",
         opacity: st.completed ? 0.5 : 1,
       }}>
         <span style={{ fontSize: 17, width: 22, textAlign: "center", flexShrink: 0 }}>
@@ -135,16 +135,20 @@ export default function QuestsWidget({ user, onUpdateUser }) {
   const weeklyDone = countDone(WEEKLY_QUESTS, weekly);
 
   return (
-    <div className="dashboard-section" style={{ marginBottom: 0, padding: "28px 24px" }}>
-      <SectionHeader title="📋 Задания дня" reset={`Сброс через ${fmtDaily(dailyResetMs)}`} />
-      {DAILY_QUESTS.map(q => <Row key={q.id} q={q} st={get(daily, q.id)} />)}
-      <Bar done={dailyDone} total={DAILY_QUESTS.length} />
+    <div className="dashboard-section" style={{ marginBottom: 0, padding: "22px 24px", flexGrow: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      <div>
+        <SectionHeader title="📋 Задания дня" reset={`Сброс через ${fmtDaily(dailyResetMs)}`} />
+        {DAILY_QUESTS.map(q => <Row key={q.id} q={q} st={get(daily, q.id)} />)}
+        <Bar done={dailyDone} total={DAILY_QUESTS.length} />
+      </div>
 
-      <div style={{ height: 1, background: THEME.border, margin: "26px 0" }} />
+      <div style={{ height: 1, background: THEME.border, margin: "16px 0" }} />
 
-      <SectionHeader title="📅 Задания недели" reset={`Сброс через ${fmtWeekly(nextMondayMs)}`} />
-      {WEEKLY_QUESTS.map(q => <Row key={q.id} q={q} st={get(weekly, q.id)} />)}
-      <Bar done={weeklyDone} total={WEEKLY_QUESTS.length} />
+      <div>
+        <SectionHeader title="📅 Задания недели" reset={`Сброс через ${fmtWeekly(nextMondayMs)}`} />
+        {WEEKLY_QUESTS.map(q => <Row key={q.id} q={q} st={get(weekly, q.id)} />)}
+        <Bar done={weeklyDone} total={WEEKLY_QUESTS.length} />
+      </div>
     </div>
   );
 }
