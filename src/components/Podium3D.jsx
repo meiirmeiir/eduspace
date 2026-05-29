@@ -146,21 +146,6 @@ function makeTierGeo(THREE, w, d, h, opts = {}) {
   return geo;
 }
 
-// Вертикальный градиент яркости для конуса луча (прозрачно у вершины/основания,
-// ярче в середине → мягкие края шахты света).
-function makeBeamCanvas() {
-  const W = 16, Hc = 256;
-  const c = document.createElement('canvas'); c.width = W; c.height = Hc;
-  const ctx = c.getContext('2d');
-  const g = ctx.createLinearGradient(0, 0, 0, Hc);
-  g.addColorStop(0.0, 'rgba(255,255,255,0)');
-  g.addColorStop(0.15, 'rgba(255,255,255,0.5)');
-  g.addColorStop(0.6, 'rgba(255,255,255,0.32)');
-  g.addColorStop(1.0, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, Hc);
-  return c;
-}
-
 // Мягкая круглая искра для частиц (радиальный градиент).
 function makeSparkCanvas() {
   const S = 64;
@@ -243,18 +228,11 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
       const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(-4, 2, 3); scene.add(fill);
       const pt = new THREE.PointLight(0xffffff, 0.6); pt.position.set(-1.5, 4, 4); scene.add(pt);
 
-      // Глянцевый тёмный пол (псевдо-отражение через металл+envMap) + мягкие тени.
-      const floorGeo = new THREE.PlaneGeometry(40, 40); floorGeo.rotateX(-Math.PI / 2);
-      const floorMat = new THREE.MeshStandardMaterial({ color: 0x0b0b14, metalness: 0.55, roughness: 0.35, envMap: envCube, envMapIntensity: 0.5 });
-      const floor = new THREE.Mesh(floorGeo, floorMat); floor.receiveShadow = true;
-      scene.add(floor); geos.push(floorGeo); mats.push(floorMat);
-
-      // Градиентный отблеск-«лужа» по центру под тумбами.
-      const sheenTex = new THREE.CanvasTexture(makeAuraCanvas()); texs.push(sheenTex);
-      const sheenGeo = new THREE.PlaneGeometry(11, 11); sheenGeo.rotateX(-Math.PI / 2);
-      const sheenMat = new THREE.MeshBasicMaterial({ map: sheenTex, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false });
-      const sheen = new THREE.Mesh(sheenGeo, sheenMat); sheen.position.set(0, 0.012, 0.4);
-      scene.add(sheen); geos.push(sheenGeo); mats.push(sheenMat);
+      // Невидимый пол — только приём теней (сам пол не виден).
+      const groundGeo = new THREE.PlaneGeometry(40, 40); groundGeo.rotateX(-Math.PI / 2);
+      const groundMat = new THREE.ShadowMaterial({ opacity: 0.24 });
+      const ground = new THREE.Mesh(groundGeo, groundMat); ground.receiveShadow = true;
+      scene.add(ground); geos.push(groundGeo); mats.push(groundMat);
 
       // Дымка у основания (билборд-плоскости с градиентом, нормальное смешивание).
       const hazeTex = new THREE.CanvasTexture(makeHazeCanvas()); texs.push(hazeTex);
@@ -377,19 +355,6 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
         spotlight.shadow.mapSize.set(1024, 1024);
         spotlight.shadow.camera.near = 1; spotlight.shadow.camera.far = 18;
         scene.add(spotlight); scene.add(spotlight.target);
-
-        // Видимый конус луча (additive, градиент яркости вдоль высоты).
-        const apexY = topY + 5.5, baseY = topY - 0.1, coneH = apexY - baseY;
-        const coneR = Math.tan(0.34) * coneH;
-        const beamTex = new THREE.CanvasTexture(makeBeamCanvas()); texs.push(beamTex);
-        const coneGeo = new THREE.ConeGeometry(coneR, coneH, 32, 1, true);
-        const coneMat = new THREE.MeshBasicMaterial({
-          color: 0xffd9a0, map: beamTex, transparent: true, opacity: 0.16,
-          blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-        });
-        const cone = new THREE.Mesh(coneGeo, coneMat);
-        cone.position.set(sx, (apexY + baseY) / 2, 0.6);
-        scene.add(cone); geos.push(coneGeo); mats.push(coneMat);
 
         // Аура-гало (визуал, не свет) — приглушена под spotlight.
         const auraTex = new THREE.CanvasTexture(makeAuraCanvas()); texs.push(auraTex);
