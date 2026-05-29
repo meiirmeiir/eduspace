@@ -6,6 +6,7 @@ import { auth, app } from "../lib/firebase.js";
 import Logo from "../components/ui/Logo.jsx";
 import { FRAME_STYLES, getShopItem } from "../lib/shopItems.js";
 import { getLevelInfo } from "../lib/levelUtils.js";
+import InfoTooltip from "../components/InfoTooltip.jsx";
 import Podium3D from "../components/Podium3D.jsx";
 import { isCreator } from "../lib/creator.js";
 import { ensureCreatorStyles } from "../components/creatorFx.js";
@@ -328,7 +329,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         {/* forceLightText = wallpaper активен → светлый текст поверх обоев.
             !equippedBg → тёмный градиент → светлый текст. Итог: светлый всегда. */}
         {(() => null)()}
-        <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color: lt, marginBottom:6}}>🏆 Рейтинг</h1>
+        <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color: lt, marginBottom:6, display:'inline-flex', alignItems:'center'}}>🏆 Рейтинг<InfoTooltip text="Рейтинг по очкам за неделю — за ежедневные задачи, навыки и диагностику. Сбрасывается в понедельник." /></h1>
         <p style={{fontSize:13, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : ltd, marginBottom:18}}>Неделя {weekId} · обновляется в реальном времени</p>
 
         <div style={{display:'flex', gap:6, marginBottom:18, flexWrap:'wrap'}}>

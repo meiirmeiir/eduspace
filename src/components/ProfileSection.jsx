@@ -15,6 +15,7 @@ import CreatorRing from "./CreatorRing.jsx";
 import { isCreator } from "../lib/creator.js";
 import XpBar from "./XpBar.jsx";
 import AchievementsGrid from "./AchievementsGrid.jsx";
+import InfoTooltip from "./InfoTooltip.jsx";
 
 export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser }) {
   const { firebaseUser } = useAuth();
@@ -247,7 +248,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                       <span style={{display:'inline-block', background:statusObj.color, color:'#fff', fontWeight:700, fontSize:12, padding:'4px 14px', borderRadius:99, border:`1px solid ${statusObj.color}`}}>{statusObj.label}</span>
                       {user?.goal && <span style={{display:'inline-block', background:'transparent', color:THEME.textLight, fontWeight:600, fontSize:12, padding:'4px 12px', borderRadius:6, border:`1px solid ${THEME.border}`}}>{user.goal}</span>}
                     </div>
-                    <div style={{marginTop:14, maxWidth:300}}><XpBar xp={user?.xp ?? 0} /></div>
+                    <div style={{marginTop:14, maxWidth:300}}><XpBar xp={user?.xp ?? 0} help={<InfoTooltip text="Твой уровень и тир. Растёт за опыт (XP) и не сбрасывается." />} /></div>
                   </div>
                   {/* Правый столбец: класс, область, дата, npc-toggle */}
                   <div>
@@ -317,7 +318,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
 
       {/* Rank medals (weekly leaderboard awards) */}
       <div className="dashboard-section" style={{marginBottom:24}}>
-        <h2 className="section-title" style={{marginBottom:16}}>🏆 Мои награды</h2>
+        <h2 className="section-title" style={{marginBottom:16, display:'inline-flex', alignItems:'center'}}>🏆 Мои награды<InfoTooltip text="Достижения за успехи в учёбе. За каждый уровень — кристаллы." /></h2>
         {rankMedals.length===0 ? (
           <div className="empty-state" style={{padding:"20px 0"}}>Попади в топ-10 рейтинга чтобы получить медаль</div>
         ) : (

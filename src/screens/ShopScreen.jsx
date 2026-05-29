@@ -4,6 +4,7 @@ import { SHOP_ITEMS, SHOP_TYPES, FRAME_STYLES } from "../lib/shopItems.js";
 import { purchaseItem, equipItem } from "../lib/shopUtils.js";
 import { getLeague } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
+import InfoTooltip from "../components/InfoTooltip.jsx";
 
 const THEME_SWATCHES = {
   galaxy: ['#1e1b4b', '#312e81', '#a78bfa'],
@@ -207,7 +208,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
 
       <div style={{maxWidth:1100, margin:'0 auto', padding:'24px 16px'}}>
         <div style={{display:'flex', alignItems:'baseline', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:18}}>
-          <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color:THEME.primary, margin:0}}>🛍️ Магазин</h1>
+          <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color:THEME.primary, margin:0, display:'inline-flex', alignItems:'center'}}>🛍️ Магазин<InfoTooltip text="Трать кристаллы на оформление профиля: фоны, рамки, титулы, темы." /></h1>
           <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:20, color:THEME.primary}}>
             💎 {crystals.toLocaleString('ru-RU')} <span style={{fontSize:14, color:THEME.textLight, fontWeight:600}}>кристаллов</span>
           </div>

@@ -13,6 +13,7 @@ import ThemeToggle from "../components/ThemeToggle.jsx";
 import QuestsWidget from "../components/QuestsWidget.jsx";
 import LevelRing from "../components/LevelRing.jsx";
 import XpBar from "../components/XpBar.jsx";
+import InfoTooltip from "../components/InfoTooltip.jsx";
 import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
@@ -424,6 +425,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             {(user?.crystals ?? 0) > 0 && (
               <div style={{fontSize:13, color:'#a78bfa', fontWeight:700, marginTop:4}}>
                 💎 {(user?.crystals ?? 0).toLocaleString('ru-RU')}
+                <InfoTooltip text="Валюта для магазина. Зарабатывай за ежедневные задачи, навыки и квесты." />
               </div>
             )}
           </div>
@@ -564,7 +566,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             <div className="pg-col">
 
             {/* Полоса опыта */}
-            <XpBar xp={user?.xp ?? 0} large />
+            <XpBar xp={user?.xp ?? 0} large help={<InfoTooltip text="Опыт за учёбу. Уровень растёт постоянно и не сбрасывается. Подробнее — в Частых вопросах." />} />
 
             {/* ── ESR Rating: большой FACEIT-style виджет с лигой и тремя рангами. ── */}
             {(() => {
@@ -591,8 +593,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
 
                   {/* Header */}
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,gap:12,flexWrap:'wrap'}}>
-                    <div style={{fontSize:11,fontWeight:800,letterSpacing:1.8,textTransform:'uppercase',color:accent}}>
+                    <div style={{fontSize:11,fontWeight:800,letterSpacing:1.8,textTransform:'uppercase',color:accent,display:'flex',alignItems:'center'}}>
                       ⭐ ESR Рейтинг
+                      <InfoTooltip text="Недельный рейтинг. Очки за ежедневные задачи, навыки и диагностику. Сбрасывается каждый понедельник." />
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                       {wkCh !== 0 && (
@@ -661,7 +664,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
 
             {/* Прогресс по индивидуальному плану */}
             <div className="dashboard-section" style={{marginBottom:0, padding:'20px 22px'}}>
-                <h2 className="section-title" style={{margin:'0 0 12px'}}>📊 Прогресс обучения</h2>
+                <h2 className="section-title" style={{margin:'0 0 12px', display:'flex', alignItems:'center'}}>📊 Прогресс обучения<InfoTooltip text="Сколько навыков из твоего плана уже освоено." /></h2>
                 {(!user?.smartDiagDone || !planSkills?.length) ? (
                   <div className="empty-state" style={{padding:'12px 0', fontSize:14}}>
                     Пройди диагностику чтобы увидеть свой прогресс
@@ -718,12 +721,12 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                       {streakNum > 0 ? (
                         <>
                           <div className="stat-value">{streakNum}</div>
-                          <div className="stat-label">{pluralize(streakNum, ['день подряд','дня подряд','дней подряд'])}</div>
+                          <div className="stat-label" style={{display:'inline-flex',alignItems:'center'}}>{pluralize(streakNum, ['день подряд','дня подряд','дней подряд'])}<InfoTooltip text="Дни подряд с активностью. Не прерывай — за длинные серии бонусы." /></div>
                         </>
                       ) : (
                         <>
                           <div className="stat-value" style={{fontSize:15}}>Начни серию</div>
-                          <div className="stat-label">сегодня</div>
+                          <div className="stat-label" style={{display:'inline-flex',alignItems:'center'}}>сегодня<InfoTooltip text="Дни подряд с активностью. Не прерывай — за длинные серии бонусы." /></div>
                         </>
                       )}
                     </div>

@@ -4,7 +4,7 @@ import { getLevelInfo } from '../lib/levelUtils.js';
 // Полоса опыта: «Уровень N · тир» + cur/next XP + бар с плавным заполнением.
 // Цвет берётся из тира. Наследует цвет текста от родителя (работает на тёмном
 // сайдбаре и на светлой карточке профиля).
-export default function XpBar({ xp = 0, large = false, style }) {
+export default function XpBar({ xp = 0, large = false, style, help }) {
   const info = getLevelInfo(xp);
   const pct = Math.round(info.progress * 100);
   const fs = large ? 15 : 12;
@@ -13,7 +13,7 @@ export default function XpBar({ xp = 0, large = false, style }) {
     <div style={{ width: '100%', ...style }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: large ? 6 : 4, fontSize: fs }}>
         <span style={{ fontWeight: large ? 800 : 700, color: info.tier.color, whiteSpace: 'nowrap' }}>
-          Уровень {info.level} · {info.tier.name}
+          Уровень {info.level} · {info.tier.name}{help}
         </span>
         <span style={{ fontWeight: 600, opacity: 0.7, whiteSpace: 'nowrap' }}>
           {info.currentLevelXp}/{info.nextLevelXp} XP

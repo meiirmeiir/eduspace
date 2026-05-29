@@ -5,6 +5,7 @@ import { DAILY_QUESTS, WEEKLY_QUESTS } from "../lib/quests.js";
 import { updateQuestProgress } from "../lib/questsUtils.js";
 import { getMyWeeklyRank, getMondayUtcIso } from "../lib/pointsUtils.js";
 import { getAlmatyNextMidnightAfter } from "../lib/srsUtils.js";
+import InfoTooltip from "./InfoTooltip.jsx";
 
 const fmtDaily = (ms) => {
   if (ms <= 0) return "0м";
@@ -137,7 +138,7 @@ export default function QuestsWidget({ user, onUpdateUser }) {
   return (
     <div className="dashboard-section" style={{ marginBottom: 0, padding: "22px 24px", flexGrow: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
       <div>
-        <SectionHeader title="📋 Задания дня" reset={`Сброс через ${fmtDaily(dailyResetMs)}`} />
+        <SectionHeader title={<>📋 Задания дня<InfoTooltip text="Выполняй задания дня и недели — получай кристаллы. Дневные сбрасываются каждый день, недельные — в понедельник." /></>} reset={`Сброс через ${fmtDaily(dailyResetMs)}`} />
         {DAILY_QUESTS.map(q => <Row key={q.id} q={q} st={get(daily, q.id)} />)}
         <Bar done={dailyDone} total={DAILY_QUESTS.length} />
       </div>
