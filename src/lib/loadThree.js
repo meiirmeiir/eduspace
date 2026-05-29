@@ -30,3 +30,53 @@ export function loadThree() {
   });
   return _promise;
 }
+
+// Аддоны r128 для 3D-текста: FontLoader + TextGeometry лежат в examples/js и
+// цепляются к глобальному THREE классическими скриптами (в core-сборке их нет).
+const FONT_LOADER_SRC = 'https://unpkg.com/three@0.128.0/examples/js/loaders/FontLoader.js';
+const TEXT_GEO_SRC = 'https://unpkg.com/three@0.128.0/examples/js/geometries/TextGeometry.js';
+let _textPromise = null;
+const _fontCache = {};
+
+function injectScript(src, marker) {
+  return new Promise((resolve, reject) => {
+    let s = document.querySelector(`script[${marker}]`);
+    if (s) {
+      if (s.dataset.loaded) return resolve();
+      s.addEventListener('load', () => resolve());
+      s.addEventListener('error', () => reject(new Error(src + ' load failed')));
+      return;
+    }
+    s = document.createElement('script');
+    s.src = src; s.async = true; s.setAttribute(marker, '');
+    s.onload = () => { s.dataset.loaded = '1'; resolve(); };
+    s.onerror = () => reject(new Error(src + ' load failed'));
+    document.head.appendChild(s);
+  });
+}
+
+// Гарантирует наличие THREE + THREE.FontLoader + THREE.TextGeometry. Промис
+// кэшируется; при ошибке сбрасывается для повторной попытки.
+export function loadThreeText() {
+  if (_textPromise) return _textPromise;
+  _textPromise = loadThree().then(async (THREE) => {
+    if (!THREE.FontLoader) await injectScript(FONT_LOADER_SRC, 'data-three-fontloader');
+    if (!THREE.TextGeometry) await injectScript(TEXT_GEO_SRC, 'data-three-textgeo');
+    if (!THREE.FontLoader || !THREE.TextGeometry) throw new Error('THREE text addons missing after load');
+    return THREE;
+  }).catch((e) => { _textPromise = null; throw e; });
+  return _textPromise;
+}
+
+// Загружает и парсит typeface-шрифт через FontLoader. Кэш по URL.
+export function loadTypeface(url) {
+  if (_fontCache[url]) return Promise.resolve(_fontCache[url]);
+  return loadThreeText().then((THREE) => new Promise((resolve, reject) => {
+    new THREE.FontLoader().load(
+      url,
+      (font) => { _fontCache[url] = font; resolve(font); },
+      undefined,
+      (err) => reject(err || new Error('typeface load failed')),
+    );
+  }));
+}

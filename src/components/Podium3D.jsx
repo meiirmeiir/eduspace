@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { loadThree } from '../lib/loadThree.js';
+import { loadThree, loadTypeface } from '../lib/loadThree.js';
 import { useTheme } from '../ThemeContext.jsx';
 import { FRAME_STYLES } from '../lib/shopItems.js';
 
@@ -12,14 +12,15 @@ import { FRAME_STYLES } from '../lib/shopItems.js';
 
 const ACCENT_HEX = ['#fbbf24', '#94a3b8', '#b45309'];   // rank 1/2/3 — для CSS-аватаров/подписей
 const METAL_NUM = [0xd4af37, 0x94a3b8, 0xb45309];        // 3D-металл: глубокое золото / серебро / бронза
-const ROYAL_ACCENT = 0x4c1d95;                           // пурпурный королевский акцент (рамка плашки + врезка)
+const VELVET_HEX = 0x4c1d95;                             // пурпурный бархат драпировки
+const NUMBER_HEX = 0xf0e6c8;                             // светлый металл цифры (контраст с бархатом)
+const FONT_URL = 'https://unpkg.com/three@0.128.0/examples/fonts/helvetiker_bold.typeface.json';
 // Ярусы постамента: доли высоты slot.h (сумма = 1) + ширина footprint (мир).
 const TIERS = [
-  { wf: 2.05, hf: 0.14, accent: false },                 // основание (нижняя плита)
-  { wf: 1.85, hf: 0.10, accent: false },                 // ступень/фаска
-  { wf: 1.55, hf: 0.58, accent: false, column: true },   // основной столб
-  { wf: 1.72, hf: 0.04, accent: true },                  // пурпурная врезка
-  { wf: 1.95, hf: 0.14, accent: false },                 // карниз (выступ под аватаром)
+  { wf: 2.05, hf: 0.14 },                 // основание (нижняя плита)
+  { wf: 1.85, hf: 0.10 },                 // ступень/фаска
+  { wf: 1.55, hf: 0.62, column: true },   // основной столб
+  { wf: 1.95, hf: 0.14 },                 // карниз (выступ под аватаром)
 ];
 const COLUMN_WF = 1.55;
 const SLOTS = [{ x: 0, h: 2.2 }, { x: -2.4, h: 1.5 }, { x: 2.4, h: 1.0 }]; // #1 центр, #2 лево, #3 право
@@ -28,32 +29,57 @@ const SWAY_AMP = 0.26;    // ~15° в радианах
 const SWAY_SPEED = 0.5;   // рад/с — медленное престижное покачивание
 const initialsOf = (e) => ((e?.firstName?.[0] || '') + (e?.lastName?.[0] || '')).toUpperCase() || '?';
 
-// Весь канвас → grayscale (яркость = высота для bumpMap).
-function luminancePass(ctx, S) {
-  const img = ctx.getImageData(0, 0, S, S);
-  const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const l = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
-    d[i] = d[i + 1] = d[i + 2] = l; d[i + 3] = 255;
+// Тканевый bump-канвас бархата: мягкие вертикальные складки (синус + лёгкий
+// шум) в grayscale → рельеф складок ткани.
+function makeFabricBumpCanvas() {
+  const W = 256, Hc = 512;
+  const c = document.createElement('canvas'); c.width = W; c.height = Hc;
+  const ctx = c.getContext('2d');
+  const folds = 7;
+  for (let x = 0; x < W; x++) {
+    const base = 128 + 55 * Math.sin((x / W) * folds * Math.PI * 2);
+    for (let y = 0; y < Hc; y += 4) {
+      const v = Math.max(0, Math.min(255, Math.round(base + (Math.random() - 0.5) * 14)));
+      ctx.fillStyle = `rgb(${v},${v},${v})`;
+      ctx.fillRect(x, y, 1, 4);
+    }
   }
-  ctx.putImageData(img, 0, 0);
+  return c;
 }
 
-// Bump-канвас номера места: нейтральный фон + приподнятая (светлее) цифра с
-// тонким тёмным контуром → рельефная гравировка на грани тумбы.
-function makeNumberBumpCanvas(rank) {
-  const S = 512;
+// Фолбэк-цифра: светлая цифра на прозрачном фоне (map для плоскости поверх
+// бархата) — на случай, если шрифт/аддоны TextGeometry не загрузятся.
+function makeNumberFaceCanvas(rank) {
+  const S = 256;
   const c = document.createElement('canvas'); c.width = c.height = S;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, S, S);          // высота 0
+  ctx.clearRect(0, 0, S, S);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = "800 340px 'Montserrat', sans-serif";
-  ctx.lineWidth = S * 0.012; ctx.strokeStyle = '#383838';        // тёмный контур (канавка)
-  ctx.strokeText(String(rank), S / 2, S / 2 + S * 0.02);
-  ctx.fillStyle = '#ededed';                                     // приподнятая цифра
-  ctx.fillText(String(rank), S / 2, S / 2 + S * 0.02);
-  luminancePass(ctx, S);
+  ctx.font = "800 180px 'Montserrat', sans-serif";
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 8;
+  ctx.fillStyle = '#f0e6c8';
+  ctx.fillText(String(rank), S / 2, S / 2 + 8);
   return c;
+}
+
+// Геральдический баннер: скруглённый верх + V-вырез снизу, выдавлен вдоль +Z
+// (лицом к камере). Низ shape на y=0 (позиционируется по миру через mesh.y).
+function makeBannerGeo(THREE, w, h, depth) {
+  const hw = w / 2;
+  const r = Math.min(0.08, w * 0.1);
+  const notch = h * 0.18;
+  const s = new THREE.Shape();
+  s.moveTo(-hw, h - r);
+  s.lineTo(-hw, 0);
+  s.lineTo(0, notch);
+  s.lineTo(hw, 0);
+  s.lineTo(hw, h - r);
+  s.quadraticCurveTo(hw, h, hw - r, h);
+  s.lineTo(-hw + r, h);
+  s.quadraticCurveTo(-hw, h, -hw, h - r);
+  return new THREE.ExtrudeGeometry(s, {
+    depth, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 1, steps: 1, curveSegments: 6,
+  });
 }
 
 // Процедурный env-куб (6 граней с вертикальным градиентом) — металлу
@@ -185,29 +211,25 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
 
       // ── Постаменты (многоуровневые «королевские» пьедесталы) ─────────────────
       const bevelOpts = { r: 0.1, bevel: 0.04 };
+      const numberSlots = [];
       top3.forEach((entry, i) => {
         if (!entry || i > 2) return;
         const slot = SLOTS[i];
 
-        // Глубокий металл (золото/серебро/бронза) + пурпурный акцент.
+        // Глубокий металл (золото/серебро/бронза).
         const metalMat = new THREE.MeshStandardMaterial({
           color: METAL_NUM[i], metalness: 0.95, roughness: 0.15,
           envMap: envCube, envMapIntensity: 1.6,
           emissive: METAL_NUM[i], emissiveIntensity: 0.12,
         });
-        const accentMat = new THREE.MeshStandardMaterial({
-          color: ROYAL_ACCENT, metalness: 0.6, roughness: 0.35,
-          envMap: envCube, envMapIntensity: 0.8,
-          emissive: ROYAL_ACCENT, emissiveIntensity: 0.1,
-        });
-        mats.push(metalMat, accentMat);
+        mats.push(metalMat);
 
         // Стопка ярусов снизу вверх; верх карниза = slot.h (сумма hf = 1).
         let cum = 0, columnBottom = 0, columnH = 0;
         TIERS.forEach((t) => {
           const h = t.hf * slot.h;
           const geo = makeTierGeo(THREE, t.wf, t.wf, h, bevelOpts);
-          const mesh = new THREE.Mesh(geo, t.accent ? accentMat : metalMat);
+          const mesh = new THREE.Mesh(geo, metalMat);
           mesh.position.set(slot.x, cum, 0);
           mesh.castShadow = true; mesh.receiveShadow = true;
           group.add(mesh); geos.push(geo);
@@ -215,27 +237,73 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
           cum += h;
         });
 
-        // Гравированная плашка номера на передней грани столба: металл + bumpMap,
-        // боковые грани — пурпурная рамка.
-        const pw = 0.9, ph = Math.max(0.3, columnH * 0.5), pd = 0.1;
-        const plaqueGeo = new THREE.BoxGeometry(pw, ph, pd);
-        const numBump = new THREE.CanvasTexture(makeNumberBumpCanvas(i + 1));
-        const numMat = new THREE.MeshStandardMaterial({
-          color: METAL_NUM[i], metalness: 0.95, roughness: 0.15,
-          envMap: envCube, envMapIntensity: 1.6, bumpMap: numBump, bumpScale: 0.06,
+        // Бархатная драпировка (геральдический баннер) на передней грани столба —
+        // матовый пурпур с тканевым bumpMap (складки).
+        const bw = 1.1, bh = columnH * 0.8, bd = 0.06;
+        const bannerGeo = makeBannerGeo(THREE, bw, bh, bd);
+        const fabricTex = new THREE.CanvasTexture(makeFabricBumpCanvas());
+        const velvetMat = new THREE.MeshStandardMaterial({
+          color: VELVET_HEX, metalness: 0.05, roughness: 0.9,
+          bumpMap: fabricTex, bumpScale: 0.02,
+          envMap: envCube, envMapIntensity: 0.2,
+          emissive: 0x1a0a33, emissiveIntensity: 0.15,
         });
-        texs.push(numBump); mats.push(numMat);
-        // BoxGeometry материалы: [+X,-X,+Y,-Y,+Z,-Z] → передняя грань = +Z = index 4
-        const plaque = new THREE.Mesh(plaqueGeo, [accentMat, accentMat, accentMat, accentMat, numMat, accentMat]);
-        plaque.position.set(slot.x, columnBottom + columnH / 2, COLUMN_WF / 2 + pd / 2 + 0.01);
-        plaque.castShadow = true;
-        group.add(plaque); geos.push(plaqueGeo);
+        texs.push(fabricTex); mats.push(velvetMat);
+        const banner = new THREE.Mesh(bannerGeo, velvetMat);
+        const bannerBottomY = columnBottom + columnH * 0.12;
+        banner.position.set(slot.x, bannerBottomY, COLUMN_WF / 2 + 0.005);
+        banner.castShadow = true; banner.receiveShadow = true;
+        group.add(banner); geos.push(bannerGeo);
+
+        // Слот под выпуклую 3D-цифру (строится асинхронно после загрузки шрифта).
+        numberSlots.push({
+          rank: i + 1,
+          x: slot.x,
+          y: bannerBottomY + bh * 0.5,
+          z: COLUMN_WF / 2 + 0.005 + bd + 0.02,
+        });
 
         // Якорь верха карниза — проекция экранной позиции аватара (с учётом sway).
         const anchor = new THREE.Object3D();
         anchor.position.set(slot.x, slot.h + 0.18, 0);
         group.add(anchor);
         anchors.push({ i, anchor });
+      });
+
+      // ── 3D-цифры мест: TextGeometry (выпуклая, ловит свет/тень) ───────────────
+      // Фолбэк — CanvasTexture-цифра на плоскости, если шрифт/аддоны не загрузятся.
+      const buildFallbackNumber = (ns) => {
+        const tex = new THREE.CanvasTexture(makeNumberFaceCanvas(ns.rank));
+        const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+        const geo = new THREE.PlaneGeometry(0.6, 0.6);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(ns.x, ns.y, ns.z - 0.02);
+        group.add(mesh); geos.push(geo); mats.push(mat); texs.push(tex);
+      };
+      loadTypeface(FONT_URL).then((font) => {
+        if (cancelled) return;
+        const numMat = new THREE.MeshStandardMaterial({
+          color: NUMBER_HEX, metalness: 0.9, roughness: 0.2,
+          envMap: envCube, envMapIntensity: 1.4,
+        });
+        mats.push(numMat);
+        numberSlots.forEach((ns) => {
+          const geo = new THREE.TextGeometry(String(ns.rank), {
+            font, size: 0.55, height: 0.14, curveSegments: 6,
+            bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2,
+          });
+          geo.computeBoundingBox();
+          const bb = geo.boundingBox;
+          geo.translate(-(bb.max.x + bb.min.x) / 2, -(bb.max.y + bb.min.y) / 2, 0);
+          const mesh = new THREE.Mesh(geo, numMat);
+          mesh.position.set(ns.x, ns.y, ns.z);
+          mesh.castShadow = true;
+          group.add(mesh); geos.push(geo);
+        });
+      }).catch((e) => {
+        console.warn('[podium3d] font load failed, fallback to canvas number:', e?.message || e);
+        if (cancelled) return;
+        numberSlots.forEach(buildFallbackNumber);
       });
 
       // ── Золотая аура + тёплый point-свет у тумбы #1 ──────────────────────────
