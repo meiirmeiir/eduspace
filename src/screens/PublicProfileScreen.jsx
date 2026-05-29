@@ -17,6 +17,7 @@ import AchievementsGrid from '../components/AchievementsGrid.jsx';
 import { isCreator } from '../lib/creator.js';
 import CreatorRing from '../components/CreatorRing.jsx';
 import CreatorBackground from '../components/CreatorBackground.jsx';
+import LegoCharacter3D from '../components/LegoCharacter3D.jsx';
 import CreatorIntro from '../components/CreatorIntro.jsx';
 import CreatorSignature from '../components/CreatorSignature.jsx';
 import { getToken } from 'firebase/app-check';
@@ -263,6 +264,15 @@ export default function PublicProfileScreen({ uid, onBack }) {
               </>
             )}
           </div>
+        </div>
+
+        {/* Герой — 3D Lego-персонаж с экипировкой профиля (видна другим) */}
+        <div className="dashboard-section" style={{ marginBottom:18 }}>
+          <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:THEME.primary, marginBottom:8 }}>🦸 Герой</div>
+          <LegoCharacter3D
+            equipped={{ helmet: equipped.helmet, top: equipped.top, bottom: equipped.bottom, boots: equipped.boots }}
+            autoSpin={0.4} height={340}
+          />
         </div>
 
         {/* ── Профиль Создателя: манифест + крупное достижение + подпись ── */}

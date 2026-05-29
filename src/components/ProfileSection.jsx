@@ -12,6 +12,7 @@ import { getShopItem, FRAME_STYLES } from "../lib/shopItems.js";
 import LevelRing from "./LevelRing.jsx";
 import TierRing3D from "./TierRing3D.jsx";
 import CreatorRing from "./CreatorRing.jsx";
+import LegoCharacter3D from "./LegoCharacter3D.jsx";
 import { isCreator } from "../lib/creator.js";
 import XpBar from "./XpBar.jsx";
 import AchievementsGrid from "./AchievementsGrid.jsx";
@@ -279,6 +280,15 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
             })()}
           </div>
         </div>
+      </div>
+
+      {/* Мой герой — 3D Lego-персонаж с надетым снаряжением (из equipped) */}
+      <div className="dashboard-section" style={{marginBottom:24}}>
+        <h2 className="section-title" style={{marginBottom:8}}>🦸 Мой герой</h2>
+        <LegoCharacter3D
+          equipped={{ helmet: user?.equipped?.helmet, top: user?.equipped?.top, bottom: user?.equipped?.bottom, boots: user?.equipped?.boots }}
+          autoSpin={0.4} height={340}
+        />
       </div>
 
       {/* Stats summary */}

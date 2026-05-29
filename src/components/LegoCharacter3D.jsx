@@ -74,11 +74,12 @@ function makeFaceCanvas(blink) {
 
 const SLOTS = ['helmet', 'top', 'bottom', 'boots'];
 
-export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '#3b4a6b', equipped = {}, tryOn = {}, height = H }) {
+export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '#3b4a6b', equipped = {}, tryOn = {}, height = H, autoSpin = 0.15 }) {
   const mountRef = useRef(null);
   const [failed, setFailed] = useState(false);
   const shirtRef = useRef(shirtColor); shirtRef.current = shirtColor;
   const pantsRef = useRef(pantsColor); pantsRef.current = pantsColor;
+  const autoSpinRef = useRef(autoSpin); autoSpinRef.current = autoSpin;
   const apiRef = useRef(null); // { rebuild } — установится после построения сцены
 
   // resolved[slot] = примерка поверх надетого. Ключ → триггер перестроения.
@@ -255,7 +256,7 @@ export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '
         if (shirtMat.color.getHexString() !== shirtRef.current.replace('#', '')) shirtMat.color.set(shirtRef.current);
         if (pantsMat.color.getHexString() !== pantsRef.current.replace('#', '')) pantsMat.color.set(pantsRef.current);
         // лёгкий авто-поворот, пока не тащат; drag перебивает
-        if (!drag.active) drag.targetRotY += 0.15 * dt;
+        if (!drag.active) drag.targetRotY += autoSpinRef.current * dt;
         charGroup.rotation.y += (drag.targetRotY - charGroup.rotation.y) * 0.12;
         // дыхание
         charGroup.position.y = Math.sin(t * 1.2) * 0.03;
