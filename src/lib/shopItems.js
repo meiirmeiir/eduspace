@@ -42,18 +42,18 @@ export const SHOP_ITEMS = [
 
   // ── Снаряжение (космос/sci-fi): надевается на 3D-персонажа. Визуал — в
   //    EQUIPMENT_MODELS ниже (ключ = id). type = слот → equipped.{slot}. ──
-  { id: 'eq-helmet-pilot', type: 'helmet', name: 'Шлем пилота',          price: 100, icon: '🪖' },
-  { id: 'eq-helmet-astro', type: 'helmet', name: 'Шлем астронавта',      price: 250, icon: '🧑‍🚀' },
-  { id: 'eq-helmet-cyber', type: 'helmet', name: 'Кибер-визор',          price: 450, icon: '🤖' },
-  { id: 'eq-top-jacket',   type: 'top',    name: 'Лётная куртка',        price: 120, icon: '🧥' },
-  { id: 'eq-top-suit',     type: 'top',    name: 'Скафандр',             price: 300, icon: '🚀' },
-  { id: 'eq-top-armor',    type: 'top',    name: 'Броня десантника',     price: 550, icon: '🛡️' },
-  { id: 'eq-bottom-pants', type: 'bottom', name: 'Лётные штаны',         price: 80,  icon: '👖' },
-  { id: 'eq-bottom-suit',  type: 'bottom', name: 'Штаны скафандра',      price: 220, icon: '🩳' },
-  { id: 'eq-bottom-armor', type: 'bottom', name: 'Бронепластины',        price: 400, icon: '🦿' },
-  { id: 'eq-boots-pilot',  type: 'boots',  name: 'Ботинки пилота',       price: 90,  icon: '🥾' },
-  { id: 'eq-boots-magnet', type: 'boots',  name: 'Магнитные сапоги',     price: 200, icon: '🧲' },
-  { id: 'eq-boots-jet',    type: 'boots',  name: 'Реактивные ботинки',   price: 500, icon: '🔥' },
+  { id: 'eq-helmet-pilot', type: 'helmet', name: 'Шлем пилота',          price: 100, icon: '🪖',  hp: 1 },
+  { id: 'eq-helmet-astro', type: 'helmet', name: 'Шлем астронавта',      price: 250, icon: '🧑‍🚀', hp: 2 },
+  { id: 'eq-helmet-cyber', type: 'helmet', name: 'Кибер-визор',          price: 450, icon: '🤖',  hp: 3 },
+  { id: 'eq-top-jacket',   type: 'top',    name: 'Лётная куртка',        price: 120, icon: '🧥',  hp: 1 },
+  { id: 'eq-top-suit',     type: 'top',    name: 'Скафандр',             price: 300, icon: '🚀',  hp: 2 },
+  { id: 'eq-top-armor',    type: 'top',    name: 'Броня десантника',     price: 550, icon: '🛡️',  hp: 3 },
+  { id: 'eq-bottom-pants', type: 'bottom', name: 'Лётные штаны',         price: 80,  icon: '👖',  hp: 1 },
+  { id: 'eq-bottom-suit',  type: 'bottom', name: 'Штаны скафандра',      price: 220, icon: '🩳',  hp: 2 },
+  { id: 'eq-bottom-armor', type: 'bottom', name: 'Бронепластины',        price: 400, icon: '🦿',  hp: 3 },
+  { id: 'eq-boots-pilot',  type: 'boots',  name: 'Ботинки пилота',       price: 90,  icon: '🥾',  hp: 1 },
+  { id: 'eq-boots-magnet', type: 'boots',  name: 'Магнитные сапоги',     price: 200, icon: '🧲',  hp: 2 },
+  { id: 'eq-boots-jet',    type: 'boots',  name: 'Реактивные ботинки',   price: 500, icon: '🔥',  hp: 3 },
 ];
 
 export const SHOP_TYPES = [
@@ -164,3 +164,31 @@ export const EQUIPMENT_MODELS = {
     { shape: 'cone', r: 0.12, h: 0.22, x: 0.23, y: -0.08, z: -0.05, color: 0xf97316, emissive: 0xf97316, ei: 0.9, flip: true },
   ] },
 };
+
+// ── Снаряжение → HP для боёв с боссами (Этап 2C). База 3 HP; предметы дают
+//    +1/+2/+3 (поле hp); полный тематический сет — бонус. Баланс мягкий. ──
+const EQ_SLOTS = ['helmet', 'top', 'bottom', 'boots'];
+
+export const EQUIPMENT_SETS = {
+  pilot:   { name: 'Пилот',     bonus: 2, items: ['eq-helmet-pilot', 'eq-top-jacket', 'eq-bottom-pants', 'eq-boots-pilot'] },
+  astro:   { name: 'Астронавт', bonus: 3, items: ['eq-helmet-astro', 'eq-top-suit',   'eq-bottom-suit',  'eq-boots-magnet'] },
+  trooper: { name: 'Десантник', bonus: 4, items: ['eq-helmet-cyber', 'eq-top-armor',  'eq-bottom-armor', 'eq-boots-jet'] },
+};
+
+// id завершённого сета (все 4 предмета линейки надеты) или null.
+export function completedSet(equipped) {
+  if (!equipped) return null;
+  for (const [id, set] of Object.entries(EQUIPMENT_SETS)) {
+    if (set.items.every((it) => EQ_SLOTS.some((s) => equipped[s] === it))) return id;
+  }
+  return null;
+}
+
+// HP персонажа для боя: база 3 + сумма hp надетых предметов + сет-бонус.
+export function computePlayerHp(equipped) {
+  let hp = 3;
+  EQ_SLOTS.forEach((s) => { const it = getShopItem(equipped?.[s]); if (it?.hp) hp += it.hp; });
+  const set = completedSet(equipped);
+  if (set) hp += EQUIPMENT_SETS[set].bonus;
+  return hp;
+}

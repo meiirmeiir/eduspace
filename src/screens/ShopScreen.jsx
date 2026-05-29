@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTheme } from "../ThemeContext.jsx";
-import { SHOP_ITEMS, SHOP_TYPES, FRAME_STYLES } from "../lib/shopItems.js";
+import { SHOP_ITEMS, SHOP_TYPES, FRAME_STYLES, EQUIPMENT_SETS, computePlayerHp, completedSet } from "../lib/shopItems.js";
 import { purchaseItem, equipItem } from "../lib/shopUtils.js";
 import { getLeague } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
@@ -276,6 +276,22 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
                   tryOn={tryOn}
                 />
               </div>
+              {/* Суммарный HP героя + статус сета */}
+              {(() => {
+                const setId = completedSet(equipped);
+                return (
+                  <div className="dashboard-section" style={{padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap'}}>
+                    <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color:THEME.primary}}>
+                      Твой герой: <span style={{color:'#ef4444'}}>❤️ {computePlayerHp(equipped)}</span>
+                    </div>
+                    {setId
+                      ? <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:'#f5c518', textShadow:'0 0 10px rgba(245,197,24,0.5)'}}>
+                          ⭐ Сет «{EQUIPMENT_SETS[setId].name}» собран! +{EQUIPMENT_SETS[setId].bonus} ❤️
+                        </div>
+                      : <div style={{fontFamily:"'Inter',sans-serif", fontSize:12, color:THEME.textLight}}>Собери полный сет для бонуса ❤️</div>}
+                  </div>
+                );
+              })()}
               <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color:THEME.primary}}>
                 {EQUIP_SLOTS.find(s => s.id === activeSlot)?.label}
               </div>
@@ -289,7 +305,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
                       </div>
                       <div>
                         <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:THEME.primary, lineHeight:1.2}}>{item.name}</div>
-                        <div style={{fontSize:12, color:THEME.textLight, fontWeight:600, marginTop:2}}>{item.price} 💎</div>
+                        <div style={{fontSize:12, color:THEME.textLight, fontWeight:600, marginTop:2}}>{item.price} 💎{item.hp ? <span style={{color:'#ef4444'}}> · +{item.hp} ❤️</span> : null}</div>
                       </div>
                       {renderButton(item)}
                       <button onClick={() => setTryOn(t => ({ ...t, [activeSlot]: item.id }))} style={{

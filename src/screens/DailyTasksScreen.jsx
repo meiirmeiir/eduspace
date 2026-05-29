@@ -11,6 +11,7 @@ import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
 import PixelBoss from "../components/PixelBoss.jsx";
+import { computePlayerHp } from "../lib/shopItems.js";
 import { useNpc } from "../NpcContext.jsx";
 
 // Детект появления босса: детерминированно по дню (seed = uid + дата), ~30%.
@@ -60,6 +61,8 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const [battleResult, setBattleResult] = useState(null); // null | 'win' | 'lose'
   const [bossIntro,  setBossIntro]  = useState(false);
   const bossBonusAwardedRef = useRef(false);
+  // HP героя в бою = база 3 + бонусы надетого снаряжения (Этап 2C).
+  const maxPlayerHp = computePlayerHp(user?.equipped);
 
   const shuf = arr => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
 
@@ -131,7 +134,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         setQueue(shuf(items)); // interleave skills
         // Босс — редкое событие-сюрприз: ролл детерминирован по дню (стабилен в течение дня).
         const roll = bossRollFor(user?.uid, getAlmatyDateStr(0));
-        if (roll.active) { setBossActive(true); setBossType(roll.type); setBossHp(100); setPlayerHp(3); setBattleResult(null); setBossIntro(true); }
+        if (roll.active) { setBossActive(true); setBossType(roll.type); setBossHp(100); setPlayerHp(maxPlayerHp); setBattleResult(null); setBossIntro(true); }
         setPhase('playing');
       } catch(e) { console.error(e); setPhase('empty'); }
     };
@@ -567,11 +570,15 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
                 <div style={{ height:12, background:'rgba(255,255,255,0.1)', borderRadius:99, overflow:'hidden', border:'1px solid rgba(255,255,255,0.12)' }}>
                   <div style={{ height:'100%', width:`${Math.max(0, bossHp)}%`, background:bossHpColor, borderRadius:99, transition:'width 0.4s ease' }}/>
                 </div>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:8, animation: playerHit ? 'player-hit 0.6s ease' : 'none' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:8, flexWrap:'wrap', animation: playerHit ? 'player-hit 0.6s ease' : 'none' }}>
                   <span style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,0.7)', fontWeight:600 }}>⚔️ Ты:</span>
-                  {[0,1,2].map(i => (
-                    <span key={i} style={{ fontSize:16, filter: i < playerHp ? 'none' : 'grayscale(1)', opacity: i < playerHp ? 1 : 0.35, transition:'all 0.3s' }}>{i < playerHp ? '❤️' : '🖤'}</span>
-                  ))}
+                  {maxPlayerHp > 8 ? (
+                    <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:'#fff' }}>❤️ {playerHp} / {maxPlayerHp}</span>
+                  ) : (
+                    Array.from({ length: maxPlayerHp }).map((_, i) => (
+                      <span key={i} style={{ fontSize:16, filter: i < playerHp ? 'none' : 'grayscale(1)', opacity: i < playerHp ? 1 : 0.35, transition:'all 0.3s' }}>{i < playerHp ? '❤️' : '🖤'}</span>
+                    ))
+                  )}
                   {bossHp <= 0 && <span style={{ marginLeft:'auto', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:'#f5c518' }}>🏆 Повержен!</span>}
                   {bossHp > 0 && playerHp <= 0 && <span style={{ marginLeft:'auto', fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,0.6)' }}>Босс одолел… но учёба идёт</span>}
                 </div>
