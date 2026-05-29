@@ -10,7 +10,22 @@ import { updateQuestProgress } from "../lib/questsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
+import PixelBoss from "../components/PixelBoss.jsx";
 import { useNpc } from "../NpcContext.jsx";
+
+// Детект появления босса: детерминированно по дню (seed = uid + дата), ~30%.
+// Чистая функция, без записи в БД — стабильно в течение дня (повторный вход = тот
+// же исход). Тип босса (дракон/слизень) — из второго среза хеша (косметика).
+function bossRollFor(uid, dateStr) {
+  const s = `${uid || 'anon'}|${dateStr}`;
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  h = h >>> 0;
+  const active = (h % 100) < 30;
+  const type = (Math.floor(h / 100) % 100) < 25 ? 'chapter' : 'topic';
+  return { active, type };
+}
+const BOSS_NAME = { chapter: 'Тёмный Дракон', topic: 'Зелёный Слизень' };
 
 export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onViewPlan, onOpenFaq, onRankRefresh }) {
   const { showNpcMessage } = useNpc();
@@ -33,6 +48,18 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const questionStartRef = useRef(0);
   const streak3AwardedRef = useRef(false);
   const sessionAnswersRef = useRef([]); // bool на каждый ответ сессии → recentAnswers батчем
+
+  // ── Босс (косметический слой поверх сессии; учёбу/SRS/награды НЕ трогает) ──
+  const [bossActive, setBossActive] = useState(false);
+  const [bossType,   setBossType]   = useState('topic');
+  const [bossHp,     setBossHp]     = useState(100);
+  const [playerHp,   setPlayerHp]   = useState(3);
+  const [shake,      setShake]      = useState(false);
+  const [dmgMsg,     setDmgMsg]     = useState(null);
+  const [playerHit,  setPlayerHit]  = useState(false);
+  const [battleResult, setBattleResult] = useState(null); // null | 'win' | 'lose'
+  const [bossIntro,  setBossIntro]  = useState(false);
+  const bossBonusAwardedRef = useRef(false);
 
   const shuf = arr => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
 
@@ -102,6 +129,9 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         });
         if (!items.length) { setPhase('empty'); return; }
         setQueue(shuf(items)); // interleave skills
+        // Босс — редкое событие-сюрприз: ролл детерминирован по дню (стабилен в течение дня).
+        const roll = bossRollFor(user?.uid, getAlmatyDateStr(0));
+        if (roll.active) { setBossActive(true); setBossType(roll.type); setBossHp(100); setPlayerHp(3); setBattleResult(null); setBossIntro(true); }
         setPhase('playing');
       } catch(e) { console.error(e); setPhase('empty'); }
     };
@@ -138,6 +168,17 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         streak3AwardedRef.current = true;
         addPoints(user.uid, 'daily_streak_3', user);
       }
+      // ── Бой: урон боссу (косметика поверх; учёбу не трогает) ──
+      if (bossActive) {
+        const dmg = Math.min(100, Math.ceil(100 / Math.max(1, queue.length - 2)));
+        setBossHp(h => {
+          const nh = Math.max(0, h - dmg);
+          if (nh <= 0) setBattleResult(r => r || 'win');
+          return nh;
+        });
+        setShake(true); setDmgMsg(`-${dmg} HP!`);
+        setTimeout(() => { setShake(false); setDmgMsg(null); }, 700);
+      }
     } else {
       setStreak(0);
       const curLives = skillLives[current.skillId] ?? 2;
@@ -145,6 +186,16 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         // No lives left for this skill — degrade it
         setDegraded(p => new Set([...p, current.skillId]));
         setLastWrongWasDanger(true);
+        // ── Бой: контратака босса только за «настоящую» ошибку (деградация) ──
+        if (bossActive) {
+          setPlayerHp(p => {
+            const np = Math.max(0, p - 1);
+            if (np <= 0) setBattleResult(r => r || 'lose');
+            return np;
+          });
+          setPlayerHit(true);
+          setTimeout(() => setPlayerHit(false), 600);
+        }
       } else {
         setWrong(p => new Set([...p, current.skillId]));
         setSkillLives(prev => ({ ...prev, [current.skillId]: curLives - 1 }));
@@ -159,6 +210,12 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     } else {
       // Session over — save
       setSaving(true);
+      // Бонус за победу над боссом — СВЕРХ учебных наград, один раз. Учёбу/SRS не трогает.
+      if (bossActive && battleResult === 'win' && !bossBonusAwardedRef.current && user?.uid) {
+        bossBonusAwardedRef.current = true;
+        addCrystals(user.uid, 5, 'boss_win');
+        addXp(user.uid, 20, 'boss_win', user);
+      }
       await saveSession();
       onRankRefresh?.();
       setSaving(false);
@@ -385,6 +442,23 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
             <p style={{ fontFamily:"'Inter',sans-serif", fontSize:14, color:THEME.textLight }}>{correct.size} из {queue.length} верно</p>
           </div>
 
+          {/* Исход боя с боссом — баннер сверху (учебные итоги ниже, без изменений) */}
+          {bossActive && battleResult === 'win' && (
+            <div style={{ background:'linear-gradient(135deg, rgba(212,175,55,0.14), rgba(102,178,255,0.10))', border:'1px solid rgba(212,175,55,0.5)', borderRadius:14, padding:'16px 18px', marginBottom:16, display:'flex', alignItems:'center', gap:14 }}>
+              <PixelBoss type={bossType} hpPct={0} shake={false} />
+              <div>
+                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:'#b8860b' }}>🏆 Босс повержен!</div>
+                <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.textLight, marginTop:2 }}>Бонус сверху: <b style={{ color:'#a78bfa' }}>+5 💎</b> и <b style={{ color:'#22c55e' }}>+20 XP</b></div>
+              </div>
+            </div>
+          )}
+          {bossActive && battleResult !== 'win' && (
+            <div style={{ background:'rgba(99,102,241,0.06)', border:`1px solid ${THEME.border}`, borderRadius:14, padding:'14px 18px', marginBottom:16, textAlign:'center' }}>
+              <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:15, color:THEME.primary }}>Босс ушёл, но ты всё равно прокачался 💪</div>
+              <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.textLight, marginTop:3 }}>Все награды за ответы засчитаны. Попробуй снова в другой раз!</div>
+            </div>
+          )}
+
           {correctList.length > 0 && (
             <div style={{ background:'rgba(34,197,94,0.06)', border:'1px solid #86efac', borderRadius:12, padding:'14px 16px', marginBottom:14 }}>
               <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#15803d', marginBottom:8 }}>✅ Отлично усвоено</div>
@@ -434,6 +508,24 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const isCorrectAnswer = chosen !== null && task.correct === chosen;
   const isDanger = (skillLives[current?.skillId] ?? 2) === 0;
   const lives = skillLives[current?.skillId] ?? 2;
+  const bossHpColor = bossHp > 60 ? '#22c55e' : bossHp > 30 ? '#f59e0b' : '#ef4444';
+
+  // ── Интро босса перед сессией («Появился босс!») ──
+  if (bossActive && bossIntro) return (
+    <div className="page-themed" style={{ minHeight:'100vh', background:'linear-gradient(180deg, #0a1020, #0c1230)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+      <div style={{ textAlign:'center', color:'#fff', maxWidth:420 }}>
+        <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:26, marginBottom:6, textShadow:'0 0 14px rgba(102,178,255,0.5)' }}>⚔️ Появился босс!</div>
+        <div style={{ fontFamily:"'Inter',sans-serif", fontSize:14, color:'rgba(255,255,255,0.7)', marginBottom:20 }}>{BOSS_NAME[bossType]} бросает тебе вызов</div>
+        <div style={{ display:'inline-block', transform:'scale(2.2)', margin:'24px 0 36px' }}>
+          <PixelBoss type={bossType} hpPct={100} shake={false} />
+        </div>
+        <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:'rgba(255,255,255,0.6)', marginBottom:22, lineHeight:1.6 }}>
+          Отвечай верно — наноси урон. Ошибки навыка тебя не штрафуют.<br/>Победа = бонус сверху, проигрыш ничего не отнимает.
+        </div>
+        <button onClick={() => setBossIntro(false)} style={{ background:'linear-gradient(90deg,#f5c518,#66b2ff)', color:'#0f172a', border:'none', borderRadius:12, padding:'14px 40px', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, cursor:'pointer', boxShadow:'0 0 18px rgba(102,178,255,0.4)' }}>В бой! →</button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
@@ -455,6 +547,38 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       </nav>
 
       <div style={{ maxWidth:660, margin:'0 auto', padding:'24px 20px 60px' }}>
+        {/* ── Боевая панель босса (косметический слой) ── */}
+        {bossActive && (
+          <>
+            <style>{`
+              @keyframes boss-dmg{0%{opacity:1;transform:translateX(-50%) translateY(0);}100%{opacity:0;transform:translateX(-50%) translateY(-26px);}}
+              @keyframes player-hit{0%,100%{transform:translateX(0);}20%{transform:translateX(-6px);}40%{transform:translateX(6px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}}
+            `}</style>
+            <div style={{ background:'linear-gradient(180deg, #0c1230, #0a1020)', border:'1px solid rgba(102,178,255,0.25)', borderRadius:14, padding:'14px 16px', marginBottom:18, display:'flex', alignItems:'center', gap:16 }}>
+              <div style={{ position:'relative', flexShrink:0 }}>
+                <PixelBoss type={bossType} hpPct={bossHp} shake={shake} />
+                {dmgMsg && <div style={{ position:'absolute', top:-18, left:'50%', color:'#ef4444', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, whiteSpace:'nowrap', animation:'boss-dmg 0.7s ease forwards', pointerEvents:'none' }}>{dmgMsg}</div>}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                  <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:'#fff' }}>{BOSS_NAME[bossType]}</span>
+                  <span style={{ color:bossHpColor, fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13 }}>{bossHp <= 0 ? 'повержен' : `${bossHp} / 100`}</span>
+                </div>
+                <div style={{ height:12, background:'rgba(255,255,255,0.1)', borderRadius:99, overflow:'hidden', border:'1px solid rgba(255,255,255,0.12)' }}>
+                  <div style={{ height:'100%', width:`${Math.max(0, bossHp)}%`, background:bossHpColor, borderRadius:99, transition:'width 0.4s ease' }}/>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:8, animation: playerHit ? 'player-hit 0.6s ease' : 'none' }}>
+                  <span style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,0.7)', fontWeight:600 }}>⚔️ Ты:</span>
+                  {[0,1,2].map(i => (
+                    <span key={i} style={{ fontSize:16, filter: i < playerHp ? 'none' : 'grayscale(1)', opacity: i < playerHp ? 1 : 0.35, transition:'all 0.3s' }}>{i < playerHp ? '❤️' : '🖤'}</span>
+                  ))}
+                  {bossHp <= 0 && <span style={{ marginLeft:'auto', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:'#f5c518' }}>🏆 Повержен!</span>}
+                  {bossHp > 0 && playerHp <= 0 && <span style={{ marginLeft:'auto', fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,0.6)' }}>Босс одолел… но учёба идёт</span>}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
         {/* Progress bar */}
         <div style={{ height:5, background:'#e2e8f0', borderRadius:3, overflow:'hidden', marginBottom:20 }}>
           <div style={{ height:'100%', width:`${((qIdx)/queue.length)*100}%`, background:'#6366f1', transition:'width 0.4s' }}/>
