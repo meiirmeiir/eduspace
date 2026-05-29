@@ -146,6 +146,46 @@ function makeTierGeo(THREE, w, d, h, opts = {}) {
   return geo;
 }
 
+// Вертикальный градиент яркости для конуса луча (прозрачно у вершины/основания,
+// ярче в середине → мягкие края шахты света).
+function makeBeamCanvas() {
+  const W = 16, Hc = 256;
+  const c = document.createElement('canvas'); c.width = W; c.height = Hc;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, Hc);
+  g.addColorStop(0.0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.15, 'rgba(255,255,255,0.5)');
+  g.addColorStop(0.6, 'rgba(255,255,255,0.32)');
+  g.addColorStop(1.0, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, Hc);
+  return c;
+}
+
+// Мягкая круглая искра для частиц (радиальный градиент).
+function makeSparkCanvas() {
+  const S = 64;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.3, 'rgba(255,240,200,0.8)');
+  g.addColorStop(1, 'rgba(255,220,150,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+  return c;
+}
+
+// Градиент дымки у основания (плотнее снизу → прозрачно вверх).
+function makeHazeCanvas() {
+  const W = 256, Hc = 128;
+  const c = document.createElement('canvas'); c.width = W; c.height = Hc;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, Hc);
+  g.addColorStop(0, 'rgba(170,180,210,0)');
+  g.addColorStop(1, 'rgba(170,180,210,0.5)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, Hc);
+  return c;
+}
+
 export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRender }) {
   const { theme: THEME } = useTheme();
   const wrapRef = useRef(null);
@@ -162,7 +202,7 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
 
   useEffect(() => {
     if (!key) return;
-    let renderer, scene, camera, group, frameId, ro, clock;
+    let renderer, scene, camera, group, frameId, ro, clock, spotlight;
     let cancelled = false;
     const mount = mountRef.current;
     if (!mount) return;
@@ -203,11 +243,29 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
       const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(-4, 2, 3); scene.add(fill);
       const pt = new THREE.PointLight(0xffffff, 0.6); pt.position.set(-1.5, 4, 4); scene.add(pt);
 
-      // Земля (только тень)
-      const groundGeo = new THREE.PlaneGeometry(40, 40); groundGeo.rotateX(-Math.PI / 2);
-      const groundMat = new THREE.ShadowMaterial({ opacity: 0.24 });
-      const ground = new THREE.Mesh(groundGeo, groundMat); ground.receiveShadow = true;
-      scene.add(ground); geos.push(groundGeo); mats.push(groundMat);
+      // Глянцевый тёмный пол (псевдо-отражение через металл+envMap) + мягкие тени.
+      const floorGeo = new THREE.PlaneGeometry(40, 40); floorGeo.rotateX(-Math.PI / 2);
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0x0b0b14, metalness: 0.55, roughness: 0.35, envMap: envCube, envMapIntensity: 0.5 });
+      const floor = new THREE.Mesh(floorGeo, floorMat); floor.receiveShadow = true;
+      scene.add(floor); geos.push(floorGeo); mats.push(floorMat);
+
+      // Градиентный отблеск-«лужа» по центру под тумбами.
+      const sheenTex = new THREE.CanvasTexture(makeAuraCanvas()); texs.push(sheenTex);
+      const sheenGeo = new THREE.PlaneGeometry(11, 11); sheenGeo.rotateX(-Math.PI / 2);
+      const sheenMat = new THREE.MeshBasicMaterial({ map: sheenTex, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false });
+      const sheen = new THREE.Mesh(sheenGeo, sheenMat); sheen.position.set(0, 0.012, 0.4);
+      scene.add(sheen); geos.push(sheenGeo); mats.push(sheenMat);
+
+      // Дымка у основания (билборд-плоскости с градиентом, нормальное смешивание).
+      const hazeTex = new THREE.CanvasTexture(makeHazeCanvas()); texs.push(hazeTex);
+      const hazeMat = new THREE.MeshBasicMaterial({ map: hazeTex, transparent: true, opacity: 0.32, depthWrite: false });
+      mats.push(hazeMat);
+      [{ z: 1.7, s: 1.0 }, { z: 0.1, s: 1.3 }].forEach(({ z, s }) => {
+        const hg = new THREE.PlaneGeometry(11 * s, 2.6);
+        const hm = new THREE.Mesh(hg, hazeMat);
+        hm.position.set(0, 0.7, z);
+        scene.add(hm); geos.push(hg);
+      });
 
       // ── Постаменты (многоуровневые «королевские» пьедесталы) ─────────────────
       const bevelOpts = { r: 0.1, bevel: 0.04 };
@@ -306,17 +364,77 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
         numberSlots.forEach(buildFallbackNumber);
       });
 
-      // ── Золотая аура + тёплый point-свет у тумбы #1 ──────────────────────────
+      // ── Spotlight + конус + аура-гало + частицы у тумбы #1 ───────────────────
+      let particleUpdate = null;
       if (top3[0]) {
+        const sx = SLOTS[0].x, topY = SLOTS[0].h;
+
+        // Тёплый spotlight сверху (свет + драматичная тень). Заменяет goldPt.
+        spotlight = new THREE.SpotLight(0xffd9a0, 2.6, 22, 0.34, 0.5, 1);
+        spotlight.position.set(sx, topY + 5.5, 2);
+        spotlight.target.position.set(sx, topY - 0.2, 0);
+        spotlight.castShadow = true;
+        spotlight.shadow.mapSize.set(1024, 1024);
+        spotlight.shadow.camera.near = 1; spotlight.shadow.camera.far = 18;
+        scene.add(spotlight); scene.add(spotlight.target);
+
+        // Видимый конус луча (additive, градиент яркости вдоль высоты).
+        const apexY = topY + 5.5, baseY = topY - 0.1, coneH = apexY - baseY;
+        const coneR = Math.tan(0.34) * coneH;
+        const beamTex = new THREE.CanvasTexture(makeBeamCanvas()); texs.push(beamTex);
+        const coneGeo = new THREE.ConeGeometry(coneR, coneH, 32, 1, true);
+        const coneMat = new THREE.MeshBasicMaterial({
+          color: 0xffd9a0, map: beamTex, transparent: true, opacity: 0.16,
+          blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+        });
+        const cone = new THREE.Mesh(coneGeo, coneMat);
+        cone.position.set(sx, (apexY + baseY) / 2, 0.6);
+        scene.add(cone); geos.push(coneGeo); mats.push(coneMat);
+
+        // Аура-гало (визуал, не свет) — приглушена под spotlight.
         const auraTex = new THREE.CanvasTexture(makeAuraCanvas()); texs.push(auraTex);
-        const auraMat = new THREE.SpriteMaterial({ map: auraTex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+        const auraMat = new THREE.SpriteMaterial({ map: auraTex, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.55, depthWrite: false });
         const aura = new THREE.Sprite(auraMat);
-        aura.scale.set(5, 5, 1);
-        aura.position.set(SLOTS[0].x, SLOTS[0].h * 0.65, -0.6);
+        aura.scale.set(4.4, 4.4, 1);
+        aura.position.set(sx, topY * 0.7, -0.6);
         group.add(aura); mats.push(auraMat);
-        const goldPt = new THREE.PointLight(0xfbbf24, 0.8, 12);
-        goldPt.position.set(SLOTS[0].x, SLOTS[0].h + 1.2, 2.5);
-        scene.add(goldPt);
+
+        // ~50 золотых пылинок в луче: дрейф вверх + респавн + мерцание (vertexColors).
+        const COUNT = 50;
+        const yBase = topY - 0.3, yTop = topY + 4;
+        const sparkTex = new THREE.CanvasTexture(makeSparkCanvas()); texs.push(sparkTex);
+        const pgeo = new THREE.BufferGeometry();
+        const pos = new Float32Array(COUNT * 3), col = new Float32Array(COUNT * 3);
+        const phase = new Float32Array(COUNT), vel = new Float32Array(COUNT);
+        const gold = new THREE.Color(0xffe6a8);
+        for (let i = 0; i < COUNT; i++) {
+          pos[i * 3] = sx + (Math.random() - 0.5) * 2.2;
+          pos[i * 3 + 1] = yBase + Math.random() * (yTop - yBase);
+          pos[i * 3 + 2] = (Math.random() - 0.5) * 2.0;
+          phase[i] = Math.random() * Math.PI * 2;
+          vel[i] = 0.18 + Math.random() * 0.3;
+          col[i * 3] = gold.r; col[i * 3 + 1] = gold.g; col[i * 3 + 2] = gold.b;
+        }
+        pgeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        pgeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        const pmat = new THREE.PointsMaterial({
+          size: 0.13, map: sparkTex, vertexColors: true, transparent: true,
+          blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
+        });
+        const points = new THREE.Points(pgeo, pmat);
+        scene.add(points); geos.push(pgeo); mats.push(pmat);
+        particleUpdate = (t, dt) => {
+          const p = pgeo.attributes.position.array, c = pgeo.attributes.color.array;
+          for (let i = 0; i < COUNT; i++) {
+            let y = p[i * 3 + 1] + vel[i] * dt;
+            if (y > yTop) { y = yBase; p[i * 3] = sx + (Math.random() - 0.5) * 2.2; p[i * 3 + 2] = (Math.random() - 0.5) * 2.0; }
+            p[i * 3 + 1] = y;
+            const tw = 0.45 + 0.55 * Math.abs(Math.sin(t * 1.5 + phase[i]));
+            c[i * 3] = gold.r * tw; c[i * 3 + 1] = gold.g * tw; c[i * 3 + 2] = gold.b * tw;
+          }
+          pgeo.attributes.position.needsUpdate = true;
+          pgeo.attributes.color.needsUpdate = true;
+        };
       }
 
       // ── Проекция экранных позиций аватаров (вызывается каждый кадр) ───────────
@@ -346,9 +464,13 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
       ro.observe(mount);
 
       clock = new THREE.Clock();
+      let lastT = 0;
       const animate = () => {
         frameId = requestAnimationFrame(animate);
-        group.rotation.y = Math.sin(clock.getElapsedTime() * SWAY_SPEED) * SWAY_AMP;
+        const t = clock.getElapsedTime();
+        const dt = Math.min(t - lastT, 0.05); lastT = t;
+        group.rotation.y = Math.sin(t * SWAY_SPEED) * SWAY_AMP;
+        if (particleUpdate) particleUpdate(t, dt);
         renderer.render(scene, camera);
         positionAvatars();   // аватары едут вместе с качающимися тумбами
       };
@@ -360,6 +482,7 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
       cancelled = true;
       if (frameId) cancelAnimationFrame(frameId);
       if (ro) ro.disconnect();
+      if (spotlight && spotlight.shadow && spotlight.shadow.map) spotlight.shadow.map.dispose();
       geos.forEach(g => g.dispose && g.dispose());
       mats.forEach(m => m.dispose && m.dispose());
       texs.forEach(t => t.dispose && t.dispose());
@@ -379,7 +502,11 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <div ref={wrapRef} style={{ position: 'relative', width: '100%', height: H }}>
+      <div ref={wrapRef} style={{
+        position: 'relative', width: '100%', height: H, overflow: 'hidden', borderRadius: 14,
+        // Виньетка зала: тёплый/пурпурный отлив в центре у пьедестала → тёмные края.
+        background: 'radial-gradient(ellipse 65% 75% at 50% 42%, rgba(120,80,160,0.22), rgba(40,28,70,0.10) 45%, rgba(5,4,12,0) 70%), radial-gradient(ellipse at 50% 50%, rgba(8,6,16,0) 35%, rgba(0,0,0,0.6) 100%), #08060f',
+      }}>
         <div ref={mountRef} style={{ width: '100%', height: H }} />
 
         {/* CSS-аватары поверх canvas — позиционируются проекцией каждый кадр */}
