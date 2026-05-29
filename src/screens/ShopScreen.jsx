@@ -5,6 +5,15 @@ import { purchaseItem, equipItem } from "../lib/shopUtils.js";
 import { getLeague } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import InfoTooltip from "../components/InfoTooltip.jsx";
+import LegoCharacter3D from "../components/LegoCharacter3D.jsx";
+
+// Слоты снаряжения (Этап 2A — каркас; варианты наполняются в 2B).
+const EQUIP_SLOTS = [
+  { id: 'head',   icon: '🪖', label: 'Головной убор' },
+  { id: 'top',    icon: '👕', label: 'Верх' },
+  { id: 'bottom', icon: '👖', label: 'Низ' },
+  { id: 'shoes',  icon: '👟', label: 'Обувь' },
+];
 
 const THEME_SWATCHES = {
   galaxy: ['#1e1b4b', '#312e81', '#a78bfa'],
@@ -95,6 +104,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
   const [pendingId, setPendingId] = useState(null);   // id предмета в покупке/экипировке
   const [errMsg, setErrMsg]       = useState(null);
   const [previewItem, setPreviewItem] = useState(null);  // item для overlay «Примерить»
+  const [activeSlot, setActiveSlot]   = useState('head'); // активный слот снаряжения
 
   const uid       = user?.uid || user?.id;
   const crystals  = Number(user?.crystals || 0);
@@ -232,6 +242,46 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
           ))}
         </div>
 
+        {activeType === 'equipment' ? (
+          /* ── Раздел «Снаряжение»: слоты слева + Lego-персонаж на подиуме справа ── */
+          <div style={{display:'flex', gap:16, flexWrap:'wrap', alignItems:'flex-start'}}>
+            {/* Боковое меню слотов */}
+            <div style={{flex:'0 0 180px', display:'flex', flexDirection:'column', gap:8, minWidth:160}}>
+              {EQUIP_SLOTS.map(s => {
+                const on = activeSlot === s.id;
+                return (
+                  <button key={s.id} onClick={() => setActiveSlot(s.id)} style={{
+                    display:'flex', alignItems:'center', gap:10, textAlign:'left',
+                    padding:'12px 14px', borderRadius:12, cursor:'pointer',
+                    fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:14,
+                    background: on ? THEME.primary : THEME.surface,
+                    color:      on ? (THEME.onPrimary ?? '#fff') : THEME.text,
+                    border: `1px solid ${on ? THEME.primary : THEME.border}`,
+                    transition:'all 0.15s',
+                  }}>
+                    <span style={{fontSize:18}}>{s.icon}</span>{s.label}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Персонаж + варианты слота */}
+            <div style={{flex:'1 1 280px', minWidth:280, display:'flex', flexDirection:'column', gap:14}}>
+              <div className="dashboard-section" style={{padding:0, overflow:'hidden', borderRadius:14}}>
+                <LegoCharacter3D />
+              </div>
+              <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color:THEME.primary}}>
+                {EQUIP_SLOTS.find(s => s.id === activeSlot)?.label}
+              </div>
+              <div className="dashboard-section" style={{padding:'28px 20px', textAlign:'center'}}>
+                <div style={{fontSize:34, marginBottom:8}}>🛠️</div>
+                <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color:THEME.text, marginBottom:4}}>Скоро</div>
+                <div style={{fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.textLight}}>
+                  Снаряжение для слота «{EQUIP_SLOTS.find(s => s.id === activeSlot)?.label}» появится в следующем обновлении.
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:16}}>
           {items.map(item => (
             <div key={item.id} className="dashboard-section" style={{padding:14, display:'flex', flexDirection:'column', gap:10}}>
@@ -254,6 +304,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
             </div>
           ))}
         </div>
+        )}
       </div>
       {previewItem && (() => {
         const it = previewItem;

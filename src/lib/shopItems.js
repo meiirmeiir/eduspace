@@ -46,6 +46,7 @@ export const SHOP_TYPES = [
   { id: 'frame',      icon: '🔲', label: 'Рамки' },
   { id: 'title',      icon: '📝', label: 'Титулы' },
   { id: 'theme',      icon: '🎨', label: 'Темы' },
+  { id: 'equipment',  icon: '⚔️', label: 'Снаряжение' },
 ];
 
 export function getShopItem(id) {

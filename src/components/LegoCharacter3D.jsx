@@ -1,0 +1,257 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { loadThree } from '../lib/loadThree.js';
+
+// 3D Lego-минифигурка на подиуме (Three.js r128). Собрана из примитивов
+// (боксы/цилиндры со скруглением, как сундук/подиум). Крутится мышью/свайпом
+// вокруг Y, лёгкое idle-дыхание + моргание. Пластиковый глянец через envMap.
+// При сбое Three.js → 2D-силуэт. Полный cleanup (один WebGL-контекст).
+// Этап 2A: только персонаж + базовая одежда; снаряжение/equipped — 2B.
+
+const H = 380;
+
+// Процедурный env-куб (как в Podium3D/RewardChest) — глянец пластика без ассетов.
+function makeEnvCube(THREE) {
+  const faces = [];
+  for (let i = 0; i < 6; i++) {
+    const S = 64;
+    const c = document.createElement('canvas'); c.width = c.height = S;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 0, S);
+    g.addColorStop(0, '#eef3ff'); g.addColorStop(0.5, '#9fb0d0'); g.addColorStop(1, '#33405c');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+    faces.push(c);
+  }
+  const tex = new THREE.CubeTexture(faces); tex.needsUpdate = true; return tex;
+}
+
+// 2D-shape скруглённого прямоугольника (footprint бокса).
+function roundedRectShape(THREE, w, d, r) {
+  const hw = w / 2, hd = d / 2;
+  const s = new THREE.Shape();
+  s.moveTo(-hw + r, -hd);
+  s.lineTo(hw - r, -hd); s.quadraticCurveTo(hw, -hd, hw, -hd + r);
+  s.lineTo(hw, hd - r);  s.quadraticCurveTo(hw, hd, hw - r, hd);
+  s.lineTo(-hw + r, hd); s.quadraticCurveTo(-hw, hd, -hw, hd - r);
+  s.lineTo(-hw, -hd + r); s.quadraticCurveTo(-hw, -hd, -hw + r, -hd);
+  return s;
+}
+
+// Скруглённый бокс с фасками, центрирован в origin: x=w, y=h, z=d.
+function roundedBoxGeo(THREE, w, d, h, r, bevel) {
+  bevel = Math.min(bevel, h * 0.3, w * 0.08, d * 0.08);
+  r = Math.max(0.01, Math.min(r, w / 2 - bevel - 0.02, d / 2 - bevel - 0.02));
+  const shape = roundedRectShape(THREE, w, d, r);
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: Math.max(0.005, h - bevel * 2),
+    bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, steps: 1, curveSegments: 8,
+  });
+  geo.rotateX(-Math.PI / 2);
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+  geo.translate(-(bb.max.x + bb.min.x) / 2, -(bb.max.y + bb.min.y) / 2, -(bb.max.z + bb.min.z) / 2);
+  return geo;
+}
+
+// Лицо минифигурки: 2 точки-глаза + дуга-улыбка на прозрачном канвасе.
+function makeFaceCanvas(blink) {
+  const S = 128;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, S, S);
+  ctx.fillStyle = '#1a1a1a'; ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 6; ctx.lineCap = 'round';
+  if (blink) {
+    ctx.beginPath(); ctx.moveTo(40, 52); ctx.lineTo(56, 52); ctx.moveTo(72, 52); ctx.lineTo(88, 52); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.ellipse(48, 50, 6, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(80, 50, 6, 8, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  // улыбка
+  ctx.beginPath(); ctx.arc(64, 70, 20, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+  return c;
+}
+
+export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '#3b4a6b', height = H }) {
+  const mountRef = useRef(null);
+  const [failed, setFailed] = useState(false);
+  const shirtRef = useRef(shirtColor); shirtRef.current = shirtColor;
+  const pantsRef = useRef(pantsColor); pantsRef.current = pantsColor;
+
+  useEffect(() => {
+    let renderer, scene, camera, frameId, clock, ro;
+    let cancelled = false;
+    const mount = mountRef.current;
+    if (!mount) return;
+    const geos = [], mats = [], texs = [];
+    const drag = { active: false, lastX: 0, targetRotY: 0.3 };
+    let cleanupPointer = null;
+
+    loadThree().then((THREE) => {
+      if (cancelled || !mount) return;
+      let W = mount.clientWidth || 360;
+
+      try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); }
+      catch (e) { if (!cancelled) setFailed(true); return; }
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(W, height);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      mount.appendChild(renderer.domElement);
+
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(40, W / height, 0.1, 100);
+      camera.position.set(0, 1.7, 6.4);
+      camera.lookAt(0, 1.15, 0);
+
+      const env = makeEnvCube(THREE); texs.push(env);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+      const keyL = new THREE.DirectionalLight(0xffffff, 1.05); keyL.position.set(4, 8, 6);
+      keyL.castShadow = true; keyL.shadow.mapSize.set(1024, 1024);
+      Object.assign(keyL.shadow.camera, { left: -4, right: 4, top: 6, bottom: -2, near: 0.5, far: 30 });
+      scene.add(keyL);
+      const fill = new THREE.DirectionalLight(0xbfd0ff, 0.4); fill.position.set(-4, 2, 3); scene.add(fill);
+
+      const plastic = (col, metal = 0.12, rough = 0.4, ei = 0.5) => {
+        const m = new THREE.MeshStandardMaterial({ color: col, metalness: metal, roughness: rough, envMap: env, envMapIntensity: ei });
+        mats.push(m); return m;
+      };
+      const shirtMat = plastic(shirtColor);
+      const pantsMat = plastic(pantsColor);
+      const skinMat = plastic(0xf6c945);
+      const studMat = plastic(0xf6c945);
+
+      // ── Подиум (статичен, не вращается) ──
+      const podiumMat = plastic(0xb8c0d0, 0.9, 0.2, 1.4);
+      const baseGeo = new THREE.CylinderGeometry(1.0, 1.12, 0.25, 40); geos.push(baseGeo);
+      const base = new THREE.Mesh(baseGeo, podiumMat); base.position.y = -0.245; base.castShadow = true; base.receiveShadow = true; scene.add(base);
+      const discGeo = new THREE.CylinderGeometry(0.85, 0.85, 0.12, 40); geos.push(discGeo);
+      const disc = new THREE.Mesh(discGeo, podiumMat); disc.position.y = -0.06; disc.receiveShadow = true; scene.add(disc);
+
+      // Тень на полу
+      const groundGeo = new THREE.PlaneGeometry(20, 20); groundGeo.rotateX(-Math.PI / 2); geos.push(groundGeo);
+      const groundMat = new THREE.ShadowMaterial({ opacity: 0.22 }); mats.push(groundMat);
+      const ground = new THREE.Mesh(groundGeo, groundMat); ground.position.y = -0.37; ground.receiveShadow = true; scene.add(ground);
+
+      // ── Персонаж (charGroup — крутится) ──
+      const charGroup = new THREE.Group(); scene.add(charGroup);
+      const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; charGroup.add(m); return m; };
+
+      // Ноги
+      const legGeo = roundedBoxGeo(THREE, 0.4, 0.52, 0.85, 0.08, 0.04); geos.push(legGeo);
+      add(legGeo, pantsMat, -0.23, 0.425, 0);
+      add(legGeo, pantsMat, 0.23, 0.425, 0);
+      // Таз
+      const hipGeo = roundedBoxGeo(THREE, 0.92, 0.56, 0.30, 0.08, 0.04); geos.push(hipGeo);
+      add(hipGeo, pantsMat, 0, 1.0, 0);
+      // Торс (трапеция: 4-гранный цилиндр, уже кверху)
+      const torsoGeo = new THREE.CylinderGeometry(0.4, 0.5, 0.92, 4); torsoGeo.rotateY(Math.PI / 4); geos.push(torsoGeo);
+      const torso = add(torsoGeo, shirtMat, 0, 1.6, 0); torso.scale.set(1.05, 1, 0.72);
+      // Руки (плечо + клешня), наклон наружу
+      const armGeo = roundedBoxGeo(THREE, 0.26, 0.3, 0.62, 0.07, 0.03); geos.push(armGeo);
+      const handGeo = new THREE.TorusGeometry(0.09, 0.04, 8, 16); geos.push(handGeo);
+      [[-1, -0.55], [1, 0.55]].forEach(([sgn, x]) => {
+        const arm = new THREE.Group(); arm.position.set(x, 1.92, 0.04); arm.rotation.z = -sgn * 0.2; charGroup.add(arm);
+        const upper = new THREE.Mesh(armGeo, shirtMat); upper.position.y = -0.3; upper.castShadow = true; arm.add(upper);
+        const hand = new THREE.Mesh(handGeo, skinMat); hand.position.set(0, -0.62, 0.06); hand.castShadow = true; arm.add(hand);
+      });
+      // Голова + штырёк
+      const headGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.58, 24); geos.push(headGeo);
+      add(headGeo, skinMat, 0, 2.32, 0);
+      const studGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.12, 16); geos.push(studGeo);
+      add(studGeo, studMat, 0, 2.67, 0);
+      // Лицо
+      const faceOpenTex = new THREE.CanvasTexture(makeFaceCanvas(false)); texs.push(faceOpenTex);
+      const faceBlinkTex = new THREE.CanvasTexture(makeFaceCanvas(true)); texs.push(faceBlinkTex);
+      const faceMat = new THREE.MeshBasicMaterial({ map: faceOpenTex, transparent: true }); mats.push(faceMat);
+      const faceGeo = new THREE.PlaneGeometry(0.62, 0.62); geos.push(faceGeo);
+      const face = new THREE.Mesh(faceGeo, faceMat); face.position.set(0, 2.34, 0.401); charGroup.add(face);
+
+      // ── Drag-вращение ──
+      const el = renderer.domElement;
+      el.style.touchAction = 'none'; el.style.cursor = 'grab';
+      const down = (x) => { drag.active = true; drag.lastX = x; el.style.cursor = 'grabbing'; };
+      const move = (x) => { if (!drag.active) return; drag.targetRotY += (x - drag.lastX) * 0.01; drag.lastX = x; };
+      const up = () => { drag.active = false; el.style.cursor = 'grab'; };
+      const onPD = (e) => down(e.clientX);
+      const onPM = (e) => move(e.clientX);
+      const onTS = (e) => { if (e.touches[0]) down(e.touches[0].clientX); };
+      const onTM = (e) => { if (e.touches[0]) { move(e.touches[0].clientX); e.preventDefault(); } };
+      el.addEventListener('pointerdown', onPD);
+      window.addEventListener('pointermove', onPM);
+      window.addEventListener('pointerup', up);
+      el.addEventListener('touchstart', onTS, { passive: true });
+      el.addEventListener('touchmove', onTM, { passive: false });
+      window.addEventListener('touchend', up);
+      cleanupPointer = () => {
+        el.removeEventListener('pointerdown', onPD);
+        window.removeEventListener('pointermove', onPM);
+        window.removeEventListener('pointerup', up);
+        el.removeEventListener('touchstart', onTS);
+        el.removeEventListener('touchmove', onTM);
+        window.removeEventListener('touchend', up);
+      };
+
+      ro = new ResizeObserver(() => {
+        if (!renderer || !mount) return;
+        W = mount.clientWidth || W;
+        renderer.setSize(W, height); camera.aspect = W / height; camera.updateProjectionMatrix();
+      });
+      ro.observe(mount);
+
+      clock = new THREE.Clock(); let last = 0, lastBlink = false;
+      const animate = () => {
+        frameId = requestAnimationFrame(animate);
+        const t = clock.getElapsedTime(); const dt = Math.min(t - last, 0.05); last = t;
+        // обновление цветов одежды (для 2B), дёшево
+        if (shirtMat.color.getHexString() !== shirtRef.current.replace('#', '')) shirtMat.color.set(shirtRef.current);
+        if (pantsMat.color.getHexString() !== pantsRef.current.replace('#', '')) pantsMat.color.set(pantsRef.current);
+        // лёгкий авто-поворот, пока не тащат; drag перебивает
+        if (!drag.active) drag.targetRotY += 0.15 * dt;
+        charGroup.rotation.y += (drag.targetRotY - charGroup.rotation.y) * 0.12;
+        // дыхание
+        charGroup.position.y = Math.sin(t * 1.2) * 0.03;
+        torso.scale.y = 1 + Math.sin(t * 1.2) * 0.02;
+        // моргание ~раз в 4с
+        const blink = (t % 4) > 3.88;
+        if (blink !== lastBlink) { faceMat.map = blink ? faceBlinkTex : faceOpenTex; faceMat.needsUpdate = true; lastBlink = blink; }
+        renderer.render(scene, camera);
+      };
+      animate();
+    }).catch((e) => { console.warn('[lego3d] three load failed:', e?.message || e); if (!cancelled) setFailed(true); });
+
+    return () => {
+      cancelled = true;
+      if (frameId) cancelAnimationFrame(frameId);
+      if (ro) ro.disconnect();
+      if (cleanupPointer) cleanupPointer();
+      geos.forEach((g) => g.dispose && g.dispose());
+      mats.forEach((m) => m.dispose && m.dispose());
+      texs.forEach((t) => t.dispose && t.dispose());
+      if (renderer) {
+        if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
+        renderer.dispose();
+        if (renderer.forceContextLoss) renderer.forceContextLoss();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [height]);
+
+  if (failed) {
+    // 2D-силуэт минифигурки (фолбэк)
+    return (
+      <div style={{ width: '100%', height, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, background: 'radial-gradient(ellipse at 50% 40%, #1a2348 0%, #0c1230 70%)', borderRadius: 14 }}>
+        <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f6c945', border: '3px solid #d4a017', position: 'relative' }}>
+          <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🙂</span>
+        </div>
+        <div style={{ width: 70, height: 56, background: shirtColor, borderRadius: '8px 8px 4px 4px', marginTop: 2 }} />
+        <div style={{ display: 'flex', gap: 4, marginTop: 1 }}>
+          <div style={{ width: 30, height: 46, background: pantsColor, borderRadius: '0 0 4px 4px' }} />
+          <div style={{ width: 30, height: 46, background: pantsColor, borderRadius: '0 0 4px 4px' }} />
+        </div>
+        <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: "'Inter',sans-serif" }}>3D недоступно</div>
+      </div>
+    );
+  }
+
+  return <div ref={mountRef} style={{ width: '100%', height }} />;
+}
