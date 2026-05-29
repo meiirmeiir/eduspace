@@ -60,7 +60,7 @@ export default function AchievementBadge({ ach, earnedLevel = 0, progress }) {
       </div>
       <div style={{
         fontSize: 11, fontWeight: 700, textAlign: 'center', lineHeight: 1.2,
-        color: earned ? (ach.exclusive ? '#a78bfa' : color) : '#94a3b8',
+        color: earned ? (ach.superExclusive ? '#fde68a' : (ach.exclusive ? '#a78bfa' : color)) : '#94a3b8',
         maxWidth: 84, overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {ach.name}

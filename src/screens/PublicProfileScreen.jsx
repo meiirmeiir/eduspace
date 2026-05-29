@@ -282,8 +282,7 @@ export default function PublicProfileScreen({ uid, onBack }) {
               <div style={{ fontSize:58, lineHeight:1, marginBottom:8, filter:'drop-shadow(0 0 16px rgba(251,191,36,0.65))' }}>⚡</div>
               <div style={{
                 fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:23, marginBottom:6,
-                background:'linear-gradient(90deg,#fbbf24,#a855f7)', WebkitBackgroundClip:'text', backgroundClip:'text',
-                WebkitTextFillColor:'transparent', color:'transparent',
+                color:'#fde68a', textShadow:'0 0 12px rgba(251,191,36,0.55)',
               }}>Создатель AAPA</div>
               <div style={{ fontSize:14, color:'#cbd5e1' }}>Основатель и создатель платформы</div>
             </div>

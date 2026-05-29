@@ -6,7 +6,7 @@ import { ensureCreatorStyles } from './creatorFx.js';
 // заливка золотом (fill-opacity 0→1). Играет один раз при монтировании.
 // dash — константа длины контура (тюнится так, чтобы письмо завершалось к
 // концу анимации; getTotalLength у <text> недоступен).
-export default function CreatorSignature({ width = 340, dash = 2600 }) {
+export default function CreatorSignature({ width = 340, dash = 700 }) {
   ensureCreatorStyles();
   return (
     <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22, marginBottom: 6 }}>
@@ -19,7 +19,7 @@ export default function CreatorSignature({ width = 340, dash = 2600 }) {
           style={{
             strokeDasharray: dash,
             strokeDashoffset: dash,
-            animation: 'crSign 2.8s ease-out forwards, crSignFill 0.9s ease-out 2.3s forwards',
+            animation: 'crSign 2.8s linear forwards, crSignFill 0.9s ease-out 2.3s forwards',
             filter: 'drop-shadow(0 0 6px rgba(251,191,36,0.5))',
           }}
         >

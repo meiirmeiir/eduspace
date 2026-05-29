@@ -229,7 +229,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                 <div className="profile-info-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 12px', width:'100%'}}>
                   {/* Левый столбец: имя, титул, статус, цель — с отступом от аватара */}
                   <div style={{paddingLeft:32}}>
-                    <div className="profile-name" style={{marginBottom:6, fontSize:22}}>{user?.firstName} {user?.lastName}</div>
+                    <div className={`profile-name${isCreator(user?.uid) ? ' creator-name' : ''}`} style={{marginBottom:6, fontSize:22}}>{user?.firstName} {user?.lastName}</div>
                     {isCreator(user?.uid) && (
                       <div style={{marginBottom:8}}><span className="creator-badge">⚡ Основатель AAPA</span></div>
                     )}
