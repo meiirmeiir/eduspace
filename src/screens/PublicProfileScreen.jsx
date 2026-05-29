@@ -18,6 +18,7 @@ import { isCreator } from '../lib/creator.js';
 import CreatorRing from '../components/CreatorRing.jsx';
 import CreatorBackground from '../components/CreatorBackground.jsx';
 import CreatorIntro from '../components/CreatorIntro.jsx';
+import CreatorSignature from '../components/CreatorSignature.jsx';
 import { getToken } from 'firebase/app-check';
 import { auth, app } from '../lib/firebase.js';
 
@@ -238,7 +239,7 @@ export default function PublicProfileScreen({ uid, onBack }) {
             {creator && (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:6, marginBottom:8 }}>
                 <span className="creator-badge">⚡ Основатель AAPA</span>
-                <span className="creator-motto">Через тернии к звёздам 💫</span>
+                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:24, lineHeight:1.1, color:'#fbbf24', textShadow:'0 0 12px rgba(251,191,36,0.4)' }}>Основатель</div>
                 <span className="creator-founded">Создал AAPA в 2026</span>
               </div>
             )}
@@ -249,17 +250,49 @@ export default function PublicProfileScreen({ uid, onBack }) {
                 background:'rgba(212,175,55,0.12)', borderRadius:8, padding:'3px 10px',
               }}>{titleText}</div>
             )}
-            <div style={{ fontSize:13, color:THEME.textLight, fontFamily:"'Inter',sans-serif" }}>
-              {[profile.details, profile.region].filter(Boolean).join(' · ') || '—'}
-            </div>
-            {(() => { const li = getLevelInfo(profile.xp ?? 0); return (
-              <div style={{ marginTop:8, display:'inline-flex', alignItems:'center', gap:6, fontSize:13, fontWeight:700, color:li.tier.color, background:`${li.tier.color}1a`, border:`1px solid ${li.tier.color}55`, borderRadius:99, padding:'3px 12px' }}>
-                Уровень {li.level} · {li.tier.name}
-              </div>
-            ); })()}
+            {!creator && (
+              <>
+                <div style={{ fontSize:13, color:THEME.textLight, fontFamily:"'Inter',sans-serif" }}>
+                  {[profile.details, profile.region].filter(Boolean).join(' · ') || '—'}
+                </div>
+                {(() => { const li = getLevelInfo(profile.xp ?? 0); return (
+                  <div style={{ marginTop:8, display:'inline-flex', alignItems:'center', gap:6, fontSize:13, fontWeight:700, color:li.tier.color, background:`${li.tier.color}1a`, border:`1px solid ${li.tier.color}55`, borderRadius:99, padding:'3px 12px' }}>
+                    Уровень {li.level} · {li.tier.name}
+                  </div>
+                ); })()}
+              </>
+            )}
           </div>
         </div>
 
+        {/* ── Профиль Создателя: манифест + крупное достижение + подпись ── */}
+        {creator && (
+          <>
+            <div className="dashboard-section" style={{ padding:'24px 26px', marginBottom:18, position:'relative', borderLeft:'3px solid #fbbf24' }}>
+              <p style={{ fontSize:15.5, lineHeight:1.75, color:'#fbe7c2', fontFamily:"'Inter',sans-serif", margin:0, fontStyle:'italic' }}>
+                {`Идея была придумана с простой мысли: «Как создать формат обучения лучше, чем то, что мы имеем в школах?». Вот и результат. Я надеюсь, что вы подойдёте к образованию с ответственностью и поймёте, что это веселее, чем кажется. Всё в ваших руках, ведь именно вы пройдёте через тернии к звёздам! 💫`}
+              </p>
+            </div>
+
+            <div className="dashboard-section" style={{
+              padding:'28px 22px', marginBottom:18, textAlign:'center',
+              background:'linear-gradient(135deg, rgba(168,85,247,0.18), rgba(251,191,36,0.12))',
+              border:'1px solid rgba(168,85,247,0.5)', boxShadow:'0 0 26px rgba(168,85,247,0.25)',
+            }}>
+              <div style={{ fontSize:58, lineHeight:1, marginBottom:8, filter:'drop-shadow(0 0 16px rgba(251,191,36,0.65))' }}>⚡</div>
+              <div style={{
+                fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:23, marginBottom:6,
+                background:'linear-gradient(90deg,#fbbf24,#a855f7)', WebkitBackgroundClip:'text', backgroundClip:'text',
+                WebkitTextFillColor:'transparent', color:'transparent',
+              }}>Создатель AAPA</div>
+              <div style={{ fontSize:14, color:'#cbd5e1' }}>Основатель и создатель платформы</div>
+            </div>
+
+            <CreatorSignature />
+          </>
+        )}
+
+        {!creator && (<>
         {/* ESR-блок */}
         <div className="dashboard-section" style={{
           background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)',
@@ -376,6 +409,7 @@ export default function PublicProfileScreen({ uid, onBack }) {
         <div style={{ marginTop:18 }}>
           <AchievementsGrid uid={uid} />
         </div>
+        </>)}
 
         {selectedMedal && <Medal3DModal medal={selectedMedal} onClose={() => setSelectedMedal(null)} />}
       </div>

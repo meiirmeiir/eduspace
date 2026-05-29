@@ -4,6 +4,14 @@ let _injected = false;
 export function ensureCreatorStyles() {
   if (_injected || typeof document === 'undefined') return;
   _injected = true;
+  // Рукописный шрифт для подписи (Caveat — есть cyrillic + cyrillic-ext, покрывает «і»).
+  if (!document.getElementById('creator-font-caveat')) {
+    const link = document.createElement('link');
+    link.id = 'creator-font-caveat';
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap';
+    document.head.appendChild(link);
+  }
   const s = document.createElement('style');
   s.id = 'creator-fx-styles';
   s.textContent = `
@@ -22,6 +30,8 @@ export function ensureCreatorStyles() {
     }
     @keyframes crBurstFly { 0% { transform:translateY(-4px) scale(.4); opacity:1; } 100% { transform:translateY(-58px) scale(1); opacity:0; } }
     @keyframes crRowGlow { 0%,100% { box-shadow:0 0 14px rgba(251,191,36,.55); } 50% { box-shadow:0 0 18px rgba(168,85,247,.6); } }
+    @keyframes crSign { to { stroke-dashoffset: 0; } }
+    @keyframes crSignFill { to { fill-opacity: 1; } }
 
     .creator-name {
       background: linear-gradient(90deg,#f59e0b,#fde68a,#a855f7,#fbbf24,#f59e0b);
