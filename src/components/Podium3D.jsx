@@ -27,6 +27,10 @@ const SLOTS = [{ x: 0, h: 2.2 }, { x: -2.4, h: 1.5 }, { x: 2.4, h: 1.0 }]; // #1
 const H = 360;
 const SWAY_AMP = 0.26;    // ~15° в радианах
 const SWAY_SPEED = 0.5;   // рад/с — медленное престижное покачивание
+const BOB_SPEED = 1.4;    // рад/с — парение короны и аватара #1
+const BOB_AMP = 0.12;     // мировые единицы (~7px) — амплитуда парения
+const CROWN_SPIN = 0.5;   // рад/с — вращение короны вокруг Y
+const AURA_SPEED = 0.9;   // рад/с — «дыхание» ауры #1
 const initialsOf = (e) => ((e?.firstName?.[0] || '') + (e?.lastName?.[0] || '')).toUpperCase() || '?';
 
 // Тканевый bump-канвас бархата: мягкие вертикальные складки (синус + лёгкий
@@ -187,6 +191,8 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
       if (cancelled || !mount) return;
       const W = mount.clientWidth || 600; curW = W;
       const tmpVec = new THREE.Vector3();
+      // Регалии #1 (корона / аура / парение) — ссылки для animate.
+      let crownGroup = null, crownBaseY = 0, bobAnchor = null, bobBaseY = 0, auraMat = null, auraSprite = null;
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -197,8 +203,8 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
 
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
-      camera.position.set(0, 3.6, 7.5);
-      camera.lookAt(0, 1.0, 0);
+      camera.position.set(0, 3.9, 7.8);
+      camera.lookAt(0, 1.55, 0); // приподнят — headroom для короны над #1
 
       group = new THREE.Group();
       scene.add(group);
@@ -281,6 +287,7 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
         anchor.position.set(slot.x, slot.h + 0.18, 0);
         group.add(anchor);
         anchors.push({ i, anchor });
+        if (i === 0) { bobAnchor = anchor; bobBaseY = slot.h + 0.18; } // #1 парит
       });
 
       // ── 3D-цифры мест: TextGeometry (выпуклая, ловит свет/тень) ───────────────
@@ -319,7 +326,7 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
         numberSlots.forEach(buildFallbackNumber);
       });
 
-      // ── Spotlight + конус + аура-гало + частицы у тумбы #1 ───────────────────
+      // ── Spotlight + аура + корона + частицы у тумбы #1 ───────────────────────
       let particleUpdate = null;
       if (top3[0]) {
         const sx = SLOTS[0].x, topY = SLOTS[0].h;
@@ -333,13 +340,46 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
         spotlight.shadow.camera.near = 1; spotlight.shadow.camera.far = 18;
         scene.add(spotlight); scene.add(spotlight.target);
 
-        // Аура-гало (визуал, не свет) — приглушена под spotlight.
+        // Аура-гало (визуал, не свет) — приглушена под spotlight, «дышит» в animate.
         const auraTex = new THREE.CanvasTexture(makeAuraCanvas()); texs.push(auraTex);
-        const auraMat = new THREE.SpriteMaterial({ map: auraTex, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.55, depthWrite: false });
-        const aura = new THREE.Sprite(auraMat);
-        aura.scale.set(4.4, 4.4, 1);
-        aura.position.set(sx, topY * 0.7, -0.6);
-        group.add(aura); mats.push(auraMat);
+        auraMat = new THREE.SpriteMaterial({ map: auraTex, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.5, depthWrite: false });
+        auraSprite = new THREE.Sprite(auraMat);
+        auraSprite.scale.set(4.4, 4.4, 1);
+        auraSprite.position.set(sx, topY * 0.7, -0.6);
+        group.add(auraSprite); mats.push(auraMat);
+
+        // ── Королевская корона над парящим аватаром #1 (дочерняя к group) ───────
+        crownGroup = new THREE.Group();
+        crownBaseY = topY + 1.55;
+        crownGroup.position.set(sx, crownBaseY, 0);
+        const goldMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.95, roughness: 0.15, envMap: envCube, envMapIntensity: 1.4 });
+        mats.push(goldMat);
+        const R = 0.36;
+        const bandGeo = new THREE.CylinderGeometry(R, R, 0.18, 24, 1, true); // открытый обод
+        crownGroup.add(new THREE.Mesh(bandGeo, goldMat)); geos.push(bandGeo);
+        const TEETH = 6;
+        const toothGeo = new THREE.ConeGeometry(0.085, 0.26, 4);   // 4-гранная пирамида
+        const gemGeo = new THREE.SphereGeometry(0.045, 12, 12);
+        const gemColors = [0xdc2626, 0x10b981, 0x3b82f6];        // рубин / изумруд / сапфир
+        const gemMats = gemColors.map((hex) => new THREE.MeshStandardMaterial({ color: hex, emissive: hex, emissiveIntensity: 0.6, metalness: 0.2, roughness: 0.3 }));
+        gemMats.forEach((m) => mats.push(m));
+        geos.push(toothGeo, gemGeo);
+        for (let k = 0; k < TEETH; k++) {
+          const a = (k / TEETH) * Math.PI * 2, cxk = Math.cos(a), czk = Math.sin(a);
+          const tooth = new THREE.Mesh(toothGeo, goldMat);
+          tooth.position.set(cxk * R, 0.20, czk * R);
+          crownGroup.add(tooth);
+          const gem = new THREE.Mesh(gemGeo, gemMats[k % gemMats.length]);
+          gem.position.set(cxk * (R + 0.015), 0.03, czk * (R + 0.015));
+          crownGroup.add(gem);
+        }
+        // Лёгкое свечение короны.
+        const crownGlowTex = new THREE.CanvasTexture(makeAuraCanvas()); texs.push(crownGlowTex);
+        const crownGlowMat = new THREE.SpriteMaterial({ map: crownGlowTex, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.3, depthWrite: false });
+        const crownGlow = new THREE.Sprite(crownGlowMat);
+        crownGlow.scale.set(1.7, 1.7, 1);
+        crownGroup.add(crownGlow); mats.push(crownGlowMat);
+        group.add(crownGroup);
 
         // ~50 золотых пылинок в луче: дрейф вверх + респавн + мерцание (vertexColors).
         const COUNT = 50;
@@ -413,6 +453,12 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
         const dt = Math.min(t - lastT, 0.05); lastT = t;
         group.rotation.y = Math.sin(t * SWAY_SPEED) * SWAY_AMP;
         if (particleUpdate) particleUpdate(t, dt);
+        // Парение #1 (корона + аватар синхронно) + вращение короны + дыхание ауры.
+        const bob = Math.sin(t * BOB_SPEED) * BOB_AMP;
+        if (bobAnchor) bobAnchor.position.y = bobBaseY + bob;
+        if (crownGroup) { crownGroup.position.y = crownBaseY + bob; crownGroup.rotation.y += CROWN_SPIN * dt; }
+        if (auraMat) auraMat.opacity = 0.42 + 0.16 * Math.sin(t * AURA_SPEED);
+        if (auraSprite) { const s = 4.4 * (1 + 0.05 * Math.sin(t * AURA_SPEED)); auraSprite.scale.set(s, s, 1); }
         renderer.render(scene, camera);
         positionAvatars();   // аватары едут вместе с качающимися тумбами
       };
