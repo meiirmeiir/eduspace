@@ -9,10 +9,10 @@ import LegoCharacter3D from "../components/LegoCharacter3D.jsx";
 
 // Слоты снаряжения (Этап 2A — каркас; варианты наполняются в 2B).
 const EQUIP_SLOTS = [
-  { id: 'head',   icon: '🪖', label: 'Головной убор' },
+  { id: 'helmet', icon: '🪖', label: 'Головной убор' },
   { id: 'top',    icon: '👕', label: 'Верх' },
   { id: 'bottom', icon: '👖', label: 'Низ' },
-  { id: 'shoes',  icon: '👟', label: 'Обувь' },
+  { id: 'boots',  icon: '👟', label: 'Обувь' },
 ];
 
 const THEME_SWATCHES = {
@@ -104,7 +104,8 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
   const [pendingId, setPendingId] = useState(null);   // id предмета в покупке/экипировке
   const [errMsg, setErrMsg]       = useState(null);
   const [previewItem, setPreviewItem] = useState(null);  // item для overlay «Примерить»
-  const [activeSlot, setActiveSlot]   = useState('head'); // активный слот снаряжения
+  const [activeSlot, setActiveSlot]   = useState('helmet'); // активный слот снаряжения
+  const [tryOn, setTryOn]             = useState({}); // временная примерка { [slot]: itemId }
 
   const uid       = user?.uid || user?.id;
   const crystals  = Number(user?.crystals || 0);
@@ -146,6 +147,8 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
       // палитра подменится только после того, как Firestore onSnapshot
       // прокатится через AuthContext → outer App → ThemeProvider prop.
       if (item.type === 'theme') setShopTheme(item.value);
+      // Надетое теперь = equipped → снимаем временную примерку этого слота.
+      setTryOn(t => { const n = { ...t }; delete n[item.type]; return n; });
     } else {
       setErrMsg(`Не удалось надеть: ${res.error}`);
     }
@@ -165,6 +168,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
         equipped: { ...equipped, [item.type]: null },
       });
       if (item.type === 'theme') setShopTheme(null);
+      setTryOn(t => { const n = { ...t }; delete n[item.type]; return n; });
     } else {
       setErrMsg(`Не удалось снять: ${res.error}`);
     }
@@ -267,17 +271,37 @@ export default function ShopScreen({ user, onBack, onUpdateUser }) {
             {/* Персонаж + варианты слота */}
             <div style={{flex:'1 1 280px', minWidth:280, display:'flex', flexDirection:'column', gap:14}}>
               <div className="dashboard-section" style={{padding:0, overflow:'hidden', borderRadius:14}}>
-                <LegoCharacter3D />
+                <LegoCharacter3D
+                  equipped={{ helmet: equipped.helmet, top: equipped.top, bottom: equipped.bottom, boots: equipped.boots }}
+                  tryOn={tryOn}
+                />
               </div>
               <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color:THEME.primary}}>
                 {EQUIP_SLOTS.find(s => s.id === activeSlot)?.label}
               </div>
-              <div className="dashboard-section" style={{padding:'28px 20px', textAlign:'center'}}>
-                <div style={{fontSize:34, marginBottom:8}}>🛠️</div>
-                <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color:THEME.text, marginBottom:4}}>Скоро</div>
-                <div style={{fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.textLight}}>
-                  Снаряжение для слота «{EQUIP_SLOTS.find(s => s.id === activeSlot)?.label}» появится в следующем обновлении.
-                </div>
+              <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))', gap:12}}>
+                {SHOP_ITEMS.filter(i => i.type === activeSlot).map(item => {
+                  const trying = tryOn[activeSlot] === item.id;
+                  return (
+                    <div key={item.id} className="dashboard-section" style={{padding:12, display:'flex', flexDirection:'column', gap:8}}>
+                      <div style={{aspectRatio:'1/1', borderRadius:10, background:'linear-gradient(135deg, #1e293b, #0f172a)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:40}}>
+                        {item.icon || '⚙️'}
+                      </div>
+                      <div>
+                        <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:THEME.primary, lineHeight:1.2}}>{item.name}</div>
+                        <div style={{fontSize:12, color:THEME.textLight, fontWeight:600, marginTop:2}}>{item.price} 💎</div>
+                      </div>
+                      {renderButton(item)}
+                      <button onClick={() => setTryOn(t => ({ ...t, [activeSlot]: item.id }))} style={{
+                        width:'100%', padding:'7px 12px', borderRadius:10,
+                        fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12, cursor:'pointer', transition:'all 0.15s',
+                        background: trying ? 'rgba(99,102,241,0.15)' : 'transparent',
+                        border:`1px solid ${trying ? THEME.primary : THEME.border}`,
+                        color: trying ? THEME.primary : THEME.text,
+                      }}>{trying ? '👁 Примеряется' : '👁 Примерить'}</button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadThree } from '../lib/loadThree.js';
+import { EQUIPMENT_MODELS } from '../lib/shopItems.js';
 
 // 3D Lego-минифигурка на подиуме (Three.js r128). Собрана из примитивов
 // (боксы/цилиндры со скруглением, как сундук/подиум). Крутится мышью/свайпом
@@ -71,11 +72,23 @@ function makeFaceCanvas(blink) {
   return c;
 }
 
-export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '#3b4a6b', height = H }) {
+const SLOTS = ['helmet', 'top', 'bottom', 'boots'];
+
+export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '#3b4a6b', equipped = {}, tryOn = {}, height = H }) {
   const mountRef = useRef(null);
   const [failed, setFailed] = useState(false);
   const shirtRef = useRef(shirtColor); shirtRef.current = shirtColor;
   const pantsRef = useRef(pantsColor); pantsRef.current = pantsColor;
+  const apiRef = useRef(null); // { rebuild } — установится после построения сцены
+
+  // resolved[slot] = примерка поверх надетого. Ключ → триггер перестроения.
+  const resolved = {};
+  SLOTS.forEach((s) => { resolved[s] = (tryOn && tryOn[s]) || (equipped && equipped[s]) || null; });
+  const resolvedKey = SLOTS.map((s) => resolved[s] || '-').join('|');
+  const resolvedRef = useRef(resolved); resolvedRef.current = resolved;
+
+  // Перестройка снаряжения при смене примерки/надетого (сцена НЕ пересоздаётся).
+  useEffect(() => { apiRef.current?.rebuild(resolvedRef.current); }, [resolvedKey]);
 
   useEffect(() => {
     let renderer, scene, camera, frameId, clock, ro;
@@ -166,6 +179,42 @@ export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '
       const faceGeo = new THREE.PlaneGeometry(0.62, 0.62); geos.push(faceGeo);
       const face = new THREE.Mesh(faceGeo, faceMat); face.position.set(0, 2.34, 0.401); charGroup.add(face);
 
+      // ── Снаряжение: equipGroup (крутится с персонажем) + перестроение ──
+      const equipGroup = new THREE.Group(); charGroup.add(equipGroup);
+      let equipGeos = [], equipMats = [];
+      const buildPiece = (p) => {
+        let geo;
+        if (p.shape === 'box') geo = roundedBoxGeo(THREE, p.w, p.d, p.h, 0.05, 0.025);
+        else if (p.shape === 'sphere') geo = new THREE.SphereGeometry(p.r, 20, 16);
+        else if (p.shape === 'torus') geo = new THREE.TorusGeometry(p.r, p.tube, 10, 24);
+        else if (p.shape === 'cone') geo = new THREE.ConeGeometry(p.r, p.h, 18);
+        else geo = new THREE.CylinderGeometry(p.rTop ?? p.r, p.rBottom ?? p.r, p.h, 24);
+        if (p.rot4 && p.shape === 'cyl') geo.rotateY(Math.PI / 4);
+        const mat = new THREE.MeshStandardMaterial({
+          color: p.color, metalness: p.metal ?? 0.4, roughness: p.rough ?? 0.5,
+          envMap: env, envMapIntensity: 0.7,
+          emissive: p.emissive ?? 0x000000, emissiveIntensity: p.emissive ? (p.ei ?? 0.6) : 0,
+        });
+        const m = new THREE.Mesh(geo, mat);
+        m.position.set(p.x || 0, p.y || 0, p.z || 0);
+        if (p.scale) m.scale.set(p.scale[0], p.scale[1], p.scale[2]);
+        if (p.flip) m.rotation.x = Math.PI; // сопла остриём вниз
+        m.castShadow = true;
+        equipGroup.add(m); equipGeos.push(geo); equipMats.push(mat);
+      };
+      const rebuildEquip = (res) => {
+        equipGeos.forEach((g) => g.dispose && g.dispose());
+        equipMats.forEach((mm) => mm.dispose && mm.dispose());
+        equipGeos = []; equipMats = [];
+        while (equipGroup.children.length) equipGroup.remove(equipGroup.children[0]);
+        SLOTS.forEach((slot) => {
+          const id = res[slot]; const model = id && EQUIPMENT_MODELS[id];
+          if (model) model.parts.forEach(buildPiece);
+        });
+      };
+      apiRef.current = { rebuild: rebuildEquip, dispose: () => { equipGeos.forEach((g) => g.dispose && g.dispose()); equipMats.forEach((mm) => mm.dispose && mm.dispose()); } };
+      rebuildEquip(resolvedRef.current); // первичная отрисовка по текущему resolved
+
       // ── Drag-вращение ──
       const el = renderer.domElement;
       el.style.touchAction = 'none'; el.style.cursor = 'grab';
@@ -224,6 +273,7 @@ export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '
       if (frameId) cancelAnimationFrame(frameId);
       if (ro) ro.disconnect();
       if (cleanupPointer) cleanupPointer();
+      if (apiRef.current) { apiRef.current.dispose && apiRef.current.dispose(); apiRef.current = null; }
       geos.forEach((g) => g.dispose && g.dispose());
       mats.forEach((m) => m.dispose && m.dispose());
       texs.forEach((t) => t.dispose && t.dispose());
