@@ -2,16 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { loadThree } from '../lib/loadThree.js';
 import { EQUIPMENT_MODELS } from '../lib/shopItems.js';
 
-// 3D Lego-минифигурка на подиуме (Three.js r128). Собрана из примитивов
-// (боксы/цилиндры со скруглением, как сундук/подиум). Крутится мышью/свайпом
-// вокруг Y, лёгкое idle-дыхание + моргание. Пластиковый глянец через envMap.
-// При сбое Three.js → 2D-силуэт. Полный cleanup (один WebGL-контекст).
-// Этап 2A: только персонаж + базовая одежда; снаряжение/equipped — 2B.
+// 3D Lego-минифигурка (Three.js r128) из примитивов (боксы/цилиндры со
+// скруглением). Idle-дыхание + моргание + авто-вращение/drag. Пластиковый глянец
+// (envMap), снаряжение из equipped/tryOn. Полный cleanup. Фолбэк — 2D-силуэт.
+// Билдер buildLego вынесен — переиспользуется в BattleScene3D (общая сцена боя).
 
 const H = 380;
 
-// Процедурный env-куб (как в Podium3D/RewardChest) — глянец пластика без ассетов.
-function makeEnvCube(THREE) {
+export function makeEnvCube(THREE) {
   const faces = [];
   for (let i = 0; i < 6; i++) {
     const S = 64;
@@ -25,7 +23,6 @@ function makeEnvCube(THREE) {
   const tex = new THREE.CubeTexture(faces); tex.needsUpdate = true; return tex;
 }
 
-// 2D-shape скруглённого прямоугольника (footprint бокса).
 function roundedRectShape(THREE, w, d, r) {
   const hw = w / 2, hd = d / 2;
   const s = new THREE.Shape();
@@ -37,7 +34,6 @@ function roundedRectShape(THREE, w, d, r) {
   return s;
 }
 
-// Скруглённый бокс с фасками, центрирован в origin: x=w, y=h, z=d.
 function roundedBoxGeo(THREE, w, d, h, r, bevel) {
   bevel = Math.min(bevel, h * 0.3, w * 0.08, d * 0.08);
   r = Math.max(0.01, Math.min(r, w / 2 - bevel - 0.02, d / 2 - bevel - 0.02));
@@ -53,7 +49,6 @@ function roundedBoxGeo(THREE, w, d, h, r, bevel) {
   return geo;
 }
 
-// Лицо минифигурки: 2 точки-глаза + дуга-улыбка на прозрачном канвасе.
 function makeFaceCanvas(blink) {
   const S = 128;
   const c = document.createElement('canvas'); c.width = c.height = S;
@@ -67,12 +62,87 @@ function makeFaceCanvas(blink) {
     ctx.beginPath(); ctx.ellipse(48, 50, 6, 8, 0, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(80, 50, 6, 8, 0, 0, Math.PI * 2); ctx.fill();
   }
-  // улыбка
   ctx.beginPath(); ctx.arc(64, 70, 20, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
   return c;
 }
 
 const SLOTS = ['helmet', 'top', 'bottom', 'boots'];
+
+// Строит минифигурку (ТОЛЬКО фигуру + equipGroup, без подиума) в новую Group.
+// Возвращает refs для анимации/одежды + rebuildEquip(resolved) + dispose + созданные
+// geos/mats/texs (для dispose вызывающим).
+export function buildLego(THREE, env, { shirtColor = '#3b82f6', pantsColor = '#3b4a6b' } = {}) {
+  const geos = [], mats = [], texs = [];
+  const plastic = (col, metal = 0.12, rough = 0.4, ei = 0.5) => { const m = new THREE.MeshStandardMaterial({ color: col, metalness: metal, roughness: rough, envMap: env, envMapIntensity: ei }); mats.push(m); return m; };
+  const shirtMat = plastic(shirtColor);
+  const pantsMat = plastic(pantsColor);
+  const skinMat = plastic(0xf6c945);
+  const studMat = plastic(0xf6c945);
+
+  const group = new THREE.Group();
+  const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; group.add(m); return m; };
+
+  const legGeo = roundedBoxGeo(THREE, 0.4, 0.52, 0.85, 0.08, 0.04); geos.push(legGeo);
+  add(legGeo, pantsMat, -0.23, 0.425, 0);
+  add(legGeo, pantsMat, 0.23, 0.425, 0);
+  const hipGeo = roundedBoxGeo(THREE, 0.92, 0.56, 0.30, 0.08, 0.04); geos.push(hipGeo);
+  add(hipGeo, pantsMat, 0, 1.0, 0);
+  const torsoGeo = new THREE.CylinderGeometry(0.4, 0.5, 0.92, 4); torsoGeo.rotateY(Math.PI / 4); geos.push(torsoGeo);
+  const torso = add(torsoGeo, shirtMat, 0, 1.6, 0); torso.scale.set(1.05, 1, 0.72);
+  const armGeo = roundedBoxGeo(THREE, 0.26, 0.3, 0.62, 0.07, 0.03); geos.push(armGeo);
+  const handGeo = new THREE.TorusGeometry(0.09, 0.04, 8, 16); geos.push(handGeo);
+  const arms = []; // [левая, правая] — шарнир в плече (для анимации рук)
+  [[-1, -0.64], [1, 0.64]].forEach(([sgn, x]) => {
+    const arm = new THREE.Group(); arm.position.set(x, 1.92, 0.14); arm.rotation.z = -sgn * 0.2; group.add(arm);
+    arm.userData.baseZ = -sgn * 0.2;
+    const upper = new THREE.Mesh(armGeo, shirtMat); upper.position.y = -0.3; upper.castShadow = true; arm.add(upper);
+    const hand = new THREE.Mesh(handGeo, skinMat); hand.position.set(0, -0.62, 0.06); hand.castShadow = true; arm.add(hand);
+    arms.push(arm);
+  });
+  const headGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.58, 24); geos.push(headGeo);
+  add(headGeo, skinMat, 0, 2.32, 0);
+  const studGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.12, 16); geos.push(studGeo);
+  add(studGeo, studMat, 0, 2.67, 0);
+  const faceOpenTex = new THREE.CanvasTexture(makeFaceCanvas(false)); texs.push(faceOpenTex);
+  const faceBlinkTex = new THREE.CanvasTexture(makeFaceCanvas(true)); texs.push(faceBlinkTex);
+  const faceMat = new THREE.MeshBasicMaterial({ map: faceOpenTex, transparent: true }); mats.push(faceMat);
+  const faceGeo = new THREE.PlaneGeometry(0.62, 0.62); geos.push(faceGeo);
+  add(faceGeo, faceMat, 0, 2.34, 0.401);
+
+  // Снаряжение
+  const equipGroup = new THREE.Group(); group.add(equipGroup);
+  let equipGeos = [], equipMats = [];
+  const buildPiece = (p) => {
+    let geo;
+    if (p.shape === 'box') geo = roundedBoxGeo(THREE, p.w, p.d, p.h, 0.05, 0.025);
+    else if (p.shape === 'sphere') geo = new THREE.SphereGeometry(p.r, 20, 16);
+    else if (p.shape === 'torus') geo = new THREE.TorusGeometry(p.r, p.tube, 10, 24);
+    else if (p.shape === 'cone') geo = new THREE.ConeGeometry(p.r, p.h, 18);
+    else geo = new THREE.CylinderGeometry(p.rTop ?? p.r, p.rBottom ?? p.r, p.h, 24);
+    if (p.rot4 && p.shape === 'cyl') geo.rotateY(Math.PI / 4);
+    const mat = new THREE.MeshStandardMaterial({
+      color: p.color, metalness: p.metal ?? 0.4, roughness: p.rough ?? 0.5,
+      envMap: env, envMapIntensity: 0.7,
+      emissive: p.emissive ?? 0x000000, emissiveIntensity: p.emissive ? (p.ei ?? 0.6) : 0,
+    });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(p.x || 0, p.y || 0, p.z || 0);
+    if (p.scale) m.scale.set(p.scale[0], p.scale[1], p.scale[2]);
+    if (p.flip) m.rotation.x = Math.PI;
+    m.castShadow = true;
+    equipGroup.add(m); equipGeos.push(geo); equipMats.push(mat);
+  };
+  const rebuildEquip = (res) => {
+    equipGeos.forEach((g) => g.dispose && g.dispose());
+    equipMats.forEach((mm) => mm.dispose && mm.dispose());
+    equipGeos = []; equipMats = [];
+    while (equipGroup.children.length) equipGroup.remove(equipGroup.children[0]);
+    SLOTS.forEach((slot) => { const id = res && res[slot]; const model = id && EQUIPMENT_MODELS[id]; if (model) model.parts.forEach(buildPiece); });
+  };
+  const dispose = () => { equipGeos.forEach((g) => g.dispose && g.dispose()); equipMats.forEach((mm) => mm.dispose && mm.dispose()); };
+
+  return { group, torso, arms, shirtMat, pantsMat, faceMat, faceOpenTex, faceBlinkTex, equipGroup, rebuildEquip, dispose, geos, mats, texs };
+}
 
 export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '#3b4a6b', equipped = {}, tryOn = {}, height = H, autoSpin = 0.15 }) {
   const mountRef = useRef(null);
@@ -80,15 +150,13 @@ export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '
   const shirtRef = useRef(shirtColor); shirtRef.current = shirtColor;
   const pantsRef = useRef(pantsColor); pantsRef.current = pantsColor;
   const autoSpinRef = useRef(autoSpin); autoSpinRef.current = autoSpin;
-  const apiRef = useRef(null); // { rebuild } — установится после построения сцены
+  const apiRef = useRef(null);
 
-  // resolved[slot] = примерка поверх надетого. Ключ → триггер перестроения.
   const resolved = {};
   SLOTS.forEach((s) => { resolved[s] = (tryOn && tryOn[s]) || (equipped && equipped[s]) || null; });
   const resolvedKey = SLOTS.map((s) => resolved[s] || '-').join('|');
   const resolvedRef = useRef(resolved); resolvedRef.current = resolved;
 
-  // Перестройка снаряжения при смене примерки/надетого (сцена НЕ пересоздаётся).
   useEffect(() => { apiRef.current?.rebuild(resolvedRef.current); }, [resolvedKey]);
 
   useEffect(() => {
@@ -125,98 +193,25 @@ export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '
       scene.add(keyL);
       const fill = new THREE.DirectionalLight(0xbfd0ff, 0.4); fill.position.set(-4, 2, 3); scene.add(fill);
 
-      const plastic = (col, metal = 0.12, rough = 0.4, ei = 0.5) => {
-        const m = new THREE.MeshStandardMaterial({ color: col, metalness: metal, roughness: rough, envMap: env, envMapIntensity: ei });
-        mats.push(m); return m;
-      };
-      const shirtMat = plastic(shirtColor);
-      const pantsMat = plastic(pantsColor);
-      const skinMat = plastic(0xf6c945);
-      const studMat = plastic(0xf6c945);
-
-      // ── Подиум (статичен, не вращается) ──
-      const podiumMat = plastic(0xb8c0d0, 0.9, 0.2, 1.4);
+      // Подиум (статичен) + тень — только в showcase-режиме компонента.
+      const podiumMat = new THREE.MeshStandardMaterial({ color: 0xb8c0d0, metalness: 0.9, roughness: 0.2, envMap: env, envMapIntensity: 1.4 }); mats.push(podiumMat);
       const baseGeo = new THREE.CylinderGeometry(1.0, 1.12, 0.25, 40); geos.push(baseGeo);
       const base = new THREE.Mesh(baseGeo, podiumMat); base.position.y = -0.245; base.castShadow = true; base.receiveShadow = true; scene.add(base);
       const discGeo = new THREE.CylinderGeometry(0.85, 0.85, 0.12, 40); geos.push(discGeo);
       const disc = new THREE.Mesh(discGeo, podiumMat); disc.position.y = -0.06; disc.receiveShadow = true; scene.add(disc);
-
-      // Тень на полу
       const groundGeo = new THREE.PlaneGeometry(20, 20); groundGeo.rotateX(-Math.PI / 2); geos.push(groundGeo);
       const groundMat = new THREE.ShadowMaterial({ opacity: 0.22 }); mats.push(groundMat);
       const ground = new THREE.Mesh(groundGeo, groundMat); ground.position.y = -0.37; ground.receiveShadow = true; scene.add(ground);
 
-      // ── Персонаж (charGroup — крутится) ──
-      const charGroup = new THREE.Group(); scene.add(charGroup);
-      const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; charGroup.add(m); return m; };
+      // Фигура + снаряжение (вынесенный билдер)
+      const lego = buildLego(THREE, env, { shirtColor, pantsColor });
+      scene.add(lego.group);
+      geos.push(...lego.geos); mats.push(...lego.mats); texs.push(...lego.texs);
+      const { group: charGroup, torso, shirtMat, pantsMat, faceMat, faceOpenTex, faceBlinkTex } = lego;
+      apiRef.current = { rebuild: lego.rebuildEquip, dispose: lego.dispose };
+      lego.rebuildEquip(resolvedRef.current);
 
-      // Ноги
-      const legGeo = roundedBoxGeo(THREE, 0.4, 0.52, 0.85, 0.08, 0.04); geos.push(legGeo);
-      add(legGeo, pantsMat, -0.23, 0.425, 0);
-      add(legGeo, pantsMat, 0.23, 0.425, 0);
-      // Таз
-      const hipGeo = roundedBoxGeo(THREE, 0.92, 0.56, 0.30, 0.08, 0.04); geos.push(hipGeo);
-      add(hipGeo, pantsMat, 0, 1.0, 0);
-      // Торс (трапеция: 4-гранный цилиндр, уже кверху)
-      const torsoGeo = new THREE.CylinderGeometry(0.4, 0.5, 0.92, 4); torsoGeo.rotateY(Math.PI / 4); geos.push(torsoGeo);
-      const torso = add(torsoGeo, shirtMat, 0, 1.6, 0); torso.scale.set(1.05, 1, 0.72);
-      // Руки (плечо + клешня), наклон наружу
-      const armGeo = roundedBoxGeo(THREE, 0.26, 0.3, 0.62, 0.07, 0.03); geos.push(armGeo);
-      const handGeo = new THREE.TorusGeometry(0.09, 0.04, 8, 16); geos.push(handGeo);
-      [[-1, -0.55], [1, 0.55]].forEach(([sgn, x]) => {
-        const arm = new THREE.Group(); arm.position.set(x, 1.92, 0.04); arm.rotation.z = -sgn * 0.2; charGroup.add(arm);
-        const upper = new THREE.Mesh(armGeo, shirtMat); upper.position.y = -0.3; upper.castShadow = true; arm.add(upper);
-        const hand = new THREE.Mesh(handGeo, skinMat); hand.position.set(0, -0.62, 0.06); hand.castShadow = true; arm.add(hand);
-      });
-      // Голова + штырёк
-      const headGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.58, 24); geos.push(headGeo);
-      add(headGeo, skinMat, 0, 2.32, 0);
-      const studGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.12, 16); geos.push(studGeo);
-      add(studGeo, studMat, 0, 2.67, 0);
-      // Лицо
-      const faceOpenTex = new THREE.CanvasTexture(makeFaceCanvas(false)); texs.push(faceOpenTex);
-      const faceBlinkTex = new THREE.CanvasTexture(makeFaceCanvas(true)); texs.push(faceBlinkTex);
-      const faceMat = new THREE.MeshBasicMaterial({ map: faceOpenTex, transparent: true }); mats.push(faceMat);
-      const faceGeo = new THREE.PlaneGeometry(0.62, 0.62); geos.push(faceGeo);
-      const face = new THREE.Mesh(faceGeo, faceMat); face.position.set(0, 2.34, 0.401); charGroup.add(face);
-
-      // ── Снаряжение: equipGroup (крутится с персонажем) + перестроение ──
-      const equipGroup = new THREE.Group(); charGroup.add(equipGroup);
-      let equipGeos = [], equipMats = [];
-      const buildPiece = (p) => {
-        let geo;
-        if (p.shape === 'box') geo = roundedBoxGeo(THREE, p.w, p.d, p.h, 0.05, 0.025);
-        else if (p.shape === 'sphere') geo = new THREE.SphereGeometry(p.r, 20, 16);
-        else if (p.shape === 'torus') geo = new THREE.TorusGeometry(p.r, p.tube, 10, 24);
-        else if (p.shape === 'cone') geo = new THREE.ConeGeometry(p.r, p.h, 18);
-        else geo = new THREE.CylinderGeometry(p.rTop ?? p.r, p.rBottom ?? p.r, p.h, 24);
-        if (p.rot4 && p.shape === 'cyl') geo.rotateY(Math.PI / 4);
-        const mat = new THREE.MeshStandardMaterial({
-          color: p.color, metalness: p.metal ?? 0.4, roughness: p.rough ?? 0.5,
-          envMap: env, envMapIntensity: 0.7,
-          emissive: p.emissive ?? 0x000000, emissiveIntensity: p.emissive ? (p.ei ?? 0.6) : 0,
-        });
-        const m = new THREE.Mesh(geo, mat);
-        m.position.set(p.x || 0, p.y || 0, p.z || 0);
-        if (p.scale) m.scale.set(p.scale[0], p.scale[1], p.scale[2]);
-        if (p.flip) m.rotation.x = Math.PI; // сопла остриём вниз
-        m.castShadow = true;
-        equipGroup.add(m); equipGeos.push(geo); equipMats.push(mat);
-      };
-      const rebuildEquip = (res) => {
-        equipGeos.forEach((g) => g.dispose && g.dispose());
-        equipMats.forEach((mm) => mm.dispose && mm.dispose());
-        equipGeos = []; equipMats = [];
-        while (equipGroup.children.length) equipGroup.remove(equipGroup.children[0]);
-        SLOTS.forEach((slot) => {
-          const id = res[slot]; const model = id && EQUIPMENT_MODELS[id];
-          if (model) model.parts.forEach(buildPiece);
-        });
-      };
-      apiRef.current = { rebuild: rebuildEquip, dispose: () => { equipGeos.forEach((g) => g.dispose && g.dispose()); equipMats.forEach((mm) => mm.dispose && mm.dispose()); } };
-      rebuildEquip(resolvedRef.current); // первичная отрисовка по текущему resolved
-
-      // ── Drag-вращение ──
+      // Drag-вращение
       const el = renderer.domElement;
       el.style.touchAction = 'none'; el.style.cursor = 'grab';
       const down = (x) => { drag.active = true; drag.lastX = x; el.style.cursor = 'grabbing'; };
@@ -241,27 +236,19 @@ export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '
         window.removeEventListener('touchend', up);
       };
 
-      ro = new ResizeObserver(() => {
-        if (!renderer || !mount) return;
-        W = mount.clientWidth || W;
-        renderer.setSize(W, height); camera.aspect = W / height; camera.updateProjectionMatrix();
-      });
+      ro = new ResizeObserver(() => { if (!renderer || !mount) return; W = mount.clientWidth || W; renderer.setSize(W, height); camera.aspect = W / height; camera.updateProjectionMatrix(); });
       ro.observe(mount);
 
       clock = new THREE.Clock(); let last = 0, lastBlink = false;
       const animate = () => {
         frameId = requestAnimationFrame(animate);
         const t = clock.getElapsedTime(); const dt = Math.min(t - last, 0.05); last = t;
-        // обновление цветов одежды (для 2B), дёшево
         if (shirtMat.color.getHexString() !== shirtRef.current.replace('#', '')) shirtMat.color.set(shirtRef.current);
         if (pantsMat.color.getHexString() !== pantsRef.current.replace('#', '')) pantsMat.color.set(pantsRef.current);
-        // лёгкий авто-поворот, пока не тащат; drag перебивает
         if (!drag.active) drag.targetRotY += autoSpinRef.current * dt;
         charGroup.rotation.y += (drag.targetRotY - charGroup.rotation.y) * 0.12;
-        // дыхание
         charGroup.position.y = Math.sin(t * 1.2) * 0.03;
         torso.scale.y = 1 + Math.sin(t * 1.2) * 0.02;
-        // моргание ~раз в 4с
         const blink = (t % 4) > 3.88;
         if (blink !== lastBlink) { faceMat.map = blink ? faceBlinkTex : faceOpenTex; faceMat.needsUpdate = true; lastBlink = blink; }
         renderer.render(scene, camera);
@@ -288,7 +275,6 @@ export default function LegoCharacter3D({ shirtColor = '#3b82f6', pantsColor = '
   }, [height]);
 
   if (failed) {
-    // 2D-силуэт минифигурки (фолбэк)
     return (
       <div style={{ width: '100%', height, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, background: 'radial-gradient(ellipse at 50% 40%, #1a2348 0%, #0c1230 70%)', borderRadius: 14 }}>
         <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f6c945', border: '3px solid #d4a017', position: 'relative' }}>

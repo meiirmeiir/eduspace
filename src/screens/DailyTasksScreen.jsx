@@ -11,6 +11,7 @@ import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
 import Boss3D from "../components/Boss3D.jsx";
+import BattleScene3D from "../components/BattleScene3D.jsx";
 import { computePlayerHp } from "../lib/shopItems.js";
 import { useNpc } from "../NpcContext.jsx";
 
@@ -56,11 +57,12 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const [bossType,   setBossType]   = useState('ufo');
   const [bossHp,     setBossHp]     = useState(100);
   const [playerHp,   setPlayerHp]   = useState(3);
-  const [shake,      setShake]      = useState(false);
   const [dmgMsg,     setDmgMsg]     = useState(null);
   const [playerHit,  setPlayerHit]  = useState(false);
   const [battleResult, setBattleResult] = useState(null); // null | 'win' | 'lose'
   const [bossIntro,  setBossIntro]  = useState(false);
+  const [attackSeq,  setAttackSeq]  = useState(0); // ++ при верном ответе → лазер персонажа
+  const [hitSeq,     setHitSeq]     = useState(0); // ++ при настоящей ошибке → вздрагивание
   const bossBonusAwardedRef = useRef(false);
   // HP героя в бою = база 3 + бонусы надетого снаряжения (Этап 2C).
   const maxPlayerHp = computePlayerHp(user?.equipped);
@@ -180,8 +182,8 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
           if (nh <= 0) setBattleResult(r => r || 'win');
           return nh;
         });
-        setShake(true); setDmgMsg(`-${dmg} HP!`);
-        setTimeout(() => { setShake(false); setDmgMsg(null); }, 700);
+        setDmgMsg(`-${dmg} HP!`); setAttackSeq(n => n + 1); // лазер персонажа → попадание трясёт босса
+        setTimeout(() => { setDmgMsg(null); }, 700);
       }
     } else {
       setStreak(0);
@@ -197,7 +199,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
             if (np <= 0) setBattleResult(r => r || 'lose');
             return np;
           });
-          setPlayerHit(true);
+          setPlayerHit(true); setHitSeq(n => n + 1); // персонаж вздрагивает (встречный выстрел босса)
           setTimeout(() => setPlayerHit(false), 600);
         }
       } else {
@@ -567,26 +569,23 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
               <div style={{ height:12, background:'rgba(255,255,255,0.1)', borderRadius:99, overflow:'hidden', border:'1px solid rgba(255,255,255,0.12)' }}>
                 <div style={{ height:'100%', width:`${Math.max(0, bossHp)}%`, background:bossHpColor, borderRadius:99, transition:'width 0.4s ease' }}/>
               </div>
-              {/* Сцена: слева — игрок (в 2D-3 сюда 3D-персонаж), справа — 3D-босс */}
-              <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:10 }}>
-                <div style={{ flex:1, minWidth:0, animation: playerHit ? 'player-hit 0.6s ease' : 'none' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                    <span style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,0.7)', fontWeight:600 }}>⚔️ Ты:</span>
-                    {maxPlayerHp > 8 ? (
-                      <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:'#fff' }}>❤️ {playerHp} / {maxPlayerHp}</span>
-                    ) : (
-                      Array.from({ length: maxPlayerHp }).map((_, i) => (
-                        <span key={i} style={{ fontSize:16, filter: i < playerHp ? 'none' : 'grayscale(1)', opacity: i < playerHp ? 1 : 0.35, transition:'all 0.3s' }}>{i < playerHp ? '❤️' : '🖤'}</span>
-                      ))
-                    )}
-                  </div>
-                  {bossHp <= 0 && <div style={{ marginTop:8, fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:'#f5c518' }}>🏆 Босс повержен!</div>}
-                  {bossHp > 0 && playerHp <= 0 && <div style={{ marginTop:8, fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,0.6)' }}>Босс одолел… но учёба идёт</div>}
-                </div>
-                <div style={{ position:'relative', width:170, flexShrink:0 }}>
-                  <Boss3D type={bossType} hpPct={bossHp} shake={shake} height={150} />
-                  {dmgMsg && <div style={{ position:'absolute', top:6, left:'50%', color:'#ef4444', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, whiteSpace:'nowrap', animation:'boss-dmg 0.7s ease forwards', pointerEvents:'none' }}>{dmgMsg}</div>}
-                </div>
+              {/* Сердца игрока */}
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:10, flexWrap:'wrap', animation: playerHit ? 'player-hit 0.6s ease' : 'none' }}>
+                <span style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,0.7)', fontWeight:600 }}>⚔️ Ты:</span>
+                {maxPlayerHp > 8 ? (
+                  <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:'#fff' }}>❤️ {playerHp} / {maxPlayerHp}</span>
+                ) : (
+                  Array.from({ length: maxPlayerHp }).map((_, i) => (
+                    <span key={i} style={{ fontSize:16, filter: i < playerHp ? 'none' : 'grayscale(1)', opacity: i < playerHp ? 1 : 0.35, transition:'all 0.3s' }}>{i < playerHp ? '❤️' : '🖤'}</span>
+                  ))
+                )}
+                {bossHp <= 0 && <span style={{ marginLeft:'auto', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:'#f5c518' }}>🏆 Повержен!</span>}
+                {bossHp > 0 && playerHp <= 0 && <span style={{ marginLeft:'auto', fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,0.6)' }}>Босс одолел… но учёба идёт</span>}
+              </div>
+              {/* Боевая сцена: персонаж (слева) + босс (справа) — один WebGL-контекст */}
+              <div style={{ position:'relative', marginTop:8 }}>
+                <BattleScene3D equipped={user?.equipped} bossType={bossType} bossHp={bossHp} attackSeq={attackSeq} hitSeq={hitSeq} height={190} />
+                {dmgMsg && <div style={{ position:'absolute', top:14, right:'20%', color:'#ef4444', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:17, whiteSpace:'nowrap', animation:'boss-dmg 0.7s ease forwards', pointerEvents:'none' }}>{dmgMsg}</div>}
               </div>
             </div>
           </>
