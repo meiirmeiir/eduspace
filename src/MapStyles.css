@@ -92,40 +92,31 @@
 /* ── Узлы карты модулей: состояния + анимации ──────────────── */
 .skill-node { transition: transform 0.18s ease; }
 .skill-node:hover { transform: translateY(-6px); z-index: 20; }
-.skill-node:hover .skill-node-card { box-shadow: 0 10px 30px rgba(0,0,0,0.45); }
 
-/* Доступен — мягкая пульсация (scale + glow), зовёт начать */
-.skill-node-available .skill-node-card { animation: skillCardPulse 2.2s ease-in-out infinite; }
-@keyframes skillCardPulse {
-  0%,100% { transform: scale(1);     filter: drop-shadow(0 0 6px rgba(59,130,246,0.45)); }
-  50%     { transform: scale(1.035); filter: drop-shadow(0 0 16px rgba(59,130,246,0.75)); }
+/* ── Планеты-узлы (2D, чистый CSS) ── */
+/* Доступен — мягкая пульсация планеты (transform, дёшево) */
+.skill-node-available .planet-ball { animation: planetAvailPulse 2.2s ease-in-out infinite; }
+@keyframes planetAvailPulse {
+  0%,100% { transform: scale(1);    }
+  50%     { transform: scale(1.055); }
 }
 
-/* Освоен — мягкое постоянное «дыхание» свечения */
-.skill-node-mastered .skill-node-card { animation: skillCardGlow 2.6s ease-in-out infinite; }
-@keyframes skillCardGlow {
-  0%,100% { box-shadow: 0 0 14px rgba(34,197,94,0.40); }
-  50%     { box-shadow: 0 0 28px rgba(34,197,94,0.75); }
+/* Освоен (lush) — «дыхание» ореола через opacity (без анимации box-shadow) */
+.planet-glow { animation: planetGlowBreath 2.8s ease-in-out infinite; will-change: opacity; }
+@keyframes planetGlowBreath {
+  0%,100% { opacity: 0.5;  }
+  50%     { opacity: 0.95; }
 }
+
+/* Звёзды-этапы — медленная орбита (transform, GPU) */
+.planet-orbit { animation: planetOrbit 24s linear infinite; will-change: transform; }
+@keyframes planetOrbit { to { transform: rotate(360deg); } }
 
 /* Появление узла при загрузке (fade + scale), один раз; delay — stagger снизу вверх */
 .skill-node-appear { animation: skillNodeAppear 0.5s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes skillNodeAppear {
   from { opacity: 0; transform: translateY(14px) scale(0.92); }
   to   { opacity: 1; transform: translateY(0)    scale(1); }
-}
-
-/* Искры вокруг освоенных узлов */
-.mastered-spark {
-  position: absolute; width: 5px; height: 5px; border-radius: 50%;
-  background: radial-gradient(circle, #fff6 0%, #fbbf24 70%, transparent 100%);
-  box-shadow: 0 0 6px #fbbf24; pointer-events: none;
-  animation: masteredSpark 3s ease-in-out infinite;
-}
-@keyframes masteredSpark {
-  0%,100% { opacity: 0; transform: translate(0,0) scale(0.6); }
-  30%     { opacity: 1; }
-  100%    { opacity: 0; transform: translate(var(--dx,0), var(--dy,-14px)) scale(1); }
 }
 
 /* ── Подпись этажа (класса) ────────────────────────────────── */
