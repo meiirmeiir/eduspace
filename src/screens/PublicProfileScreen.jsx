@@ -14,6 +14,10 @@ import Medal from '../components/Medal.jsx';
 import Medal3DModal from '../components/Medal3DModal.jsx';
 import LevelRing from '../components/LevelRing.jsx';
 import AchievementsGrid from '../components/AchievementsGrid.jsx';
+import { isCreator } from '../lib/creator.js';
+import CreatorRing from '../components/CreatorRing.jsx';
+import CreatorBackground from '../components/CreatorBackground.jsx';
+import CreatorIntro from '../components/CreatorIntro.jsx';
 import { getToken } from 'firebase/app-check';
 import { auth, app } from '../lib/firebase.js';
 
@@ -167,6 +171,7 @@ export default function PublicProfileScreen({ uid, onBack }) {
   const weekPts      = Number(profile?.weekPoints || 0);
   const league       = getLeague(weekPts);
   const accent       = league.current.color;
+  const creator      = isCreator(uid);
 
   if (loading) {
     return (
@@ -187,15 +192,17 @@ export default function PublicProfileScreen({ uid, onBack }) {
 
   return (
     <div
-      className={`page-themed${equippedBg ? ' has-bg' : ''}`}
+      className={`page-themed${(equippedBg || creator) ? ' has-bg' : ''}`}
       style={{
-        minHeight:'100vh', background:THEME.bg,
+        minHeight:'100vh', background: creator ? 'transparent' : THEME.bg,
         position:'relative',
-        ...(equippedBg ? { isolation:'isolate' } : {}),
+        ...((equippedBg || creator) ? { isolation:'isolate' } : {}),
       }}
     >
+      {/* Эксклюзивный космический фон Создателя */}
+      {creator && <CreatorBackground />}
       {/* Фоновый layer на уровне всего экрана, не только centered-контейнера */}
-      {equippedBg && (
+      {equippedBg && !creator && (
         <div aria-hidden="true" style={{
           position:'absolute', inset:0, zIndex:-1, pointerEvents:'none',
           backgroundImage:`url(${equippedBg.file})`,
@@ -211,15 +218,30 @@ export default function PublicProfileScreen({ uid, onBack }) {
 
         {/* Карточка профиля */}
         <div className="dashboard-section" style={{ display:'flex', alignItems:'center', gap:18, padding:'24px 22px', marginBottom:18 }}>
-          <LevelRing xp={profile.xp ?? 0} avatarUrl={profile.avatarUrl} equippedFrame={equipped.frame} size={96} label={initials} />
+          {creator ? (
+            <div style={{ position:'relative', width:96, height:96, flexShrink:0 }}>
+              <CreatorRing size={96} avatarUrl={profile.avatarUrl} equippedFrame={equipped.frame} label={initials} />
+              <CreatorIntro crownSize={46} />
+            </div>
+          ) : (
+            <LevelRing xp={profile.xp ?? 0} avatarUrl={profile.avatarUrl} equippedFrame={equipped.frame} size={96} label={initials} />
+          )}
           <div style={{ flex:1, minWidth:0 }}>
             {/* Заголовок — только инициалы «ИИ»; полное имя в публичном профиле не показываем */}
-            <h1 style={{
+            <h1 className={creator ? 'creator-name' : undefined} style={{
               fontFamily:"'Montserrat',sans-serif", fontSize:32, fontWeight:800,
-              color:THEME.primary, margin:'0 0 6px', lineHeight:1.1, letterSpacing:'-0.5px',
+              margin:'0 0 6px', lineHeight:1.1, letterSpacing:'-0.5px',
+              ...(creator ? {} : { color:THEME.primary }),
             }}>
               {initials}
             </h1>
+            {creator && (
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:6, marginBottom:8 }}>
+                <span className="creator-badge">⚡ Основатель AAPA</span>
+                <span className="creator-motto">Через тернии к звёздам 💫</span>
+                <span className="creator-founded">Создал AAPA в 2026</span>
+              </div>
+            )}
             {titleText && (
               <div style={{
                 display:'inline-block', marginBottom:8,

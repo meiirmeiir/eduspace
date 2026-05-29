@@ -7,6 +7,8 @@ import Logo from "../components/ui/Logo.jsx";
 import { FRAME_STYLES, getShopItem } from "../lib/shopItems.js";
 import { getLevelInfo } from "../lib/levelUtils.js";
 import Podium3D from "../components/Podium3D.jsx";
+import { isCreator } from "../lib/creator.js";
+import { ensureCreatorStyles } from "../components/creatorFx.js";
 
 const PROJECT = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
 const KEY     = () => import.meta.env.VITE_FIREBASE_API_KEY;
@@ -211,10 +213,12 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
     const handleOpen = () => clickable && onOpenPublicProfile(e.uid);
     const topBorder = rank === 1 ? '#fbbf24' : rank === 2 ? '#94a3b8' : rank === 3 ? '#b45309' : null;
     const topShadow = rank === 1 ? '0 2px 12px rgba(212,175,55,0.3)' : rank === 2 ? '0 2px 8px rgba(148,163,184,0.3)' : rank === 3 ? '0 2px 8px rgba(180,83,9,0.3)' : null;
+    const cr = isCreator(e.uid);            // строка Создателя — особая золото-пурпур подсветка
+    if (cr) ensureCreatorStyles();
     return (
       <div
         key={`${e.uid}_${rank}`}
-        className="theme-row"
+        className={`theme-row${cr ? ' creator-row' : ''}`}
         onClick={handleOpen}
         role={clickable ? 'button' : undefined}
         tabIndex={clickable ? 0 : undefined}
@@ -224,13 +228,14 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
           padding:'14px 16px', borderRadius:14, marginBottom:10,
           // Фон и backdrop полностью под управлением CSS .theme-row
           // (+ .page-themed.has-bg .theme-row для wallpaper). mine выделяем границей.
-          border: `1px solid ${mine ? THEME.accent : (topBorder || THEME.border)}`,
-          boxShadow: topShadow || 'none',
+          // Создатель — золотая граница + анимированный glow из .creator-row.
+          border: cr ? '2px solid #fbbf24' : `1px solid ${mine ? THEME.accent : (topBorder || THEME.border)}`,
+          ...(cr ? {} : { boxShadow: topShadow || 'none' }),
           cursor: clickable ? 'pointer' : 'default',
           transition: 'transform 0.1s, box-shadow 0.15s',
         }}
-        onMouseEnter={clickable ? (ev) => { ev.currentTarget.style.boxShadow = topShadow || '0 4px 14px rgba(15,23,42,0.08)'; } : undefined}
-        onMouseLeave={clickable ? (ev) => { ev.currentTarget.style.boxShadow = topShadow || ''; } : undefined}
+        onMouseEnter={clickable && !cr ? (ev) => { ev.currentTarget.style.boxShadow = topShadow || '0 4px 14px rgba(15,23,42,0.08)'; } : undefined}
+        onMouseLeave={clickable && !cr ? (ev) => { ev.currentTarget.style.boxShadow = topShadow || ''; } : undefined}
       >
         {/* Ранг — медалия или #N */}
         <div style={{minWidth:48, fontSize: rank<=3?22:15, fontWeight:700, color: rank<=3?THEME.accent:ltd, fontFamily:"'Montserrat',sans-serif"}}>

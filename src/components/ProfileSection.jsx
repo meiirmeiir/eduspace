@@ -11,6 +11,8 @@ import Medal from "./Medal.jsx";
 import { getShopItem, FRAME_STYLES } from "../lib/shopItems.js";
 import LevelRing from "./LevelRing.jsx";
 import TierRing3D from "./TierRing3D.jsx";
+import CreatorRing from "./CreatorRing.jsx";
+import { isCreator } from "../lib/creator.js";
 import XpBar from "./XpBar.jsx";
 import AchievementsGrid from "./AchievementsGrid.jsx";
 
@@ -152,8 +154,11 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
           {/* Avatar (CSS-frame применяется inline, перекрывая дефолтный gold-border) */}
           <div style={{position:"relative",flexShrink:0}}>
             {!isEditing
-              ? <TierRing3D xp={user?.xp ?? 0} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
-                  size={200} label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} />
+              ? (isCreator(user?.uid)
+                  ? <CreatorRing size={200} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
+                      label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} />
+                  : <TierRing3D xp={user?.xp ?? 0} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
+                      size={200} label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} />)
               : (editForm.avatarUrl
                   ? <img src={editForm.avatarUrl} alt="avatar"
                       style={{ width:120, height:120, borderRadius:"50%", objectFit:"cover", border:`3px solid ${THEME.accent}`, ...(frameStyle || {}) }}/>
@@ -225,6 +230,9 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                   {/* Левый столбец: имя, титул, статус, цель — с отступом от аватара */}
                   <div style={{paddingLeft:32}}>
                     <div className="profile-name" style={{marginBottom:6, fontSize:22}}>{user?.firstName} {user?.lastName}</div>
+                    {isCreator(user?.uid) && (
+                      <div style={{marginBottom:8}}><span className="creator-badge">⚡ Основатель AAPA</span></div>
+                    )}
                     {titleItem && (
                       <div style={{
                         display:'inline-block', marginBottom:8,
