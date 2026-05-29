@@ -323,22 +323,18 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const showDiagNav=isTeacher||isTester||(user?.goalKey==="exam");
   const navItems=isInactive?[
     {id:"plan",icon:"🗺️",label:"Индивидуальный план обучения"},
-    {id:"leaderboard",icon:"🏆",label:"Рейтинг"},
+    {id:"leaderboard",icon:"🏆",label:"Таблица рейтинга"},
     {id:"shop",icon:"🛍️",label:"Магазин"},
-    {id:"profile",icon:"👤",label:"Личный кабинет ученика"},
     {id:"faq",icon:"❓",label:"Частые вопросы"},
     ...(isAdmin?[{id:"admin",icon:"⚙️",label:"Администрирование"}]:[]),
   ]:[
     {id:"home",icon:"🏠",label:"Главная"},
     ...(showDiagNav?[{id:"diagnostics",icon:"🎯",label:"Диагностика"}]:[]),
-    ...(!isTrial?[{id:"practice",icon:"🏋️",label:"Тренировка"}]:[]),
-    ...(!isTrial?[{id:"intermediate",icon:"⚔️",label:"Промежуточные тесты"}]:[]),
     {id:"plan",icon:"🗺️",label:"Индивидуальный план обучения"},
     {id:"theory",icon:"📖",label:"Теория"},
     {id:"daily",icon:"📝",label:"Ежедневные задачи"},
-    {id:"leaderboard",icon:"🏆",label:"Рейтинг"},
+    {id:"leaderboard",icon:"🏆",label:"Таблица рейтинга"},
     {id:"shop",icon:"🛍️",label:"Магазин"},
-    {id:"profile",icon:"👤",label:"Личный кабинет ученика"},
     {id:"faq",icon:"❓",label:"Частые вопросы"},
     ...(isAdmin?[{id:"admin",icon:"⚙️",label:"Администрирование"}]:[]),
   ];
@@ -363,6 +359,10 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     if(id==="admin"){onOpenAdmin();return;}
     setActiveSection(id);
   };
+
+  // Профиль теперь открывается не пунктом меню, а кликом по блоку пользователя
+  // (внизу сайдбара) и аватару в мобильном топбаре.
+  const openProfile=()=>{ setSidebarOpen(false); setActiveSection("profile"); };
 
   // Кастомный фон из магазина (equipped.background) — wallpaper-эффект
   // на весь дашборд. Слой кладётся в root-stack (position:fixed, z-1)
@@ -415,7 +415,12 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             );
           })}
         </nav>
-        <div className="sidebar-user">
+        <div className="sidebar-user" role="button" tabIndex={0} aria-label="Открыть профиль"
+          onClick={openProfile}
+          onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openProfile();}}}
+          style={{cursor:"pointer",borderRadius:12,transition:"background 0.15s"}}
+          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.06)";}}
+          onMouseLeave={e=>{e.currentTarget.style.background="";}}>
           <LevelRing xp={user?.xp ?? 0} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
             size={40} label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} showLevel={!isTeacher} />
           <div style={{flex:1,minWidth:0}}>
@@ -423,13 +428,13 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             <div className="sidebar-user-role" style={{color:statusObj.color+"cc"}}>{isAdmin?"Администратор":isTeacher?"Преподаватель":statusObj.label}</div>
             {/* Кристаллы — видны всем ролям, в том числе admin/teacher (ESR-виджет от них скрыт). */}
             {(user?.crystals ?? 0) > 0 && (
-              <div style={{fontSize:13, color:'#a78bfa', fontWeight:700, marginTop:4}}>
+              <div onClick={e=>e.stopPropagation()} style={{fontSize:13, color:'#a78bfa', fontWeight:700, marginTop:4}}>
                 💎 {(user?.crystals ?? 0).toLocaleString('ru-RU')}
                 <InfoTooltip text="Валюта для магазина. Зарабатывай за ежедневные задачи, навыки и квесты." />
               </div>
             )}
           </div>
-          <button onClick={onLogout} title="Выйти" style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",color:"rgba(255,255,255,0.45)",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:13,flexShrink:0,transition:"all 0.15s"}}
+          <button onClick={e=>{e.stopPropagation();onLogout();}} title="Выйти" style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",color:"rgba(255,255,255,0.45)",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:13,flexShrink:0,transition:"all 0.15s"}}
             onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.15)";e.currentTarget.style.color="#ef4444";e.currentTarget.style.borderColor="rgba(239,68,68,0.3)";}}
             onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color="rgba(255,255,255,0.45)";e.currentTarget.style.borderColor="rgba(255,255,255,0.12)";}}>
             ⎋ Выйти
@@ -444,6 +449,11 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             {activeSection==="profile" ? "Профиль" : "Главная"}
           </span>
           <ThemeToggle />
+          <button onClick={openProfile} aria-label="Профиль" title="Профиль"
+            style={{background:"none",border:"none",padding:0,cursor:"pointer",flexShrink:0,lineHeight:0,borderRadius:"50%"}}>
+            <LevelRing xp={user?.xp ?? 0} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
+              size={30} label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} showLevel={false} />
+          </button>
         </div>
         <div className="desktop-header-actions"><ThemeToggle /></div>
 
