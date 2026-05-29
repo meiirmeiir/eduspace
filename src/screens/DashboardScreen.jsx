@@ -558,11 +558,16 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               </div>
             )}
 
-            {/* Полоса опыта — крупно под приветствием, для учеников. */}
-            {!isTeacher && <div style={{marginBottom:14}}><XpBar xp={user?.xp ?? 0} large /></div>}
+            {/* ── Группа «Прогресс»: адаптивная сетка (десктоп — 2 колонки, мобайл — 1). Скрыта для teacher/admin. ── */}
+            {!isTeacher && (
+            <div className="progress-grid">
+            <div className="pg-col">
 
-            {/* ── ESR Rating: большой FACEIT-style виджет с лигой и тремя рангами. Скрыт для teacher/admin. ── */}
-            {!isTeacher && (() => {
+            {/* Полоса опыта */}
+            <XpBar xp={user?.xp ?? 0} large />
+
+            {/* ── ESR Rating: большой FACEIT-style виджет с лигой и тремя рангами. ── */}
+            {(() => {
               const myPts  = rankInfo?.myPoints ?? 0;
               const league = getLeague(myPts);
               const wkCh   = rankInfo?.weekChange ?? 0;
@@ -572,7 +577,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                   background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)',
                   color: '#fff',
                   padding: '24px 28px',
-                  marginBottom: 14,
+                  marginBottom: 0,
                   border: `1px solid ${accent}55`,
                   borderRadius: 18,
                   boxShadow: `0 10px 32px -8px ${accent}40, inset 0 1px 0 rgba(255,255,255,0.05)`,
@@ -654,8 +659,41 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               );
             })()}
 
+            {/* Прогресс по индивидуальному плану */}
+            <div className="dashboard-section" style={{marginBottom:0, padding:'20px 22px'}}>
+                <h2 className="section-title" style={{margin:'0 0 12px'}}>📊 Прогресс обучения</h2>
+                {(!user?.smartDiagDone || !planSkills?.length) ? (
+                  <div className="empty-state" style={{padding:'12px 0', fontSize:14}}>
+                    Пройди диагностику чтобы увидеть свой прогресс
+                  </div>
+                ) : (
+                  <>
+                    <div style={{fontSize:13, color:THEME.textLight, fontWeight:600, marginBottom:10}}>
+                      Освоено: <span style={{color:THEME.primary, fontWeight:800}}>{masteredCount}</span> из {planSkillsTotal} навыков из твоего плана
+                    </div>
+                    <div style={{height:10, borderRadius:99, background:'rgba(15,23,42,0.08)', overflow:'hidden'}}>
+                      <div style={{
+                        height:'100%', width:`${progressPct}%`,
+                        background:`linear-gradient(90deg, ${THEME.accent}, #f59e0b)`,
+                        borderRadius:99, transition:'width 0.4s ease',
+                      }}/>
+                    </div>
+                    <div style={{marginTop:6, fontSize:12, color:THEME.textLight, textAlign:'right'}}>{progressPct}%</div>
+                  </>
+                )}
+              </div>
+
+            </div>
+            <div className="pg-col">
+
+            {/* Задания дня/недели */}
+            <QuestsWidget user={user} onUpdateUser={onUpdateUser} />
+
+            </div>
+            </div>
+            )}
+
             <div className="stats-row" style={{marginBottom:14}}>
-              {!isSolo&&!isInactive&&<div className="stat-card"><div className="stat-icon">📅</div><div><div className="stat-value">{schedule.length}</div><div className="stat-label">занятий в неделю</div></div></div>}
               {!isSolo&&!isInactive&&<div className="stat-card"><div className="stat-icon">📚</div><div><div className="stat-value">{homework.filter(h=>new Date(h.dueDate+"T23:59:59")>=today).length}</div><div className="stat-label">активных ДЗ</div></div></div>}
               {/* Освоено навыков — SVG-галочка «рисуется» при загрузке */}
               <div className="stat-card">
@@ -694,62 +732,6 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               })()}
               <div className="stat-card"><div className="stat-icon">📖</div><div><div className="stat-value">{topicsGreen}</div><div className="stat-label">{pluralize(topicsGreen, ['тема изучена','темы изучено','тем изучено'])}</div></div></div>
             </div>
-
-            {/* Дорожная карта — показывается после завершения умной диагностики */}
-            {!isTeacher&&!isTester&&user?.smartDiagDone&&onViewRoadmap&&(
-              <div
-                data-tour="roadmap"
-                onClick={onViewRoadmap}
-                className="dark-invert-back"
-                style={{cursor:"pointer",background:"linear-gradient(135deg,#080e1f 0%,#0d1a35 100%)",borderRadius:20,padding:"24px 28px",marginBottom:14,color:"#fff",position:"relative",overflow:"hidden",border:"2px solid rgba(212,175,55,0.35)",boxShadow:"0 8px 32px rgba(212,175,55,0.12)"}}
-                onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";}}
-                onMouseLeave={e=>{e.currentTarget.style.transform="";}}
-              >
-                <div style={{position:"absolute",right:-8,top:-8,fontSize:110,opacity:0.05}}>🗺️</div>
-                <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-                  <div style={{width:56,height:56,borderRadius:14,background:"rgba(212,175,55,0.15)",border:"1px solid rgba(212,175,55,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0}}>🗺️</div>
-                  <div style={{flex:1,minWidth:180}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                      <div style={{fontFamily:"'Montserrat',sans-serif",fontSize:17,fontWeight:800,color:THEME.accent}}>Твоя дорожная карта</div>
-                      <span style={{background:"#22c55e",color:"#fff",fontSize:10,fontWeight:700,borderRadius:6,padding:"2px 8px",letterSpacing:0.4}}>ГОТОВА</span>
-                    </div>
-                    <p style={{fontSize:13,opacity:0.65,margin:0,lineHeight:1.5}}>Диагностика завершена — посмотри персональный план обучения снизу вверх.</p>
-                  </div>
-                  <button style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",borderRadius:10,padding:"12px 22px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
-                    Смотреть →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Блок 2: прогресс по индивидуальному плану. Скрыт для teacher/admin. */}
-            {!isTeacher && (
-              <div className="dashboard-section" style={{marginBottom:16, padding:'20px 22px'}}>
-                <h2 className="section-title" style={{margin:'0 0 12px'}}>📊 Прогресс обучения</h2>
-                {(!user?.smartDiagDone || !planSkills?.length) ? (
-                  <div className="empty-state" style={{padding:'12px 0', fontSize:14}}>
-                    Пройди диагностику чтобы увидеть свой прогресс
-                  </div>
-                ) : (
-                  <>
-                    <div style={{fontSize:13, color:THEME.textLight, fontWeight:600, marginBottom:10}}>
-                      Освоено: <span style={{color:THEME.primary, fontWeight:800}}>{masteredCount}</span> из {planSkillsTotal} навыков из твоего плана
-                    </div>
-                    <div style={{height:10, borderRadius:99, background:'rgba(15,23,42,0.08)', overflow:'hidden'}}>
-                      <div style={{
-                        height:'100%', width:`${progressPct}%`,
-                        background:`linear-gradient(90deg, ${THEME.accent}, #f59e0b)`,
-                        borderRadius:99, transition:'width 0.4s ease',
-                      }}/>
-                    </div>
-                    <div style={{marginTop:6, fontSize:12, color:THEME.textLight, textAlign:'right'}}>{progressPct}%</div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Задания дня/недели — для учеников. */}
-            {!isTeacher && <QuestsWidget user={user} onUpdateUser={onUpdateUser} />}
 
             {/* Schedule */}
             {!isSolo&&!isInactive&&(
