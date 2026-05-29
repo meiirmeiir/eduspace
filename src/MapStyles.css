@@ -77,6 +77,25 @@
   animation: magic-pulse 1.4s linear infinite;
 }
 
+/* ── Узлы карты модулей: состояния + анимации ──────────────── */
+.skill-node { transition: transform 0.18s ease; }
+.skill-node:hover { transform: translateY(-6px); z-index: 20; }
+.skill-node:hover .skill-node-card { box-shadow: 0 10px 30px rgba(0,0,0,0.45); }
+
+/* Доступен — мягкая пульсация (scale + glow), зовёт начать */
+.skill-node-available .skill-node-card { animation: skillCardPulse 2.2s ease-in-out infinite; }
+@keyframes skillCardPulse {
+  0%,100% { transform: scale(1);     filter: drop-shadow(0 0 6px rgba(59,130,246,0.45)); }
+  50%     { transform: scale(1.035); filter: drop-shadow(0 0 16px rgba(59,130,246,0.75)); }
+}
+
+/* Освоен — мягкое постоянное «дыхание» свечения */
+.skill-node-mastered .skill-node-card { animation: skillCardGlow 2.6s ease-in-out infinite; }
+@keyframes skillCardGlow {
+  0%,100% { box-shadow: 0 0 14px rgba(34,197,94,0.40); }
+  50%     { box-shadow: 0 0 28px rgba(34,197,94,0.75); }
+}
+
 /* ── Подпись этажа (класса) ────────────────────────────────── */
 .grade-banner {
   display: flex;

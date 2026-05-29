@@ -48,10 +48,10 @@ export default function MagicEdge({
       <path
         d={d}
         fill="none"
-        stroke="#1e3a5f"
+        stroke="#3f4759"
         strokeWidth={2}
         strokeDasharray="5 10"
-        opacity={0.4}
+        opacity={0.45}
       />
     );
   }
@@ -65,35 +65,35 @@ export default function MagicEdge({
         </filter>
       </defs>
 
-      {/* Слой 1 — Аура (широкая размытая) */}
+      {/* Слой 1 — Аура (широкая размытая) — зелёная */}
       <path
         d={d}
         fill="none"
-        stroke="#4f46e5"
+        stroke="#16a34a"
         strokeWidth={12}
         opacity={0.22}
         filter={`url(#${filterId})`}
       />
 
-      {/* Слой 2 — Ядро (тонкая яркая) */}
+      {/* Слой 2 — Ядро (тонкая яркая) — зелёное */}
       <path
         d={d}
         fill="none"
-        stroke="#22d3ee"
+        stroke="#4ade80"
         strokeWidth={3}
         opacity={0.92}
         strokeLinecap="round"
       />
 
-      {/* Слой 3 — Бегущие импульсы */}
+      {/* Слой 3 — Бегущий свет — золотой */}
       <path
         d={d}
         fill="none"
-        stroke="#e0f2fe"
+        stroke="#fde68a"
         strokeWidth={2}
         strokeLinecap="round"
         strokeDasharray="8 24"
-        opacity={0.85}
+        opacity={0.9}
         className="magic-pulse"
       />
     </g>
