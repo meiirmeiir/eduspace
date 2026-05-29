@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { doc, getDoc, setDoc, db } from "../firestore-rest.js";
+import { doc, getDoc, updateDoc, db } from "../firestore-rest.js";
 import { useTheme } from "../ThemeContext.jsx";
 import { isStageUnlocked, getAlmatyDateStr, SRS_INTERVALS, getAlmatyNextMidnightAfter, fmtCountdown } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
@@ -95,7 +95,10 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
         skillUpdate.review_stage = 1;
         if (firstMastery) skillUpdate.pointsAwarded = true;
       }
-      await setDoc(doc(db,'skillMastery',user.uid), { skills: { [skillId]: skillUpdate } }, { merge: true });
+      // Dot-path: обновляем ТОЛЬКО этот навык (skills.{skillId}), не затирая остальные.
+      // Раньше был setDoc(merge) с { skills: { [skillId]: ... } } → updateMask=skills →
+      // Firestore заменял весь map skills, обнуляя прогресс других навыков.
+      await updateDoc(doc(db,'skillMastery',user.uid), { [`skills.${skillId}`]: skillUpdate });
       setMastery({ stagesCompleted: newCompleted, currentStage: Math.min(newCompleted+1,3), lastStageCompletedAt: now_, pointsAwarded: mastery.pointsAwarded || firstMastery });
       // Квест «Пройди этап навыка» — на каждый вновь завершённый этап (1/2/3).
       if (stageAdvanced) {
