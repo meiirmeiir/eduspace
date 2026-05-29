@@ -159,18 +159,6 @@ function makeSparkCanvas() {
   return c;
 }
 
-// Градиент дымки у основания (плотнее снизу → прозрачно вверх).
-function makeHazeCanvas() {
-  const W = 256, Hc = 128;
-  const c = document.createElement('canvas'); c.width = W; c.height = Hc;
-  const ctx = c.getContext('2d');
-  const g = ctx.createLinearGradient(0, 0, 0, Hc);
-  g.addColorStop(0, 'rgba(170,180,210,0)');
-  g.addColorStop(1, 'rgba(170,180,210,0.5)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, Hc);
-  return c;
-}
-
 export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRender }) {
   const { theme: THEME } = useTheme();
   const wrapRef = useRef(null);
@@ -233,17 +221,6 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
       const groundMat = new THREE.ShadowMaterial({ opacity: 0.24 });
       const ground = new THREE.Mesh(groundGeo, groundMat); ground.receiveShadow = true;
       scene.add(ground); geos.push(groundGeo); mats.push(groundMat);
-
-      // Дымка у основания (билборд-плоскости с градиентом, нормальное смешивание).
-      const hazeTex = new THREE.CanvasTexture(makeHazeCanvas()); texs.push(hazeTex);
-      const hazeMat = new THREE.MeshBasicMaterial({ map: hazeTex, transparent: true, opacity: 0.32, depthWrite: false });
-      mats.push(hazeMat);
-      [{ z: 1.7, s: 1.0 }, { z: 0.1, s: 1.3 }].forEach(({ z, s }) => {
-        const hg = new THREE.PlaneGeometry(11 * s, 2.6);
-        const hm = new THREE.Mesh(hg, hazeMat);
-        hm.position.set(0, 0.7, z);
-        scene.add(hm); geos.push(hg);
-      });
 
       // ── Постаменты (многоуровневые «королевские» пьедесталы) ─────────────────
       const bevelOpts = { r: 0.1, bevel: 0.04 };
