@@ -103,7 +103,7 @@ void main(){
 }`;
 
 const ATMO_FRAG = `
-uniform float uLife; uniform vec3 uSunDir;
+uniform float uLife; uniform vec3 uSunDir; uniform float uBloom;
 varying vec3 vNormalW; varying vec3 vViewDir;
 const vec3 ATMO=vec3(0.40,0.70,1.0);
 void main(){
@@ -111,7 +111,7 @@ void main(){
   float strength=clamp(0.18+0.82*smoothstep(0.0,1.0,uLife),0.0,1.0);
   float fres=pow(1.0-max(dot(normalize(vViewDir),normalize(vNormalW)),0.0),3.0);
   float sun=max(dot(normalize(vNormalW),normalize(uSunDir)),0.0);
-  float a=fres*strength*(0.35+0.65*sun);
+  float a=fres*strength*(0.35+0.65*sun)*uBloom;
   gl_FragColor=vec4(ATMO,a);
 }`;
 
@@ -124,7 +124,7 @@ function fallbackGradient(life) {
   return 'radial-gradient(circle at 38% 32%, #7fe0a0, #2a86d6 72%), radial-gradient(circle, transparent 60%, rgba(120,200,255,0.4))';
 }
 
-export default function SkillPlanet3D({ life = 0, size = 220 }) {
+export default function SkillPlanet3D({ fromLife = 0, toLife = 0, size = 220 }) {
   const mountRef = useRef(null);
   const [failed, setFailed] = useState(false);
 
@@ -150,10 +150,13 @@ export default function SkillPlanet3D({ life = 0, size = 220 }) {
 
       const sunDir = new THREE.Vector3(0.7, 0.35, 0.6).normalize();
       const uniforms = {
-        uLife:    { value: life },
+        uLife:    { value: fromLife },
         uSunDir:  { value: sunDir },
         uAmbient: { value: 0.18 },
+        uBloom:   { value: 1 },
       };
+      const animated = fromLife !== toLife;
+      const LERP_DELAY = 0.25, LERP_DUR = 2.5;
 
       // Планета
       const planetGeo = new THREE.SphereGeometry(1, 64, 64);
@@ -195,6 +198,14 @@ export default function SkillPlanet3D({ life = 0, size = 220 }) {
         frameId = requestAnimationFrame(animate);
         const t = clock.getElapsedTime();
         const dt = Math.min(t - last, 0.05); last = t;
+        if (animated) {
+          // Оживление: плавный lerp life от fromLife к toLife (ease-in-out)
+          const p = Math.min(1, Math.max(0, (t - LERP_DELAY) / LERP_DUR));
+          const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+          uniforms.uLife.value = fromLife + (toLife - fromLife) * e;
+          // лёгкая вспышка атмосферы к завершению («расцвет»)
+          uniforms.uBloom.value = 1 + 1.1 * Math.exp(-Math.pow((p - 0.92) / 0.12, 2));
+        }
         planet.rotation.y += 0.15 * dt;
         clouds.rotation.y += 0.10 * dt;
         stars.rotation.y += 0.01 * dt;
@@ -215,14 +226,14 @@ export default function SkillPlanet3D({ life = 0, size = 220 }) {
         if (renderer.forceContextLoss) renderer.forceContextLoss();
       }
     };
-  }, [life, size]);
+  }, [fromLife, toLife, size]);
 
   if (failed) {
     return (
       <div aria-hidden="true" style={{
         width: size, height: size, borderRadius: '50%', margin: '0 auto',
-        background: fallbackGradient(life),
-        boxShadow: life >= 0 ? '0 0 24px rgba(120,200,255,0.3)' : 'none',
+        background: fallbackGradient(toLife),
+        boxShadow: toLife >= 0 ? '0 0 24px rgba(120,200,255,0.3)' : 'none',
       }} />
     );
   }

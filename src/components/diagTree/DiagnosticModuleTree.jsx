@@ -7,6 +7,7 @@ import MapBackground from "./MapBackground.jsx";
 import SkillPlanet3D from "../SkillPlanet3D.jsx";
 import { GRADES_LIST } from "../../lib/appConstants.js";
 import { useTheme } from "../../ThemeContext.jsx";
+import { useAuth } from "../../contexts/AuthContext.jsx";
 import { fmtCountdown, getAlmatyNextMidnightAfter } from "../../lib/srsUtils.js";
 
 // ── ИНДИВИДУАЛЬНЫЙ ПЛАН ОБУЧЕНИЯ ──────────────────────────────────────────────
@@ -324,6 +325,8 @@ const DIAG_MOD_EDGE_TYPES = { diagModuleEdge: MagicEdge };
 // ── DiagModulePopup ────────────────────────────────────────────────────────────
 function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery = {} }) {
   const { theme: THEME } = useTheme();
+  const { firebaseUser } = useAuth();
+  const uid = firebaseUser?.uid || 'anon';
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const fn = e => { if(e.key==='Escape') onClose(); };
@@ -348,6 +351,22 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
   const lifeLabel = mod.isLocked ? '🔒 Заблокирован'
     : ['🌑 Спящий мир', '🌱 Пробуждается', '🌊 Расцветает', '🌍 Цветущий мир'][selStages];
 
+  // Оживление: from = последняя виденная стадия (localStorage по uid+skill), to = текущая.
+  // Играет один раз — после прохождения этапа; persist в effect обновляет baseline.
+  const planetTransition = useMemo(() => {
+    if (!selSkill || mod.isLocked) return { from: planetLife, to: planetLife };
+    let stored = null;
+    try { const v = localStorage.getItem(`aapa_planet_seen_${uid}_${selSkill.id}`); stored = v == null ? null : Number(v); } catch {}
+    const from = (stored != null && stored < selStages) ? [0, 0.4, 0.8, 1.0][Math.min(stored, 3)] : planetLife;
+    return { from, to: planetLife };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSkillId, selStages, mod.isLocked, uid]);
+  useEffect(() => {
+    if (!selSkill) return;
+    try { localStorage.setItem(`aapa_planet_seen_${uid}_${selSkill.id}`, String(selStages)); } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSkillId]);
+
   return (
     <div style={{ position:'absolute', inset:0, zIndex:50, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.5)' }}
          onClick={e => { if(e.target===e.currentTarget) onClose(); }}>
@@ -361,7 +380,7 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
         </div>
         {selSkill && (
           <div style={{ textAlign:'center', marginBottom:14 }}>
-            <SkillPlanet3D key={selSkill.id + ':' + planetLife} life={planetLife} size={200} />
+            <SkillPlanet3D key={selSkill.id} fromLife={planetTransition.from} toLife={planetTransition.to} size={200} />
             <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.text, fontWeight:600, marginTop:8, lineHeight:1.4 }}>{selSkill.name}</div>
             <div style={{ fontFamily:"'Montserrat',sans-serif", fontSize:12, fontWeight:700, color: selSkill.mastery>=100?'#22c55e':'#f59e0b', marginTop:2 }}>{lifeLabel} · {selSkill.mastery}%</div>
           </div>
@@ -406,9 +425,9 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
                 </div>
                 {skillSrsLocked && (
                   <div style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:6, padding:'6px 10px', marginBottom:8, display:'flex', alignItems:'center', gap:8 }}>
-                    <span style={{ fontSize:14 }}>🌙</span>
+                    <span style={{ fontSize:14 }}>🚀</span>
                     <div>
-                      <div style={{ fontFamily:"'Inter',sans-serif", fontSize:11, color:THEME.textLight }}>Этап {stages+1} откроется через</div>
+                      <div style={{ fontFamily:"'Inter',sans-serif", fontSize:11, color:THEME.textLight }}>Корабль готовится к Этапу {stages+1}</div>
                       <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:'#6366f1' }}>{fmtCountdown(msLeft)}</div>
                     </div>
                   </div>
@@ -422,7 +441,7 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
                       border:'none', color:'#fff', padding:'8px 12px', borderRadius:7,
                       cursor: anyDisabled ? 'not-allowed' : 'pointer', width:'100%',
                       opacity: anyDisabled ? 0.6 : 1 }}>
-                    {mod.isLocked ? '🔒 Модуль заблокирован' : limitReached ? '🔒 Лимит: 3 активных навыка' : skillSrsLocked ? `🌙 Продолжить (${fmtCountdown(msLeft)})` : stages > 0 ? `▶ Продолжить (Этап ${stages+1})` : '▶ Начать усвоение'}
+                    {mod.isLocked ? '🔒 Модуль заблокирован' : limitReached ? '🔒 Лимит: 3 активных навыка' : skillSrsLocked ? `🚀 Экспедиция через ${fmtCountdown(msLeft)}` : stages > 0 ? `🚀 Продолжить экспедицию (Этап ${stages+1})` : '🚀 Начать экспедицию'}
                   </button>
                 )}
               </div>
