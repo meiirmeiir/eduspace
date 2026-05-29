@@ -145,7 +145,8 @@ async function autoGeneratePlan(userId, currentAnswers, targetGrade) {
   // ── 5. Пишем в Firestore (параллельно) ────────────────────────────────────
   await Promise.all([
     setDoc(doc(db, 'individualPlans', userId), plan),
-    setDoc(doc(db, 'skillProgress',   userId), { skills }, { merge: true }),
+    // полный пересчёт skills из диагностики — map заменяется намеренно (без merge)
+    setDoc(doc(db, 'skillProgress',   userId), { skills }),
   ]);
 
   return { roadmapData, plan };
