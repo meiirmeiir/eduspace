@@ -10,6 +10,7 @@ import ErrorCard from "./ui/ErrorCard.jsx";
 import Medal from "./Medal.jsx";
 import { getShopItem, FRAME_STYLES } from "../lib/shopItems.js";
 import LevelRing from "./LevelRing.jsx";
+import TierRing3D from "./TierRing3D.jsx";
 import XpBar from "./XpBar.jsx";
 import AchievementsGrid from "./AchievementsGrid.jsx";
 
@@ -151,7 +152,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
           {/* Avatar (CSS-frame применяется inline, перекрывая дефолтный gold-border) */}
           <div style={{position:"relative",flexShrink:0}}>
             {!isEditing
-              ? <LevelRing xp={user?.xp ?? 0} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
+              ? <TierRing3D xp={user?.xp ?? 0} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
                   size={200} label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} />
               : (editForm.avatarUrl
                   ? <img src={editForm.avatarUrl} alt="avatar"
