@@ -454,18 +454,15 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
         )}
         {activeSection==="home"&&!(isInactive&&!isTeacher)&&(
           <>
-            <div className="dashboard-header">
+            <div className="dashboard-header" style={{marginBottom:20}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
                 <div><h1>Добро пожаловать, <span style={{color:THEME.accent}}>{user?.firstName}</span>!</h1><p style={{color:THEME.textLight,marginTop:6}}>{today.toLocaleDateString("ru-RU",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</p></div>
                 <span style={{background:statusObj.color+"18",color:statusObj.color,fontWeight:700,fontSize:13,padding:"6px 16px",borderRadius:99,border:`1px solid ${statusObj.color}30`,alignSelf:"center"}}>{statusObj.label}</span>
               </div>
             </div>
 
-            {/* Полоса опыта — крупно под приветствием, для учеников. */}
-            {!isTeacher && <div style={{marginBottom:24}}><XpBar xp={user?.xp ?? 0} large /></div>}
-
             {isTrial&&!isTeacher&&(
-              <div style={{background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.35)",borderRadius:12,padding:"14px 18px",marginBottom:20,display:"flex",alignItems:"center",gap:12}}>
+              <div style={{background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.35)",borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12}}>
                 <span style={{fontSize:22}}>⏳</span>
                 <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:14,color:"#92400e"}}>
                   Пробный период: осталось {trialDaysLeft??0} {(()=>{ const n=Math.abs(trialDaysLeft??0)%100, b=n%10; if(n>10&&n<20)return 'дней'; if(b>1&&b<5)return 'дня'; if(b===1)return 'день'; return 'дней'; })()}
@@ -473,10 +470,56 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               </div>
             )}
 
+            {/* Блок 1: «Что делать сегодня» — умная карточка с CTA. Скрыта для teacher/admin. */}
+            {!isTeacher && (() => {
+              // Приоритет: пауза внутри раздела (localStorage) > раздел из Firestore > свежий старт.
+              const hasPartialDiag = !!user?.smartDiagNextSection;
+              const hasInSection   = !!diagPause;
+              let icon='🎯',
+                  text=hasInSection
+                       ? `Продолжи раздел ${diagPause.sectionNum} — ${diagPause.qNum} ${pluralize(diagPause.qNum, ['вопрос отвечен','вопроса отвечено','вопросов отвечено'])}`
+                       : hasPartialDiag
+                       ? `Продолжи диагностику — раздел ${user.smartDiagNextSection}`
+                       : 'Пройди диагностику — она определит твой уровень',
+                  ctaLabel=hasInSection
+                       ? `Продолжить с вопроса ${diagPause.qNum + 1} →`
+                       : hasPartialDiag
+                       ? `Продолжить раздел ${user.smartDiagNextSection} →`
+                       : 'Начать диагностику →',
+                  onCta=()=>onStartSmartDiag?.(hasPartialDiag || hasInSection);
+              if (user?.smartDiagDone && !masteryStatus.hasMastered) {
+                icon='📚'; text='Освой первый навык в индивидуальном плане'; ctaLabel='Перейти к плану →'; onCta=()=>onViewPlan?.();
+              } else if (masteryStatus.hasDueToday) {
+                icon='📝'; text='Есть задачи для повторения сегодня!'; ctaLabel='Начать разминку →'; onCta=()=>onOpenDaily?.();
+              } else if (masteryStatus.hasMastered && !masteryStatus.hasDueToday) {
+                icon='✨'; text='Отлично! Продолжай осваивать новые навыки'; ctaLabel='К плану →'; onCta=()=>onViewPlan?.();
+              }
+              return (
+                <div className="dashboard-section" style={{
+                  marginBottom:16, padding:'22px 26px',
+                  background:`linear-gradient(135deg, ${THEME.primary} 0%, #1e1b4b 100%)`,
+                  border:'1px solid rgba(212,175,55,0.25)',
+                  color:'#fff',
+                  display:'flex', alignItems:'center', gap:20, flexWrap:'wrap',
+                }}>
+                  <div style={{fontSize:44, lineHeight:1, flexShrink:0}}>{icon}</div>
+                  <div style={{flex:'1 1 220px', minWidth:0}}>
+                    <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:THEME.accent, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:6}}>Что делать сегодня</div>
+                    <div style={{fontSize:16, lineHeight:1.4, color:'#fff', fontWeight:600}}>{text}</div>
+                  </div>
+                  <button onClick={onCta} style={{
+                    background:THEME.accent, color:THEME.onAccent ?? '#0f172a', border:'none', borderRadius:10,
+                    padding:'12px 22px', fontFamily:"'Montserrat',sans-serif", fontSize:14, fontWeight:800,
+                    cursor:'pointer', whiteSpace:'nowrap', flexShrink:0,
+                    boxShadow:'0 6px 18px -4px rgba(212,175,55,0.5)',
+                  }}>{ctaLabel}</button>
+                </div>
+              );
+            })()}
 
             {/* Умная диагностика — для goals: gaps / future */}
             {!isTeacher&&!isTester&&(user?.goalKey==="gaps"||user?.goalKey==="future")&&!user?.smartDiagDone&&(
-              <div data-tour="smart-diag" style={{marginBottom:24}}>
+              <div data-tour="smart-diag" style={{marginBottom:16}}>
                 {/* Пройденные разделы */}
                 {(user?.smartDiagSections||[]).length>0&&(
                   <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:14}}>
@@ -515,32 +558,8 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               </div>
             )}
 
-            {/* Дорожная карта — показывается после завершения умной диагностики */}
-            {!isTeacher&&!isTester&&user?.smartDiagDone&&onViewRoadmap&&(
-              <div
-                data-tour="roadmap"
-                onClick={onViewRoadmap}
-                className="dark-invert-back"
-                style={{cursor:"pointer",background:"linear-gradient(135deg,#080e1f 0%,#0d1a35 100%)",borderRadius:20,padding:"24px 28px",marginBottom:24,color:"#fff",position:"relative",overflow:"hidden",border:"2px solid rgba(212,175,55,0.35)",boxShadow:"0 8px 32px rgba(212,175,55,0.12)"}}
-                onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";}}
-                onMouseLeave={e=>{e.currentTarget.style.transform="";}}
-              >
-                <div style={{position:"absolute",right:-8,top:-8,fontSize:110,opacity:0.05}}>🗺️</div>
-                <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-                  <div style={{width:56,height:56,borderRadius:14,background:"rgba(212,175,55,0.15)",border:"1px solid rgba(212,175,55,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0}}>🗺️</div>
-                  <div style={{flex:1,minWidth:180}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                      <div style={{fontFamily:"'Montserrat',sans-serif",fontSize:17,fontWeight:800,color:THEME.accent}}>Твоя дорожная карта</div>
-                      <span style={{background:"#22c55e",color:"#fff",fontSize:10,fontWeight:700,borderRadius:6,padding:"2px 8px",letterSpacing:0.4}}>ГОТОВА</span>
-                    </div>
-                    <p style={{fontSize:13,opacity:0.65,margin:0,lineHeight:1.5}}>Диагностика завершена — посмотри персональный план обучения снизу вверх.</p>
-                  </div>
-                  <button style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",borderRadius:10,padding:"12px 22px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
-                    Смотреть →
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Полоса опыта — крупно под приветствием, для учеников. */}
+            {!isTeacher && <div style={{marginBottom:14}}><XpBar xp={user?.xp ?? 0} large /></div>}
 
             {/* ── ESR Rating: большой FACEIT-style виджет с лигой и тремя рангами. Скрыт для teacher/admin. ── */}
             {!isTeacher && (() => {
@@ -553,7 +572,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                   background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)',
                   color: '#fff',
                   padding: '24px 28px',
-                  marginBottom: 24,
+                  marginBottom: 14,
                   border: `1px solid ${accent}55`,
                   borderRadius: 18,
                   boxShadow: `0 10px 32px -8px ${accent}40, inset 0 1px 0 rgba(255,255,255,0.05)`,
@@ -635,7 +654,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               );
             })()}
 
-            <div className="stats-row">
+            <div className="stats-row" style={{marginBottom:14}}>
               {!isSolo&&!isInactive&&<div className="stat-card"><div className="stat-icon">📅</div><div><div className="stat-value">{schedule.length}</div><div className="stat-label">занятий в неделю</div></div></div>}
               {!isSolo&&!isInactive&&<div className="stat-card"><div className="stat-icon">📚</div><div><div className="stat-value">{homework.filter(h=>new Date(h.dueDate+"T23:59:59")>=today).length}</div><div className="stat-label">активных ДЗ</div></div></div>}
               {/* Освоено навыков — SVG-галочка «рисуется» при загрузке */}
@@ -676,59 +695,36 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               <div className="stat-card"><div className="stat-icon">📖</div><div><div className="stat-value">{topicsGreen}</div><div className="stat-label">{pluralize(topicsGreen, ['тема изучена','темы изучено','тем изучено'])}</div></div></div>
             </div>
 
-            {/* Блок 1: «Что делать сегодня» — умная карточка с CTA. Скрыта для teacher/admin. */}
-            {!isTeacher && (() => {
-              // Приоритет: пауза внутри раздела (localStorage) > раздел из Firestore > свежий старт.
-              const hasPartialDiag = !!user?.smartDiagNextSection;
-              const hasInSection   = !!diagPause;
-              let icon='🎯',
-                  text=hasInSection
-                       ? `Продолжи раздел ${diagPause.sectionNum} — ${diagPause.qNum} ${pluralize(diagPause.qNum, ['вопрос отвечен','вопроса отвечено','вопросов отвечено'])}`
-                       : hasPartialDiag
-                       ? `Продолжи диагностику — раздел ${user.smartDiagNextSection}`
-                       : 'Пройди диагностику — она определит твой уровень',
-                  ctaLabel=hasInSection
-                       ? `Продолжить с вопроса ${diagPause.qNum + 1} →`
-                       : hasPartialDiag
-                       ? `Продолжить раздел ${user.smartDiagNextSection} →`
-                       : 'Начать диагностику →',
-                  onCta=()=>onStartSmartDiag?.(hasPartialDiag || hasInSection);
-              if (user?.smartDiagDone && !masteryStatus.hasMastered) {
-                icon='📚'; text='Освой первый навык в индивидуальном плане'; ctaLabel='Перейти к плану →'; onCta=()=>onViewPlan?.();
-              } else if (masteryStatus.hasDueToday) {
-                icon='📝'; text='Есть задачи для повторения сегодня!'; ctaLabel='Начать разминку →'; onCta=()=>onOpenDaily?.();
-              } else if (masteryStatus.hasMastered && !masteryStatus.hasDueToday) {
-                icon='✨'; text='Отлично! Продолжай осваивать новые навыки'; ctaLabel='К плану →'; onCta=()=>onViewPlan?.();
-              }
-              return (
-                <div className="dashboard-section" style={{
-                  marginBottom:24, padding:'22px 26px',
-                  background:`linear-gradient(135deg, ${THEME.primary} 0%, #1e1b4b 100%)`,
-                  border:'1px solid rgba(212,175,55,0.25)',
-                  color:'#fff',
-                  display:'flex', alignItems:'center', gap:20, flexWrap:'wrap',
-                }}>
-                  <div style={{fontSize:44, lineHeight:1, flexShrink:0}}>{icon}</div>
-                  <div style={{flex:'1 1 220px', minWidth:0}}>
-                    <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:THEME.accent, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:6}}>Что делать сегодня</div>
-                    <div style={{fontSize:16, lineHeight:1.4, color:'#fff', fontWeight:600}}>{text}</div>
+            {/* Дорожная карта — показывается после завершения умной диагностики */}
+            {!isTeacher&&!isTester&&user?.smartDiagDone&&onViewRoadmap&&(
+              <div
+                data-tour="roadmap"
+                onClick={onViewRoadmap}
+                className="dark-invert-back"
+                style={{cursor:"pointer",background:"linear-gradient(135deg,#080e1f 0%,#0d1a35 100%)",borderRadius:20,padding:"24px 28px",marginBottom:14,color:"#fff",position:"relative",overflow:"hidden",border:"2px solid rgba(212,175,55,0.35)",boxShadow:"0 8px 32px rgba(212,175,55,0.12)"}}
+                onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";}}
+                onMouseLeave={e=>{e.currentTarget.style.transform="";}}
+              >
+                <div style={{position:"absolute",right:-8,top:-8,fontSize:110,opacity:0.05}}>🗺️</div>
+                <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+                  <div style={{width:56,height:56,borderRadius:14,background:"rgba(212,175,55,0.15)",border:"1px solid rgba(212,175,55,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0}}>🗺️</div>
+                  <div style={{flex:1,minWidth:180}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                      <div style={{fontFamily:"'Montserrat',sans-serif",fontSize:17,fontWeight:800,color:THEME.accent}}>Твоя дорожная карта</div>
+                      <span style={{background:"#22c55e",color:"#fff",fontSize:10,fontWeight:700,borderRadius:6,padding:"2px 8px",letterSpacing:0.4}}>ГОТОВА</span>
+                    </div>
+                    <p style={{fontSize:13,opacity:0.65,margin:0,lineHeight:1.5}}>Диагностика завершена — посмотри персональный план обучения снизу вверх.</p>
                   </div>
-                  <button onClick={onCta} style={{
-                    background:THEME.accent, color:THEME.onAccent ?? '#0f172a', border:'none', borderRadius:10,
-                    padding:'12px 22px', fontFamily:"'Montserrat',sans-serif", fontSize:14, fontWeight:800,
-                    cursor:'pointer', whiteSpace:'nowrap', flexShrink:0,
-                    boxShadow:'0 6px 18px -4px rgba(212,175,55,0.5)',
-                  }}>{ctaLabel}</button>
+                  <button style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",borderRadius:10,padding:"12px 22px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
+                    Смотреть →
+                  </button>
                 </div>
-              );
-            })()}
-
-            {/* Задания дня/недели — для учеников. */}
-            {!isTeacher && <QuestsWidget user={user} onUpdateUser={onUpdateUser} />}
+              </div>
+            )}
 
             {/* Блок 2: прогресс по индивидуальному плану. Скрыт для teacher/admin. */}
             {!isTeacher && (
-              <div className="dashboard-section" style={{marginBottom:24, padding:'20px 22px'}}>
+              <div className="dashboard-section" style={{marginBottom:16, padding:'20px 22px'}}>
                 <h2 className="section-title" style={{margin:'0 0 12px'}}>📊 Прогресс обучения</h2>
                 {(!user?.smartDiagDone || !planSkills?.length) ? (
                   <div className="empty-state" style={{padding:'12px 0', fontSize:14}}>
@@ -752,9 +748,12 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               </div>
             )}
 
+            {/* Задания дня/недели — для учеников. */}
+            {!isTeacher && <QuestsWidget user={user} onUpdateUser={onUpdateUser} />}
+
             {/* Schedule */}
             {!isSolo&&!isInactive&&(
-            <div data-tour="next-lesson" className="dashboard-section">
+            <div data-tour="next-lesson" className="dashboard-section" style={{marginBottom:18}}>
               <div className="section-title-row">
                 <h2 className="section-title">📅 Расписание занятий</h2>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -809,7 +808,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             )}
             {/* Homework */}
             {!isSolo&&!isInactive&&(
-            <div data-tour="homework" className="dashboard-section">
+            <div data-tour="homework" className="dashboard-section" style={{marginBottom:18}}>
               <div className="section-title-row"><h2 className="section-title">📚 Домашние задания</h2>{isTeacher&&<button className="add-btn" onClick={()=>setShowHwForm(true)}>+ Добавить ДЗ</button>}</div>
               {loadingData?<div className="empty-state">Загрузка...</div>:dataError?<ErrorCard onRetry={loadDashData}/>:homework.length===0?<div className="empty-state">{isTeacher?"Нажмите «+ Добавить ДЗ».":"Домашних заданий пока нет."}</div>:(
                 <div className="homework-list">
