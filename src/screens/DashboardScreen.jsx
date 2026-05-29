@@ -14,6 +14,7 @@ import QuestsWidget from "../components/QuestsWidget.jsx";
 import LevelRing from "../components/LevelRing.jsx";
 import XpBar from "../components/XpBar.jsx";
 import InfoTooltip from "../components/InfoTooltip.jsx";
+import ShipProgress from "../components/ShipProgress.jsx";
 import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
@@ -318,7 +319,6 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   // masteryStatus считает ВСЕ освоенные навыки, не только те что в плане. Cap'ируем визуально,
   // чтобы не было «12 из 8 навыков», если ученик переучил план.
   const masteredCount=Math.min(masteredCountRaw, planSkillsTotal||masteredCountRaw);
-  const progressPct=planSkillsTotal>0?Math.round((masteredCount/planSkillsTotal)*100):0;
   const topicsGreen=Object.values(progressData?.topics||{}).filter(t=>t?.zone==='green').length;
   const showDiagNav=isTeacher||isTester||(user?.goalKey==="exam");
   const navItems=isInactive?[
@@ -664,26 +664,8 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
 
             {/* Прогресс по индивидуальному плану */}
             <div className="dashboard-section" style={{marginBottom:0, padding:'20px 22px'}}>
-                <h2 className="section-title" style={{margin:'0 0 12px', display:'flex', alignItems:'center'}}>📊 Прогресс обучения<InfoTooltip text="Сколько навыков из твоего плана уже освоено." /></h2>
-                {(!user?.smartDiagDone || !planSkills?.length) ? (
-                  <div className="empty-state" style={{padding:'12px 0', fontSize:14}}>
-                    Пройди диагностику чтобы увидеть свой прогресс
-                  </div>
-                ) : (
-                  <>
-                    <div style={{fontSize:13, color:THEME.textLight, fontWeight:600, marginBottom:10}}>
-                      Освоено: <span style={{color:THEME.primary, fontWeight:800}}>{masteredCount}</span> из {planSkillsTotal} навыков из твоего плана
-                    </div>
-                    <div style={{height:10, borderRadius:99, background:'rgba(15,23,42,0.08)', overflow:'hidden'}}>
-                      <div style={{
-                        height:'100%', width:`${progressPct}%`,
-                        background:`linear-gradient(90deg, ${THEME.accent}, #f59e0b)`,
-                        borderRadius:99, transition:'width 0.4s ease',
-                      }}/>
-                    </div>
-                    <div style={{marginTop:6, fontSize:12, color:THEME.textLight, textAlign:'right'}}>{progressPct}%</div>
-                  </>
-                )}
+                <h2 className="section-title" style={{margin:'0 0 12px', display:'flex', alignItems:'center'}}>📊 Прогресс обучения<InfoTooltip text="Каждые 10% освоенных навыков открывают деталь космического корабля. Собери все 10!" /></h2>
+                <ShipProgress mastered={masteredCount} total={planSkillsTotal} ready={!!(user?.smartDiagDone && planSkills?.length)} uid={firebaseUser?.uid} />
               </div>
 
             </div>
