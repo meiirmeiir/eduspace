@@ -4,6 +4,7 @@ import "@xyflow/react/dist/style.css";
 import CustomNode from "../../CustomNode.jsx";
 import MagicEdge from "../../MagicEdge.jsx";
 import MapBackground from "./MapBackground.jsx";
+import SkillPlanet3D from "../SkillPlanet3D.jsx";
 import { GRADES_LIST } from "../../lib/appConstants.js";
 import { useTheme } from "../../ThemeContext.jsx";
 import { fmtCountdown, getAlmatyNextMidnightAfter } from "../../lib/srsUtils.js";
@@ -339,6 +340,14 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
     s => (s.stagesCompleted || 0) > 0 && (s.stagesCompleted || 0) < 3
   ).length;
 
+  // Выбранный навык → планета. life: заблокирован=-1, иначе по этапам 0/0.4/0.8/1.
+  const [selectedSkillId, setSelectedSkillId] = useState(mod.skills?.[0]?.id || null);
+  const selSkill = mod.skills?.find(s => s.id === selectedSkillId) || mod.skills?.[0] || null;
+  const selStages = Math.min(skillMastery[selSkill?.id]?.stagesCompleted || 0, 3);
+  const planetLife = mod.isLocked ? -1 : [0, 0.4, 0.8, 1.0][selStages];
+  const lifeLabel = mod.isLocked ? '🔒 Заблокирован'
+    : ['🌑 Спящий мир', '🌱 Пробуждается', '🌊 Расцветает', '🌍 Цветущий мир'][selStages];
+
   return (
     <div style={{ position:'absolute', inset:0, zIndex:50, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.5)' }}
          onClick={e => { if(e.target===e.currentTarget) onClose(); }}>
@@ -350,6 +359,13 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
           </div>
           <button onClick={onClose} style={{ background:'none', border:'none', color:THEME.textLight, cursor:'pointer', fontSize:20, padding:'0 4px', lineHeight:1 }}>✕</button>
         </div>
+        {selSkill && (
+          <div style={{ textAlign:'center', marginBottom:14 }}>
+            <SkillPlanet3D key={selSkill.id + ':' + planetLife} life={planetLife} size={200} />
+            <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.text, fontWeight:600, marginTop:8, lineHeight:1.4 }}>{selSkill.name}</div>
+            <div style={{ fontFamily:"'Montserrat',sans-serif", fontSize:12, fontWeight:700, color: selSkill.mastery>=100?'#22c55e':'#f59e0b', marginTop:2 }}>{lifeLabel} · {selSkill.mastery}%</div>
+          </div>
+        )}
         <div style={{ background:THEME.bg, border:`1px solid ${THEME.border}`, borderRadius:8, padding:'10px 12px', marginBottom:14 }}>
           <div style={{ fontFamily:"'Inter',sans-serif", fontSize:11, color:THEME.textLight, marginBottom:6 }}>Освоение модуля</div>
           <div style={{ height:8, background:'#e2e8f0', borderRadius:4, overflow:'hidden', marginBottom:5 }}>
@@ -380,7 +396,7 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
             const limitReached = isNew && activeCount >= 3;
             const anyDisabled = mod.isLocked || limitReached || skillSrsLocked;
             return (
-              <div key={sk.id} style={{ background:THEME.bg, border:`1px solid ${THEME.border}`, borderRadius:8, padding:'10px 12px' }}>
+              <div key={sk.id} onClick={() => setSelectedSkillId(sk.id)} style={{ background:THEME.bg, border:`1px solid ${sk.id===selectedSkillId?THEME.primary:THEME.border}`, borderRadius:8, padding:'10px 12px', cursor:'pointer' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
                   <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.text, flex:1, lineHeight:1.5, paddingRight:8 }}>{sk.name}</div>
                   <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color: sk.mastery>=100?'#22c55e':'#f59e0b', flexShrink:0 }}>{sk.mastery}%</div>
@@ -399,7 +415,7 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
                 )}
                 {sk.mastery < 100 && (
                   <button
-                    onClick={() => { if(!anyDisabled) { onClose(); if(onStartTraining) onStartTraining(sk.id, sk.name); } }}
+                    onClick={(e) => { e.stopPropagation(); if(!anyDisabled) { onClose(); if(onStartTraining) onStartTraining(sk.id, sk.name); } }}
                     disabled={anyDisabled}
                     style={{ fontFamily:"'Inter',sans-serif", fontWeight:600, fontSize:13,
                       background: mod.isLocked ? '#94a3b8' : limitReached ? '#94a3b8' : skillSrsLocked ? '#6366f1' : '#22c55e',
