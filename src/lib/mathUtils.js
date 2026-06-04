@@ -357,8 +357,14 @@ export function evalFormulaMulti(formulaRaw, vars) {
       return Math.round(result);
     } catch {
       let text = rawFallback || cleaned;
-      Object.entries(vars).forEach(([k, v]) => {
-        text = text.replace(new RegExp('\\{' + k + '\\}', 'g'), String(v));
+      // Подставляем {expr}, вычисляя выражение по переменным: поддержка {-a}, {2*a}, {a} и т.п.
+      // (раньше ловили только {имя} → шаблоны вроде ({-b};{a}) показывались с литеральным {-b}).
+      text = text.replace(/\{([^}]+)\}/g, (m, expr) => {
+        try {
+          const pf = preprocessFormula(expr, Object.keys(vars));
+          const r = new Function(...Object.keys(vars), `"use strict"; return (${pf});`)(...Object.values(vars));
+          return String(r);
+        } catch { return m; }
       });
       return text.trim();
     }
@@ -382,8 +388,14 @@ export function evalFormulaRaw(formulaRaw, vars) {
       return result; // raw float
     } catch {
       let text = rawFallback || cleaned;
-      Object.entries(vars).forEach(([k, v]) => {
-        text = text.replace(new RegExp('\\{' + k + '\\}', 'g'), String(v));
+      // Подставляем {expr}, вычисляя выражение по переменным: поддержка {-a}, {2*a}, {a} и т.п.
+      // (раньше ловили только {имя} → шаблоны вроде ({-b};{a}) показывались с литеральным {-b}).
+      text = text.replace(/\{([^}]+)\}/g, (m, expr) => {
+        try {
+          const pf = preprocessFormula(expr, Object.keys(vars));
+          const r = new Function(...Object.keys(vars), `"use strict"; return (${pf});`)(...Object.values(vars));
+          return String(r);
+        } catch { return m; }
       });
       return text.trim();
     }
