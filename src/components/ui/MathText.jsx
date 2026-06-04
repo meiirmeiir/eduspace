@@ -95,6 +95,10 @@ function _mNodes(str, pfx) {
 export default function MathText({ text, style }) {
   if (text === null || text === undefined) return null;
   const s = String(text)
+    // HTML-теги верхнего/нижнего индекса → LaTeX-эквиваленты (далее их подхватят ^/_ обработчики).
+    // Должно идти ДО замен с '<' (<=, <->, ->), чтобы не задеть теги <sup>/<sub>.
+    .replace(/<sup>(.*?)<\/sup>/gi, '^{$1}')
+    .replace(/<sub>(.*?)<\/sub>/gi, '_{$1}')
     .replace(/<=/g, '≤')
     .replace(/>=/g, '≥')
     .replace(/=>/g, '⇒')
