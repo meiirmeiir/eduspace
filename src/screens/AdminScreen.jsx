@@ -25,12 +25,19 @@ export default function AdminScreen({ onBack, firebaseUser }) {
   // Skill Tasks tab state
   const [sktSkillId,setSktSkillId]=useState('');
   const [sktSkillName,setSktSkillName]=useState('');
+  const [sktSkillSearch,setSktSkillSearch]=useState('');
   const [sktLevel,setSktLevel]=useState('a');
   const [sktJsonText,setSktJsonText]=useState('');
   const [sktSaving,setSktSaving]=useState(false);
   const [sktEntries,setSktEntries]=useState([]);
   const [sktLoaded,setSktLoaded]=useState(false);
   const [showSktPrompt,setShowSktPrompt]=useState(false);
+  // Skill Tasks preview state
+  const [sktViewEntry,setSktViewEntry]=useState(null);
+  const [sktViewLevel,setSktViewLevel]=useState('a');
+  const [sktViewIdx,setSktViewIdx]=useState(0);
+  const [sktViewChosen,setSktViewChosen]=useState(null);
+  const [sktViewRevealed,setSktViewRevealed]=useState(false);
 
   // Section form
   const emptySecForm = {name:"",description:"",goalKeys:[],specificTarget:"",sectionType:"regular",isPublic:false};
@@ -7172,6 +7179,13 @@ ${relatedSkills.map(s=>`- ${s.skill_id}: ${s.skill_name}`).join('\n')}
             });
           });
           allPivotSkills.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+          // навыки, для которых уже сохранён банк задач (для индикатора ✅)
+          const sktIdSet=new Set(sktEntries.map(e=>e.id));
+          const sktQuery=sktSkillSearch.trim().toLowerCase();
+          const sktFilteredSkills=sktQuery
+            ? allPivotSkills.filter(sk=>sk.name.toLowerCase().includes(sktQuery)||sk.id.toLowerCase().includes(sktQuery))
+            : allPivotSkills;
+          const sktReadyCount=allPivotSkills.filter(s=>sktIdSet.has(s.id)).length;
 
           const aiPrompt=`Ты — генератор задач для образовательной платформы EduSpace. Создай задачи по навыку:
 
@@ -7232,16 +7246,39 @@ ID навыка: "${sktSkillId||'[укажи skill_id]'}"
                 <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:18,color:THEME.primary,marginBottom:4}}>Задачи по навыкам</div>
                 <div style={{fontSize:13,color:THEME.textLight,marginBottom:20}}>Добавляй задачи уровней A, B, C для каждого навыка. Система рандомно выбирает 10 из пула при каждом запуске.</div>
                 <div style={{display:'flex',gap:12,marginBottom:16,flexWrap:'wrap'}}>
-                  <div style={{flex:1,minWidth:240}}>
-                    <label style={{fontSize:12,fontWeight:600,color:THEME.textLight,display:'block',marginBottom:6}}>Навык</label>
-                    <select value={sktSkillId} onChange={e=>{
-                      const sk=allPivotSkills.find(s=>s.id===e.target.value);
-                      setSktSkillId(e.target.value);
-                      setSktSkillName(sk?.name||'');
-                    }} style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${THEME.border}`,fontFamily:"'Inter',sans-serif",fontSize:13}}>
-                      <option value="">— выбери навык —</option>
-                      {allPivotSkills.map(sk=><option key={sk.id} value={sk.id}>{sk.name} ({sk.id})</option>)}
-                    </select>
+                  <div style={{width:'100%'}}>
+                    <label style={{fontSize:12,fontWeight:600,color:THEME.textLight,display:'block',marginBottom:6}}>
+                      Навык{sktSkillName?<span style={{color:THEME.primary,fontWeight:700}}> · выбран: {sktSkillName}</span>:null}
+                    </label>
+                    <input value={sktSkillSearch} onChange={e=>setSktSkillSearch(e.target.value)} placeholder="🔍 Поиск по названию или ID навыка…"
+                      style={{width:'100%',boxSizing:'border-box',padding:'9px 12px',borderRadius:8,border:`1px solid ${THEME.border}`,fontFamily:"'Inter',sans-serif",fontSize:13,marginBottom:8,background:THEME.surface,color:THEME.text}}/>
+                    <div style={{maxHeight:400,overflowY:'auto',border:`1px solid ${THEME.border}`,borderRadius:10,background:THEME.surface}}>
+                      {sktFilteredSkills.length===0?(
+                        <div style={{padding:'16px 14px',fontSize:13,color:THEME.textLight,textAlign:'center'}}>Ничего не найдено</div>
+                      ):sktFilteredSkills.map(sk=>{
+                        const has=sktIdSet.has(sk.id);
+                        const selected=sktSkillId===sk.id;
+                        return(
+                          <div key={sk.id} onClick={()=>{setSktSkillId(sk.id);setSktSkillName(sk.name);}}
+                            style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'9px 12px',cursor:'pointer',
+                              background:selected?THEME.primary:'transparent',color:selected?THEME.onPrimary:THEME.text,
+                              borderBottom:`1px solid ${THEME.border}`}}>
+                            <div style={{minWidth:0}}>
+                              <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{sk.name}</div>
+                              <div style={{fontSize:11,color:selected?'rgba(255,255,255,0.65)':THEME.textLight,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{sk.id}{sk.grade?` · ${sk.grade}`:''}</div>
+                            </div>
+                            <span title={has?'Банк задач готов':'Банк пуст'}
+                              style={{flexShrink:0,width:20,height:20,borderRadius:'50%',display:'inline-flex',alignItems:'center',justifyContent:'center',
+                                background:has?THEME.success:'transparent',
+                                border:has?'none':`1.5px solid ${selected?'rgba(255,255,255,0.5)':THEME.border}`,
+                                color:'#fff',fontSize:12,fontWeight:800,lineHeight:1}}>{has?'✓':''}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{fontSize:11,color:THEME.textLight,marginTop:6}}>
+                      Показано {sktFilteredSkills.length} из {allPivotSkills.length} · <span style={{color:THEME.success,fontWeight:700}}>✓ {sktReadyCount} с банком</span> · {allPivotSkills.length-sktReadyCount} пустых
+                    </div>
                   </div>
                   <div>
                     <label style={{fontSize:12,fontWeight:600,color:THEME.textLight,display:'block',marginBottom:6}}>Уровень (для импорта только одного уровня)</label>
@@ -7296,15 +7333,104 @@ ID навыка: "${sktSkillId||'[укажи skill_id]'}"
                             {e.id} · A:{(e.a||[]).length} / B:{(e.b||[]).length} / C:{(e.c||[]).length}
                           </div>
                         </div>
-                        <button onClick={async()=>{if(!confirm('Удалить задачи для этого навыка?'))return;await deleteDoc(doc(db,'skillTasks',e.id));setSktEntries(p=>p.filter(x=>x.id!==e.id));}}
-                          style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5',borderRadius:6,padding:'5px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
-                          Удалить
-                        </button>
+                        <div style={{display:'flex',gap:8}}>
+                          <button onClick={()=>{setSktViewEntry(e);setSktViewLevel('a');setSktViewIdx(0);setSktViewChosen(null);setSktViewRevealed(false);}}
+                            style={{background:'#e0e7ff',color:'#4338ca',border:'1px solid #a5b4fc',borderRadius:6,padding:'5px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                            👁 Просмотр
+                          </button>
+                          <button onClick={async()=>{if(!confirm('Удалить задачи для этого навыка?'))return;await deleteDoc(doc(db,'skillTasks',e.id));setSktEntries(p=>p.filter(x=>x.id!==e.id));if(sktViewEntry?.id===e.id)setSktViewEntry(null);}}
+                            style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5',borderRadius:6,padding:'5px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                            Удалить
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+              {sktViewEntry&&(()=>{
+                const levelTasks=sktViewEntry[sktViewLevel]||[];
+                const task=levelTasks[sktViewIdx]||null;
+                const isCorrectAnswer=sktViewChosen!==null&&task&&task.correct===sktViewChosen;
+                const goTo=(idx)=>{setSktViewIdx(idx);setSktViewChosen(null);setSktViewRevealed(false);};
+                const switchLevel=(lv)=>{setSktViewLevel(lv);setSktViewIdx(0);setSktViewChosen(null);setSktViewRevealed(false);};
+                return(
+                  <div style={{background:'#fff',borderRadius:14,border:`1px solid ${THEME.border}`,padding:20,boxShadow:'0 4px 16px rgba(0,0,0,0.06)'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,gap:12,flexWrap:'wrap'}}>
+                      <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:17,color:THEME.primary}}>
+                        Превью: {sktViewEntry.skill_name||sktViewEntry.id}
+                      </div>
+                      <button onClick={()=>setSktViewEntry(null)}
+                        style={{background:THEME.bg,color:THEME.textLight,border:`1px solid ${THEME.border}`,borderRadius:6,padding:'5px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                        ✕ Закрыть
+                      </button>
+                    </div>
+                    <div style={{display:'flex',gap:8,marginBottom:16}}>
+                      {['a','b','c'].map(lv=>{
+                        const n=(sktViewEntry[lv]||[]).length;
+                        const active=sktViewLevel===lv;
+                        return(
+                          <button key={lv} onClick={()=>switchLevel(lv)}
+                            style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${active?THEME.accent:THEME.border}`,background:active?THEME.primary:'#fff',color:active?THEME.accent:THEME.textLight,fontWeight:700,fontSize:13,cursor:'pointer'}}>
+                            {lv.toUpperCase()} ({n})
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {levelTasks.length===0?(
+                      <div style={{fontSize:14,color:THEME.textLight,padding:'20px 0',textAlign:'center'}}>В уровне {sktViewLevel.toUpperCase()} нет задач.</div>
+                    ):(
+                      <>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+                          <button onClick={()=>goTo(Math.max(0,sktViewIdx-1))} disabled={sktViewIdx===0}
+                            style={{background:sktViewIdx===0?'#e5e7eb':THEME.primary,color:sktViewIdx===0?'#9ca3af':THEME.accent,border:'none',borderRadius:8,padding:'8px 16px',fontWeight:700,fontSize:13,cursor:sktViewIdx===0?'not-allowed':'pointer'}}>
+                            ← Пред
+                          </button>
+                          <div style={{fontSize:13,fontWeight:700,color:THEME.text}}>№ {sktViewIdx+1} из {levelTasks.length}</div>
+                          <button onClick={()=>goTo(Math.min(levelTasks.length-1,sktViewIdx+1))} disabled={sktViewIdx>=levelTasks.length-1}
+                            style={{background:sktViewIdx>=levelTasks.length-1?'#e5e7eb':THEME.primary,color:sktViewIdx>=levelTasks.length-1?'#9ca3af':THEME.accent,border:'none',borderRadius:8,padding:'8px 16px',fontWeight:700,fontSize:13,cursor:sktViewIdx>=levelTasks.length-1?'not-allowed':'pointer'}}>
+                            След →
+                          </button>
+                        </div>
+                        {task&&(
+                          <div style={{background:THEME.bg,borderRadius:14,border:`1px solid ${THEME.border}`,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
+                            <div style={{fontFamily:"'Inter',sans-serif",fontSize:16,color:THEME.text,lineHeight:1.75,marginBottom:20}}>
+                              <LatexText text={task.text||task.question_text||task.question||''}/>
+                            </div>
+                            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                              {(task.options||[]).map((opt,i)=>{
+                                let bg='#fff',border=THEME.border,color=THEME.text;
+                                if(sktViewRevealed){
+                                  if(i===task.correct){bg='#dcfce7';border='#4ade80';color='#15803d';}
+                                  else if(i===sktViewChosen&&i!==task.correct){bg='#fee2e2';border='#fca5a5';color='#dc2626';}
+                                }else if(sktViewChosen===i){bg='rgba(99,102,241,0.08)';border='#6366f1';}
+                                return(
+                                  <button key={i} onClick={()=>{if(sktViewRevealed)return;setSktViewChosen(i);setSktViewRevealed(true);}} disabled={sktViewRevealed}
+                                    style={{background:bg,border:`2px solid ${border}`,color,borderRadius:10,padding:'12px 16px',textAlign:'left',cursor:sktViewRevealed?'default':'pointer',fontFamily:"'Inter',sans-serif",fontSize:14,transition:'all 0.15s'}}>
+                                    <span style={{fontWeight:700,marginRight:8}}>{['А','Б','В','Г'][i]}.</span>
+                                    <LatexText text={opt}/>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {sktViewRevealed&&task.explanation&&(
+                              <div style={{marginTop:14,background:isCorrectAnswer?'#f0fdf4':'#fef2f2',border:`1px solid ${isCorrectAnswer?'#bbf7d0':'#fecaca'}`,borderRadius:10,padding:'10px 14px',fontSize:13,color:THEME.text,fontFamily:"'Inter',sans-serif",lineHeight:1.6}}>
+                                💡 <LatexText text={task.explanation}/>
+                              </div>
+                            )}
+                            {sktViewRevealed&&(
+                              <button onClick={()=>{setSktViewChosen(null);setSktViewRevealed(false);}}
+                                style={{marginTop:16,width:'100%',background:'#6366f1',color:'#fff',border:'none',borderRadius:10,padding:'13px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
+                                Сбросить
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })()}
