@@ -171,23 +171,26 @@ export const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
 export function preprocessFormula(formula, varNames) {
   if (!formula) return formula;
   let f = formula;
-  // ── Normalize Math.* → plain JS ──────────────────────────────────────────
-  // These are all valid JS already, but we ensure consistent casing/aliases
-  f = f.replace(/\bPI\b/g, 'Math.PI');
-  f = f.replace(/\bpi\b/g, 'Math.PI');
-  f = f.replace(/\bsqrt\s*\(/g, 'Math.sqrt(');
-  f = f.replace(/\babs\s*\(/g, 'Math.abs(');
-  f = f.replace(/\bsin\s*\(/g, 'Math.sin(');
-  f = f.replace(/\bcos\s*\(/g, 'Math.cos(');
-  f = f.replace(/\btan\s*\(/g, 'Math.tan(');
-  f = f.replace(/\blog\s*\(/g, 'Math.log(');
-  f = f.replace(/\bln\s*\(/g, 'Math.log(');
-  f = f.replace(/\bceil\s*\(/g, 'Math.ceil(');
-  f = f.replace(/\bfloor\s*\(/g, 'Math.floor(');
-  f = f.replace(/\bround\s*\(/g, 'Math.round(');
-  f = f.replace(/\bpow\s*\(/g, 'Math.pow(');
-  f = f.replace(/\bmax\s*\(/g, 'Math.max(');
-  f = f.replace(/\bmin\s*\(/g, 'Math.min(');
+  // ── Normalize bare math aliases → Math.* ─────────────────────────────────
+  // Lookbehind (?<!Math\.) предотвращает двойной префикс: иначе bare-замена
+  // `sin(`→`Math.sin(` ловит и `Math.sin(` → `Math.Math.sin(` → ReferenceError
+  // (из-за чего derivedVars/wrongFormulas с Math.* обнулялись/падали в сырой текст).
+  f = f.replace(/(?<!Math\.)\bPI\b/g, 'Math.PI');
+  f = f.replace(/(?<!Math\.)\bpi\b/g, 'Math.PI');
+  f = f.replace(/(?<!Math\.)\bsqrt\s*\(/g, 'Math.sqrt(');
+  f = f.replace(/(?<!Math\.)\babs\s*\(/g, 'Math.abs(');
+  f = f.replace(/(?<!Math\.)\bsin\s*\(/g, 'Math.sin(');
+  f = f.replace(/(?<!Math\.)\bcos\s*\(/g, 'Math.cos(');
+  f = f.replace(/(?<!Math\.)\btan\s*\(/g, 'Math.tan(');
+  f = f.replace(/(?<!Math\.)\bexp\s*\(/g, 'Math.exp(');
+  f = f.replace(/(?<!Math\.)\blog\s*\(/g, 'Math.log(');
+  f = f.replace(/(?<!Math\.)\bln\s*\(/g, 'Math.log(');
+  f = f.replace(/(?<!Math\.)\bceil\s*\(/g, 'Math.ceil(');
+  f = f.replace(/(?<!Math\.)\bfloor\s*\(/g, 'Math.floor(');
+  f = f.replace(/(?<!Math\.)\bround\s*\(/g, 'Math.round(');
+  f = f.replace(/(?<!Math\.)\bpow\s*\(/g, 'Math.pow(');
+  f = f.replace(/(?<!Math\.)\bmax\s*\(/g, 'Math.max(');
+  f = f.replace(/(?<!Math\.)\bmin\s*\(/g, 'Math.min(');
   // ── ^ → ** (caret to JS exponentiation) ─────────────────────────────────
   f = f.replace(/\^\{([^}]+)\}/g, '**($1)'); // x^{n+1} → x**(n+1)
   f = f.replace(/\^/g, '**');                // x^2 → x**2
@@ -331,7 +334,16 @@ export function formatAnswerValue(raw, answerDisplay) {
     var g2=_gcdInt(Math.abs(rem),den);
     return whole+' '+(rem/g2)+'/'+(den/g2);
   }
-  return String(Math.round(raw)); // integer default
+  // integer (default)
+  var rounded = Math.round(raw);
+  // Если формат НЕ задан явно и значение нецелое — показываем ТОЧНО (дробь/десятичное),
+  // а не округляем до неверного целого (баг: полупериметр 7.5→"8", k=0.5→"1", π/2→"2").
+  if ((!answerDisplay || !answerDisplay.type) && Math.abs(raw - rounded) >= 1e-9) {
+    var nd = floatToFraction(raw);
+    if (nd[1] !== 1 && nd[1] <= 1000) return nd[0] + '/' + nd[1];
+    return String(Math.round(raw * 1000) / 1000).replace('.', ',');
+  }
+  return String(rounded);
 }
 
 export function evalFormulaMulti(formulaRaw, vars) {
@@ -408,7 +420,9 @@ export function generateQuestion(q) {
   });
   // 3. Substitute placeholders in text
   let text = q.text || "";
-  const fmt = q.answerDisplay || {type:'integer'};
+  // НЕ дефолтим на integer: пусть formatAnswerValue сам решает (целое → целое,
+  // нецелое без явного формата → точная дробь/десятичное, а не неверное округление).
+  const fmt = q.answerDisplay;
   Object.entries(vars).forEach(([k, val]) => {
     const displayVal = derivedVarNames.has(k)
       ? formatAnswerValue(rawDerivedVals[k], fmt)
@@ -448,8 +462,8 @@ export function generateQuestion(q) {
       if (String(w) !== String(answer) && !wrongs.map(String).includes(String(w))) wrongs.push(w);
     } catch { /* skip */ }
   });
-  // 6. Pad wrongs if needed — only for integer display
-  if (fmt.type === 'integer' || !fmt.type) {
+  // 6. Pad wrongs if needed — only for integer display (fmt может быть undefined)
+  if (!fmt || fmt.type === 'integer' || !fmt.type) {
     const ansNum = typeof rawAnswer === 'number' ? Math.round(rawAnswer) : NaN;
     if (!isNaN(ansNum)) {
       let offset = 1;
