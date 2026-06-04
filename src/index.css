@@ -26,6 +26,20 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 *, *::before, *::after { box-sizing:border-box; }
 
 /* ──────────────────────────────────────────────────────────────
+   KaTeX cyrillic fallback.
+   Математические шрифты KaTeX (KaTeX_Main/Math) не содержат
+   кириллических глифов. Когда автор задачи кладёт кириллицу внутрь
+   $...$ (единицы «см^2», индексы «S_{кольца}», «НОК(...)»), KaTeX
+   помечает её классом .cyrillic_fallback и полагается на системный
+   шрифт ("Times New Roman"). Там, где его нет (Android/Linux), глиф
+   не находится → .notdef → «?????».
+   Добавляем в цепочку уже загруженный веб-шрифт Inter (с кириллицей),
+   чтобы рендер не зависел от наличия системного шрифта. Латиница,
+   цифры и матсимволы по-прежнему берутся из KaTeX_Main (он первый).
+   ────────────────────────────────────────────────────────────── */
+.katex .cyrillic_fallback { font-family: KaTeX_Main, 'Inter', 'Times New Roman', serif; }
+
+/* ──────────────────────────────────────────────────────────────
    DARK THEME (BUG-13) — explicit overrides. Icons, emoji and
    accent colours stay intact because there is no filter:invert.
    Sidebar/path/lesson blocks are already dark in the base design
