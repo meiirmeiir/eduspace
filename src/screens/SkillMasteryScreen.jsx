@@ -61,7 +61,11 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
       } else if (lastAt && !isStageUnlocked(lastAt)) {
         setPhase('locked');
       } else {
-        setPhase('tasks');
+        // Продолжающий навык, этап разблокирован → СРАЗУ грузим задачи нужного
+        // этапа. Раньше тут был голый setPhase('tasks') без startStage → tasks=[]
+        // → мёртвый экран «Задачи ещё не добавлены» при возврате на след. день.
+        // Передаём свежий tSnap.data() — state `taskData` в этом тике ещё пуст.
+        startStage(completed + 1, tSnap.exists() ? tSnap.data() : null);
       }
     }).catch(() => setLoading(false));
   }, [skillId, user?.phone]);
@@ -71,9 +75,12 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
     return a;
   };
 
-  const startStage = (stageNum) => {
+  // taskDataOverride — свежие данные skillTasks, когда startStage зовётся из
+  // useEffect-загрузки (state `taskData` там ещё не обновлён в том же тике).
+  const startStage = (stageNum, taskDataOverride = null) => {
     setStage(stageNum);
-    const pool = (taskData?.[stageNum===1?'a':stageNum===2?'b':'c'] || []);
+    const td = taskDataOverride || taskData;
+    const pool = (td?.[stageNum===1?'a':stageNum===2?'b':'c'] || []);
     setTasks(shuffle(pool).slice(0, 10));
     setTaskIdx(0); setChosen(null); setRevealed(false);
     setS1Score(0); setS2Energy(0); setS3Streak(0); setS3Total(0);
