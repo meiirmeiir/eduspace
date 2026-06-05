@@ -30,3 +30,5 @@ functions/node_modules/
 functions/firebase-debug.log
 functions/.firebase/
 functions/.env
+.rec-profile/
+_rec-raw/
