@@ -40,6 +40,23 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 .katex .cyrillic_fallback { font-family: KaTeX_Main, 'Inter', 'Times New Roman', serif; }
 
 /* ──────────────────────────────────────────────────────────────
+   Кириллический fallback для ЖИРНОГО текста вопроса.
+   Текст задач рендерится жирным Montserrat (700/800). Если кириллический
+   subset Montserrat не успевает/не догружается, кириллица рисуется как
+   .notdef → «?????». Добавляем в цепочку Inter (700 с кириллицей уже
+   загружен — тот же приём, что для KaTeX) и системные шрифты.
+   ВАЖНО: НЕ используем `.question-text *` / `!important` на потомках — это
+   перебило бы per-span шрифты KaTeX (KaTeX_Main/Math) и сломало бы формулы.
+   Здесь шрифт ставится только на КОНТЕЙНЕРЫ; проза наследует цепочку, а
+   KaTeX-математика сохраняет свои явные шрифты (наследование её не трогает).
+   ────────────────────────────────────────────────────────────── */
+.question-text,
+[class*='question'],
+.option-content {
+  font-family: 'Montserrat', 'Inter', -apple-system, 'Segoe UI', system-ui, sans-serif !important;
+}
+
+/* ──────────────────────────────────────────────────────────────
    DARK THEME (BUG-13) — explicit overrides. Icons, emoji and
    accent colours stay intact because there is no filter:invert.
    Sidebar/path/lesson blocks are already dark in the base design
