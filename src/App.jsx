@@ -11,6 +11,7 @@ import './MapStyles.css';
 import { useNpc } from './NpcContext.jsx';
 import { app, auth, signOut, reauthenticateWithCredential, updatePassword, EmailAuthProvider } from "./lib/firebase";
 import EmailAuthScreen from "./components/auth/EmailAuthScreen.jsx";
+import AboutLanding from "./screens/AboutLanding.jsx";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import {
   doc, getDoc, setDoc, updateDoc,
@@ -160,6 +161,18 @@ function AppInner() {
   const { theme: THEME } = useTheme();
   const { firebaseUser, profile, loading: authLoading, setProfile } = useAuth();
   const [user,setUser]=useState(()=>{try{const u=localStorage.getItem("aapa_user");return u?JSON.parse(u):null;}catch{return null;}});
+  // Path-маршруты публичного лендинга: /about, /landing/parents, /landing/students.
+  // Гостю показываем лендинг (форму входа — только по CTA), залогиненному — для шеринга.
+  const [aboutRoute,setAboutRoute]=useState(()=>{
+    try{
+      const p=window.location.pathname||"/";
+      if(p.startsWith("/landing/parent"))  return {role:"parent"};
+      if(p.startsWith("/landing/student")) return {role:"student"};
+      if(p==="/about"||p.startsWith("/about/")) return {role:null};
+    }catch{}
+    return null;
+  });
+  const [showAuth,setShowAuth]=useState(false);
   // Sync Firestore profile → user; fix landing flicker (bug2) and missing onboarding (bug1).
   // ВАЖНО: всегда мержим свежий profile из Firestore поверх локального state — иначе
   // crystals / inventory / equipped, обновлённые на другом устройстве или через админку,
@@ -918,7 +931,17 @@ function AppInner() {
       <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,color:THEME.primary,fontSize:16}}>Загрузка...</div>
     </div>
   );
-  if (!firebaseUser) return <EmailAuthScreen onSuccess={()=>_setScreen('dashboard')}/>;
+  // Гость: новый лендинг с выбором роли; форма входа открывается по CTA (onStart).
+  if (!firebaseUser) {
+    if (showAuth) return <EmailAuthScreen onSuccess={()=>{setAboutRoute(null);_setScreen('dashboard');}} onBack={()=>setShowAuth(false)}/>;
+    return <AboutLanding initialRole={aboutRoute?.role ?? null} onStart={()=>setShowAuth(true)}/>;
+  }
+  // Залогинен, но открыт публичный лендинг (/about · /landing/*) — показываем для шеринга.
+  if (aboutRoute) {
+    return <AboutLanding user={user} initialRole={aboutRoute.role}
+      onStart={()=>{setAboutRoute(null);try{window.history.replaceState(null,'','#dashboard');}catch{}_setScreen('dashboard');}}
+      onDashboard={()=>{setAboutRoute(null);try{window.history.replaceState(null,'','#dashboard');}catch{}_setScreen('dashboard');}}/>;
+  }
 
   return(
     <>

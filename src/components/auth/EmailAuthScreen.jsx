@@ -86,7 +86,7 @@ const FONTS_STYLE = `
 `;
 
 // ── Компонент ─────────────────────────────────────────────────────────────────
-export default function EmailAuthScreen({ onSuccess }) {
+export default function EmailAuthScreen({ onSuccess, onBack }) {
   const [mode, setMode]         = useState('login');   // 'login' | 'register'
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
@@ -280,6 +280,9 @@ export default function EmailAuthScreen({ onSuccess }) {
     <div className="split-layout">
       <style>{FONTS_STYLE}</style>
       {resetModal}
+      {onBack && (
+        <button onClick={onBack} style={{position:'absolute',top:16,left:16,zIndex:1100,background:'rgba(255,255,255,0.12)',backdropFilter:'blur(8px)',border:'1px solid rgba(255,255,255,0.25)',color:'#fff',borderRadius:10,padding:'8px 16px',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:"'Inter',sans-serif"}}>← На главную</button>
+      )}
 
       {/* ── Левая колонка (идентична старому AuthScreen) ── */}
       <div className="split-left">
