@@ -20,7 +20,9 @@ const fmtWeekly = (ms) => {
   return d > 0 ? `${d} дн` : `${h}ч`;
 };
 
-export default function QuestsWidget({ user, onUpdateUser }) {
+// starterGate: онбординг-этап «starter» — задания недели скрыты, пока не
+// выполнено хотя бы одно задание дня (новичка не грузим длинным списком).
+export default function QuestsWidget({ user, onUpdateUser, starterGate = false }) {
   const { theme: THEME } = useTheme();
   const uid = user?.uid || user?.id;
   const [daily, setDaily] = useState(null);   // users/{uid}.dailyQuests
@@ -143,13 +145,20 @@ export default function QuestsWidget({ user, onUpdateUser }) {
         <Bar done={dailyDone} total={DAILY_QUESTS.length} />
       </div>
 
-      <div style={{ height: 1, background: THEME.border, margin: "16px 0" }} />
-
-      <div>
-        <SectionHeader title="📅 Задания недели" reset={`Сброс через ${fmtWeekly(nextMondayMs)}`} />
-        {WEEKLY_QUESTS.map(q => <Row key={q.id} q={q} st={get(weekly, q.id)} />)}
-        <Bar done={weeklyDone} total={WEEKLY_QUESTS.length} />
-      </div>
+      {!(starterGate && dailyDone === 0) ? (
+        <>
+          <div style={{ height: 1, background: THEME.border, margin: "16px 0" }} />
+          <div>
+            <SectionHeader title="📅 Задания недели" reset={`Сброс через ${fmtWeekly(nextMondayMs)}`} />
+            {WEEKLY_QUESTS.map(q => <Row key={q.id} q={q} st={get(weekly, q.id)} />)}
+            <Bar done={weeklyDone} total={WEEKLY_QUESTS.length} />
+          </div>
+        </>
+      ) : (
+        <div style={{ fontSize: 12.5, color: THEME.textLight, marginTop: 14, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>🔓</span> Выполни первое задание дня — откроются задания недели
+        </div>
+      )}
     </div>
   );
 }

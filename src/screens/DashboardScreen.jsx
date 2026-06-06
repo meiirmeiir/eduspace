@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNpc } from "../NpcContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "../firestore-rest.js";
@@ -15,6 +15,7 @@ import LevelRing from "../components/LevelRing.jsx";
 import XpBar from "../components/XpBar.jsx";
 import InfoTooltip from "../components/InfoTooltip.jsx";
 import ShipProgress from "../components/ShipProgress.jsx";
+import NewUserDashboard from "../components/dashboard/NewUserDashboard.jsx";
 import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
@@ -92,6 +93,19 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const _stdStatus=STUDENT_STATUSES.find(s=>s.value===planKey);
   const _planForStatus=planKey&&PLANS[planKey]?{value:planKey,label:PLANS[planKey].label,color:THEME.accent}:null;
   const statusObj=_stdStatus||_planForStatus||STUDENT_STATUSES[1];
+
+  // ── Прогрессивное раскрытие дашборда (онбординг в 3 этапа) ────────────────
+  //   new     — диагностика не пройдена → одна задача: пройти её (NewUserDashboard)
+  //   starter — диагностика есть, но < 3 освоенных навыков → упрощённый дашборд
+  //   active  — полная версия
+  // Служебные роли всегда видят полную версию.
+  const stage = useMemo(() => {
+    if (isTeacher || user?.status === 'tester') return 'active';
+    if (!user?.smartDiagDone) return 'new';
+    if ((masteryStatus?.masteredCount ?? 0) < 3) return 'starter';
+    return 'active';
+  }, [isTeacher, user?.status, user?.smartDiagDone, masteryStatus?.masteredCount]);
+  const showFull = stage !== 'new';
   const [students,setStudents]=useState([]);
   const [hwImageFiles,setHwImageFiles]=useState([]);
   const [hwImagePreviews,setHwImagePreviews]=useState([]);
@@ -490,7 +504,14 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             <div className="dashboard-header" style={{marginBottom:20}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
                 <div><h1>Добро пожаловать, <span style={{color:THEME.accent}}>{user?.firstName}</span>!</h1><p style={{color:THEME.textLight,marginTop:6}}>{today.toLocaleDateString("ru-RU",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</p></div>
-                <span style={{background:statusObj.color+"18",color:statusObj.color,fontWeight:700,fontSize:13,padding:"6px 16px",borderRadius:99,border:`1px solid ${statusObj.color}30`,alignSelf:"center"}}>{statusObj.label}</span>
+                <span style={{background:statusObj.color+"18",color:statusObj.color,fontWeight:700,fontSize:13,padding:"6px 16px",borderRadius:99,border:`1px solid ${statusObj.color}30`,alignSelf:"center",display:"inline-flex",alignItems:"center"}}>
+                  {statusObj.label}
+                  <InfoTooltip text={isSolo
+                    ? "Режим обучения «Самостоятельно»: ты занимаешься по своему плану в удобном темпе, без занятий с преподавателем."
+                    : isTrial
+                    ? "Пробный период: полный доступ к платформе, чтобы попробовать всё."
+                    : "Твой текущий тариф обучения."} />
+                </span>
               </div>
             </div>
 
@@ -503,8 +524,15 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               </div>
             )}
 
+            {/* ЭТАП 1 (stage==='new'): одна задача — пройти диагностику. Всё
+                остальное (рейтинг/корабль/задания/метрики) скрыто через showFull. */}
+            {stage==='new' && (
+              <NewUserDashboard user={user} diagPause={diagPause}
+                onStart={()=>onStartSmartDiag?.(!!user?.smartDiagNextSection || !!diagPause)} />
+            )}
+
             {/* Блок 1: «Что делать сегодня» — умная карточка с CTA. Скрыта для teacher/admin. */}
-            {!isTeacher && (() => {
+            {showFull && !isTeacher && (() => {
               // Приоритет: пауза внутри раздела (localStorage) > раздел из Firestore > свежий старт.
               const hasPartialDiag = !!user?.smartDiagNextSection;
               const hasInSection   = !!diagPause;
@@ -550,8 +578,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               );
             })()}
 
-            {/* Умная диагностика — для goals: gaps / future */}
-            {!isTeacher&&!isTester&&(user?.goalKey==="gaps"||user?.goalKey==="future")&&!user?.smartDiagDone&&(
+            {/* Умная диагностика — для goals: gaps / future. С появлением этапа
+                «new» (NewUserDashboard) эта карточка фактически не рендерится. */}
+            {showFull&&!isTeacher&&!isTester&&(user?.goalKey==="gaps"||user?.goalKey==="future")&&!user?.smartDiagDone&&(
               <div data-tour="smart-diag" style={{marginBottom:16}}>
                 {/* Пройденные разделы */}
                 {(user?.smartDiagSections||[]).length>0&&(
@@ -592,7 +621,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             )}
 
             {/* ── Группа «Прогресс»: адаптивная сетка (десктоп — 2 колонки, мобайл — 1). Скрыта для teacher/admin. ── */}
-            {!isTeacher && (
+            {showFull && !isTeacher && (
             <div className="progress-grid">
             <div className="pg-col">
 
@@ -605,6 +634,28 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               const league = getLeague(myPts);
               const wkCh   = rankInfo?.weekChange ?? 0;
               const accent = league.current.color;
+              // ЭТАП 2: пока нет ни одного очка — вместо пустого виджета
+              // (0 очков, «#—») компактный тизер с понятным следующим шагом.
+              if (stage === 'starter' && myPts === 0) {
+                return (
+                  <div data-tour="esr-widget" style={{
+                    background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+                    color: '#fff', padding: '20px 24px', borderRadius: 18,
+                    border: '1px dashed rgba(167,139,250,0.4)',
+                    display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+                  }}>
+                    <div style={{ fontSize: 36, lineHeight: 1, flexShrink: 0 }}>⭐</div>
+                    <div style={{ flex: '1 1 200px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.8, textTransform: 'uppercase', color: '#a78bfa', marginBottom: 4 }}>ESR Рейтинг</div>
+                      <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.5 }}>Реши первые задачи — попадёшь в недельный рейтинг и получишь лигу</div>
+                    </div>
+                    <button onClick={()=>onViewPlan?.()} style={{
+                      background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.45)',
+                      borderRadius: 10, padding: '9px 18px', fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}>К плану →</button>
+                  </div>
+                );
+              }
               return (
                 <div data-tour="esr-widget" style={{
                   background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)',
@@ -672,12 +723,19 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                       : <div style={{color:'rgba(255,255,255,0.7)',fontWeight:600}}>максимальная лига</div>}
                   </div>
 
-                  {/* Three ranks */}
-                  <div style={{display:'flex',gap:18,flexWrap:'wrap',fontSize:13,color:'rgba(255,255,255,0.85)',marginBottom:16}}>
-                    <span style={{whiteSpace:'nowrap'}}>🌍 #{rankInfo?.globalRank ?? '—'}{rankInfo?.globalTotal ? ` из ${rankInfo.globalTotal}` : ''}</span>
-                    <span style={{whiteSpace:'nowrap'}}>🏫 #{rankInfo?.gradeRank ?? '—'} в классе</span>
-                    <span style={{whiteSpace:'nowrap'}}>📍 #{rankInfo?.regionRank ?? '—'} в области</span>
-                  </div>
+                  {/* Three ranks — или призыв, если позиции ещё нет («#—» выглядит
+                      как сломанные данные, не показываем) */}
+                  {rankInfo?.globalRank != null ? (
+                    <div style={{display:'flex',gap:18,flexWrap:'wrap',fontSize:13,color:'rgba(255,255,255,0.85)',marginBottom:16}}>
+                      <span style={{whiteSpace:'nowrap'}}>🌍 #{rankInfo.globalRank}{rankInfo?.globalTotal ? ` из ${rankInfo.globalTotal}` : ''}</span>
+                      {rankInfo?.gradeRank != null && <span style={{whiteSpace:'nowrap'}}>🏫 #{rankInfo.gradeRank} в классе</span>}
+                      {rankInfo?.regionRank != null && <span style={{whiteSpace:'nowrap'}}>📍 #{rankInfo.regionRank} в области</span>}
+                    </div>
+                  ) : (
+                    <div style={{fontSize:13,color:'rgba(255,255,255,0.7)',marginBottom:16}}>
+                      🏁 Реши первые задачи на этой неделе — появишься в рейтинге
+                    </div>
+                  )}
 
                   {/* CTA */}
                   <button onClick={()=>onOpenLeaderboard?.()} style={{
@@ -696,19 +754,64 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             {/* Прогресс по индивидуальному плану */}
             <div className="dashboard-section" style={{marginBottom:0, padding:'20px 22px'}}>
                 <h2 className="section-title" style={{margin:'0 0 12px', display:'flex', alignItems:'center'}}>📊 Прогресс обучения<InfoTooltip text="Каждые 10% освоенных навыков открывают деталь космического корабля. Собери все 10!" /></h2>
+                {/* ЭТАП 2: корабль ещё полностью голограмма — поясняем, что это «будущий вид» */}
+                {stage==='starter' && masteredCount===0 && !!(user?.smartDiagDone && planSkills?.length) && (
+                  <div style={{fontSize:13, color:THEME.textLight, marginBottom:10, display:'flex', alignItems:'center', gap:8}}>
+                    <span style={{fontSize:16}}>✨</span>
+                    Будущий вид твоего корабля. Освой первые навыки — детали начнут материализоваться.
+                  </div>
+                )}
                 <ShipProgress mastered={masteredCount} total={planSkillsTotal} ready={!!(user?.smartDiagDone && planSkills?.length)} uid={firebaseUser?.uid} />
               </div>
 
             </div>
             <div className="pg-col">
 
-            {/* Задания дня/недели */}
-            <QuestsWidget user={user} onUpdateUser={onUpdateUser} />
+            {/* Задания дня/недели (на этапе 2 недельные скрыты до 1-го дневного) */}
+            <QuestsWidget user={user} onUpdateUser={onUpdateUser} starterGate={stage==='starter'} />
+
+            {/* ЭТАП 2: виральность — пригласи друга, пока втягиваешься */}
+            {stage==='starter' && (
+              <div className="dashboard-section" style={{marginBottom:0, marginTop:16, padding:'18px 22px', display:'flex', alignItems:'center', gap:14, flexWrap:'wrap'}}>
+                <div style={{fontSize:32, lineHeight:1, flexShrink:0}}>👥</div>
+                <div style={{flex:'1 1 180px'}}>
+                  <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:THEME.text, marginBottom:3}}>Учиться веселее вместе</div>
+                  <div style={{fontSize:12.5, color:THEME.textLight, lineHeight:1.5}}>Пригласи друга — будете соревноваться в собственном рейтинге.</div>
+                </div>
+                <button onClick={()=>onOpenFriends?.()} style={{
+                  background:'rgba(212,175,55,0.12)', color:THEME.accent==='#d4af37'?'#92680e':THEME.accent, border:`1px solid ${THEME.accent}66`,
+                  borderRadius:10, padding:'9px 18px', fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, cursor:'pointer', whiteSpace:'nowrap',
+                }}>Пригласить друга →</button>
+              </div>
+            )}
 
             </div>
             </div>
             )}
 
+            {/* ЭТАП 2: вместо четырёх нулевых метрик — одна понятная цель */}
+            {stage==='starter' && (
+              <div className="dashboard-section" style={{marginBottom:14, padding:'18px 22px', display:'flex', alignItems:'center', gap:14, flexWrap:'wrap',
+                border:`1px solid ${THEME.accent}55`, background:'rgba(212,175,55,0.07)'}}>
+                <div style={{fontSize:30, lineHeight:1, flexShrink:0}}>🎯</div>
+                <div style={{flex:'1 1 220px'}}>
+                  <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:THEME.text}}>
+                    Сейчас: освой {masteredCount===0?'первый навык':'ещё '+pluralize(3-masteredCount,['навык','навыка','навыка'])} в плане
+                  </div>
+                  <div style={{fontSize:12.5, color:THEME.textLight, marginTop:3}}>
+                    Освоено {masteredCount} из 3 — дальше откроется полный дашборд с метриками
+                  </div>
+                </div>
+                <div style={{display:'flex', gap:5, flexShrink:0}}>
+                  {[0,1,2].map(i=>(
+                    <span key={i} style={{width:26, height:8, borderRadius:99,
+                      background: i<masteredCount ? THEME.accent : 'rgba(148,163,184,0.25)'}}/>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {stage==='active' && (
             <div className="stats-row" style={{marginBottom:14}}>
               {!isSolo&&!isInactive&&<div className="stat-card"><div className="stat-icon">📚</div><div><div className="stat-value">{homework.filter(h=>new Date(h.dueDate+"T23:59:59")>=today).length}</div><div className="stat-label">активных ДЗ</div></div></div>}
               {/* Освоено навыков — SVG-галочка «рисуется» при загрузке */}
@@ -748,9 +851,10 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               })()}
               <div className="stat-card"><div className="stat-icon">📖</div><div><div className="stat-value">{topicsGreen}</div><div className="stat-label">{pluralize(topicsGreen, ['тема изучена','темы изучено','тем изучено'])}</div></div></div>
             </div>
+            )}
 
             {/* Schedule */}
-            {!isSolo&&!isInactive&&(
+            {showFull&&!isSolo&&!isInactive&&(
             <div data-tour="next-lesson" className="dashboard-section" style={{marginBottom:18}}>
               <div className="section-title-row">
                 <h2 className="section-title">📅 Расписание занятий</h2>
@@ -805,7 +909,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             </div>
             )}
             {/* Homework */}
-            {!isSolo&&!isInactive&&(
+            {showFull&&!isSolo&&!isInactive&&(
             <div data-tour="homework" className="dashboard-section" style={{marginBottom:18}}>
               <div className="section-title-row"><h2 className="section-title">📚 Домашние задания</h2>{isTeacher&&<button className="add-btn" onClick={()=>setShowHwForm(true)}>+ Добавить ДЗ</button>}</div>
               {loadingData?<div className="empty-state">Загрузка...</div>:dataError?<ErrorCard onRetry={loadDashData}/>:homework.length===0?<div className="empty-state">{isTeacher?"Нажмите «+ Добавить ДЗ».":"Домашних заданий пока нет."}</div>:(
