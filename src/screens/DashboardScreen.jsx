@@ -515,7 +515,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               </div>
             </div>
 
-            {isTrial&&!isTeacher&&(
+            {/* Баннер триала — только на полном дашборде (этап active): новичка
+                «осталось 0 дней» сбивает с толку, выглядит как конец доступа. */}
+            {stage==='active'&&isTrial&&!isTeacher&&(
               <div style={{background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.35)",borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12}}>
                 <span style={{fontSize:22}}>⏳</span>
                 <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:14,color:"#92400e"}}>
@@ -853,8 +855,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             </div>
             )}
 
-            {/* Schedule */}
-            {showFull&&!isSolo&&!isInactive&&(
+            {/* Schedule — на этапе starter пустой календарь скрыт совсем
+                (появится, когда учитель назначит занятия) */}
+            {showFull&&!isSolo&&!isInactive&&(stage==='active'||zoomLessons.length>0)&&(
             <div data-tour="next-lesson" className="dashboard-section" style={{marginBottom:18}}>
               <div className="section-title-row">
                 <h2 className="section-title">📅 Расписание занятий</h2>
@@ -908,8 +911,8 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               </div>
             </div>
             )}
-            {/* Homework */}
-            {showFull&&!isSolo&&!isInactive&&(
+            {/* Homework — на этапе starter без ДЗ блок скрыт совсем */}
+            {showFull&&!isSolo&&!isInactive&&(stage==='active'||homework.length>0)&&(
             <div data-tour="homework" className="dashboard-section" style={{marginBottom:18}}>
               <div className="section-title-row"><h2 className="section-title">📚 Домашние задания</h2>{isTeacher&&<button className="add-btn" onClick={()=>setShowHwForm(true)}>+ Добавить ДЗ</button>}</div>
               {loadingData?<div className="empty-state">Загрузка...</div>:dataError?<ErrorCard onRetry={loadDashData}/>:homework.length===0?<div className="empty-state">{isTeacher?"Нажмите «+ Добавить ДЗ».":"Домашних заданий пока нет."}</div>:(
