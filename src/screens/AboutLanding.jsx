@@ -108,29 +108,6 @@ function PlanetView({ fromLife, toLife, size = 150 }) {
   return <LazyMount height={size}><SkillPlanet3D fromLife={fromLife} toLife={toLife} size={size} /></LazyMount>;
 }
 
-// ── встроенное видео-демо (телефон 9:16, autoplay, без звука) ───────────────────
-// Видео портретные (720×1280) — подаём как устройство: ограничиваем ширину,
-// чтобы карточки/hero не раздувались в высоту.
-function VideoFrame({ src, label, accent = GOLD, maxW = 360, style }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.96 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      style={{ position: "relative", width: "100%", maxWidth: maxW, margin: "0 auto", borderRadius: 28, overflow: "hidden",
-        border: `1px solid ${accent}45`, boxShadow: `0 30px 80px rgba(0,0,0,0.55), 0 0 60px ${accent}1f`, aspectRatio: "9 / 16", background: "#0a0e1a", ...style }}
-    >
-      <video src={src} autoPlay muted loop playsInline preload="metadata"
-        style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
-      {label && (
-        <div style={{ position: "absolute", left: 14, bottom: 14, background: "rgba(7,11,22,0.8)", backdropFilter: "blur(8px)",
-          border: `1px solid ${accent}55`, color: "#fff", fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 99 }}>
-          {label}
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
 // ── переключатель ролей ────────────────────────────────────────────────────────
 function RoleToggle({ role, onChange }) {
   return (
@@ -698,7 +675,7 @@ function ParentShowcaseCarousel() {
         <div style={{ maxWidth: 560, margin: "0 auto", position: "relative" }}>
           <DeviceFrame kind="laptop" img={taskScreenImg} label="Экран задачи" />
           <span style={{ position: "absolute", left: 18, bottom: 28, background: "rgba(7,11,22,0.85)", border: `1px solid ${GOLD}55`,
-            color: "#fff", fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 99 }}>🔬 Реальный экран задач</span>
+            color: "#fff", fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 99 }}>🎯 Адаптивные задачи под уровень ребёнка</span>
         </div>
       ) },
     { t: "Вы видите общую картину", s: "Дашборд прогресса: сколько решено, какие навыки освоены, как идёт план.",
