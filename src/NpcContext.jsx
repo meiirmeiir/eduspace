@@ -1,7 +1,8 @@
-import { createContext, useContext, useCallback, useRef, useState } from 'react';
+import { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import dialogues from './constants/npcDialogues.json';
 import { TOURS } from './constants/npcTours.js';
 import { useAuth } from './contexts/AuthContext.jsx';
+import { doc, setDoc, db } from './firestore-rest.js';
 
 const NpcContext = createContext(null);
 
@@ -44,6 +45,10 @@ function markTourSeen(uid, screenKey) {
     const seen = getSeenTours(uid);
     seen[screenKey] = true;
     localStorage.setItem(seenKeyFor(uid), JSON.stringify(seen));
+    // Серверная персистентность (users/{uid}.npcToursSeen): на новом
+    // устройстве или после чистки localStorage туры не запускаются заново.
+    // fire-and-forget — сбой записи не ломает UX.
+    if (uid) setDoc(doc(db, 'users', uid), { npcToursSeen: seen }, { merge: true }).catch(() => {});
   } catch {}
 }
 export function isNpcEnabled(uid) {
@@ -59,6 +64,17 @@ export function NpcProvider({ children }) {
   const [state, setState] = useState({ visible: false, message: '', selector: null, tourActive: false });
   const timerRef = useRef(null);
   const tourRef = useRef({ steps: [], idx: 0, screenKey: '', onComplete: null });
+
+  // Серверные npcToursSeen → localStorage при загрузке профиля: просмотренные
+  // на другом устройстве туры не показываются здесь заново. Local выигрывает
+  // при конфликте (мог быть помечен позже сервера).
+  useEffect(() => {
+    if (!uid || !profile?.npcToursSeen) return;
+    try {
+      const local = getSeenTours(uid);
+      localStorage.setItem(seenKeyFor(uid), JSON.stringify({ ...profile.npcToursSeen, ...local }));
+    } catch {}
+  }, [uid, profile?.npcToursSeen]);
 
   const showNpcMessage = useCallback((key, durationMs = 0) => {
     if (!isNpcEnabled(uid)) return;
@@ -129,6 +145,9 @@ export function NpcProvider({ children }) {
     if (!steps || !steps.length) return false;
     const seen = getSeenTours(uid);
     if (seen[screenKey]) return false;
+    // Серверный флаг напрямую — на случай, если тур стартует раньше, чем
+    // npcToursSeen из профиля домержится в localStorage (гонка при загрузке).
+    if (profile?.npcToursSeen?.[screenKey]) return false;
     // Сохраняем onComplete до отложенного запуска первого шага
     tourRef.current = { steps: [], idx: 0, screenKey: '', onComplete: onComplete || null };
     // Небольшая задержка чтобы экран успел отрисоваться
@@ -136,7 +155,7 @@ export function NpcProvider({ children }) {
       showTourStep(steps, 0, screenKey);
     }, 600);
     return true;
-  }, [showTourStep, uid]);
+  }, [showTourStep, uid, profile?.npcToursSeen]);
 
   return (
     <NpcContext.Provider value={{ npcState: state, showNpcMessage, hideNpc, startTourIfNew, nextTourStep, skipTour }}>

@@ -67,7 +67,7 @@ export default function CustomNode({ data }) {
           )}
           {/* Дышащий rim — заблокированная планета «ждёт пробуждения» */}
           {locked && !preview && (
-            <div className="planet-dormant-glow" style={{ position: 'absolute', inset: -8, borderRadius: '50%', background: 'radial-gradient(circle, transparent 52%, rgba(167,139,250,0.30) 66%, transparent 76%)', pointerEvents: 'none' }} />
+            <div className="planet-dormant-glow" style={{ position: 'absolute', inset: -14, borderRadius: '50%', background: 'radial-gradient(circle, transparent 44%, rgba(186,156,255,0.65) 58%, rgba(139,92,246,0.30) 70%, transparent 82%)', pointerEvents: 'none' }} />
           )}
           <div className="planet-ball" style={{
             position: 'absolute', inset: 0, borderRadius: '50%',
