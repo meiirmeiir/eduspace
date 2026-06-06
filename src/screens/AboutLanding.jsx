@@ -1075,8 +1075,11 @@ function BossBattleSection() {
   const hostRef = useRef(null);
   const mobile = useIsMobile();
   const [active, setActive] = useState(false);
-  const [hp, setHp] = useState(100);
-  const hpRef = useRef(100);
+  // На мобиле статичный кадр снят на ~66 HP («бой в разгаре») — живой HP-бар
+  // стартует с того же значения, чтобы кадр и бар были консистентны.
+  const startHp = mobile ? 66 : 100;
+  const [hp, setHp] = useState(startHp);
+  const hpRef = useRef(startHp);
   const [shake, setShake] = useState(false);
   const [hit, setHit] = useState(0); // = attackSeq для BattleScene3D (выпад героя + лазер)
   const [defeated, setDefeated] = useState(false);
@@ -1138,17 +1141,20 @@ function BossBattleSection() {
                   <BattleScene3D equipped={setToEquipped("astro")} bossType="dragon" bossHp={hp} attackSeq={hit} hitSeq={0} height={220} />
                 </LazyMount>
               )}
-              {/* всплывающий урон (на мобиле «−17» уже в статичном кадре) */}
-              <AnimatePresence>
-                {hit > 0 && !defeated && !mobile && (
-                  <motion.div key={hit} initial={{ opacity: 0, y: 6, scale: 0.7 }} animate={{ opacity: 1, y: -34, scale: 1.1 }}
-                    exit={{ opacity: 0 }} transition={{ duration: 0.7, ease: "easeOut" }}
-                    style={{ position: "absolute", top: 28, right: "22%", fontWeight: 900, fontSize: 26, color: "#fbbf24",
-                      textShadow: "0 2px 10px rgba(0,0,0,0.6)", pointerEvents: "none" }}>
-                    −17
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* всплывающий урон (на мобиле «−17» уже в статичном кадре).
+                  Без AnimatePresence: exit предыдущего флоата перекрывался с
+                  enter нового → два «−17» одновременно. Один motion.div с
+                  keyframes сам затухает к концу такта. */}
+              {hit > 0 && !defeated && !mobile && (
+                <motion.div key={hit}
+                  initial={false}
+                  animate={{ opacity: [0, 1, 1, 0], y: [6, -12, -28, -42], scale: [0.7, 1.1, 1.1, 1] }}
+                  transition={{ duration: 1.1, times: [0, 0.18, 0.7, 1], ease: "easeOut" }}
+                  style={{ position: "absolute", top: 28, right: "22%", fontWeight: 900, fontSize: 26, color: "#fbbf24",
+                    textShadow: "0 2px 10px rgba(0,0,0,0.6)", pointerEvents: "none" }}>
+                  −17
+                </motion.div>
+              )}
               {defeated && (
                 <motion.div initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }}
                   style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
