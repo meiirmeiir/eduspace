@@ -2,11 +2,24 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from "../components/ui/Logo.jsx";
 
+// Живые 3D/игровые компоненты платформы — показываем на ученическом лендинге
+// то, что ученик реально увидит внутри (планеты навыков, герой, босс, корабль).
+import SkillPlanet3D, { fallbackGradient } from "../components/SkillPlanet3D.jsx";
+import LegoCharacter3D from "../components/LegoCharacter3D.jsx";
+import ShipProgress from "../components/ShipProgress.jsx";
+import PixelBoss from "../components/PixelBoss.jsx";
+import { EQUIPMENT_SETS } from "../lib/shopItems.js";
+
 // Видео-заготовки (Vite импортирует mp4 → URL). Лежат в assets/marketing/videos/.
 import diagnosticVid from "../../assets/marketing/videos/diagnostic_v2.mp4";
 import skillMapVid from "../../assets/marketing/videos/skill-map_v2.mp4";
 import leaderboardVid from "../../assets/marketing/videos/leaderboard_v2.mp4";
 import progressVid from "../../assets/marketing/videos/progress_v2.mp4";
+
+// Скриншоты платформы для секции «На любом устройстве» (assets/marketing/screens/).
+import deviceDesktopImg from "../../assets/marketing/screens/device-desktop.jpeg";
+import deviceTabletImg from "../../assets/marketing/screens/device-tablet.jpeg";
+import devicePhoneImg from "../../assets/marketing/screens/device-phone.jpeg";
 
 /**
  * AboutLanding — тёмный лендинг AAPA в духе AngelList India + Opus Pro:
@@ -46,6 +59,53 @@ const Reveal = ({ children, i = 0, style, className }) => (
     {children}
   </motion.div>
 );
+
+// ── мобильный детект: на телефонах вместо WebGL-планет — статичные CSS-круги
+//    (несколько 3D-канвасов на одной странице тормозят слабые GPU) ─────────────
+function useIsMobile(bp = 880) {
+  const [mobile, setMobile] = useState(() => {
+    try { return window.matchMedia(`(max-width:${bp}px)`).matches; } catch { return false; }
+  });
+  useEffect(() => {
+    try {
+      const mq = window.matchMedia(`(max-width:${bp}px)`);
+      const fn = (e) => setMobile(e.matches);
+      mq.addEventListener("change", fn);
+      return () => mq.removeEventListener("change", fn);
+    } catch { return undefined; }
+  }, [bp]);
+  return mobile;
+}
+
+// ── ленивый маунт тяжёлого контента (3D-сцены) при приближении к viewport ─────
+function LazyMount({ height, children, rootMargin = "260px" }) {
+  const ref = useRef(null);
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") { setShow(true); return; }
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { setShow(true); io.disconnect(); }
+    }, { rootMargin });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [rootMargin]);
+  return <div ref={ref} style={{ minHeight: height }}>{show ? children : null}</div>;
+}
+
+// ── планета навыка: 3D на десктопе (лениво), статичный градиент на мобильном ──
+function PlanetView({ fromLife, toLife, size = 150 }) {
+  const mobile = useIsMobile();
+  if (mobile) {
+    const s = Math.min(size, 240);
+    return (
+      <div aria-hidden="true" style={{ width: s, height: s, borderRadius: "50%", margin: "0 auto",
+        background: fallbackGradient(toLife), boxShadow: toLife >= 0 ? "0 0 28px rgba(120,200,255,0.3)" : "none" }} />
+    );
+  }
+  return <LazyMount height={size}><SkillPlanet3D fromLife={fromLife} toLife={toLife} size={size} /></LazyMount>;
+}
 
 // ── встроенное видео-демо (телефон 9:16, autoplay, без звука) ───────────────────
 // Видео портретные (720×1280) — подаём как устройство: ограничиваем ширину,
@@ -477,6 +537,336 @@ function ParentLanding({ onCta }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+//  СЕКЦИИ УЧЕНИЧЕСКОГО ЛЕНДИНГА (живая геймификация платформы)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── «Каждый навык — это мир»: 4 стадии жизни планеты ──────────────────────────
+// При маунте каждая планета анимированно «оживает» из предыдущей стадии;
+// hover проигрывает переход заново (на десктопе).
+const PLANET_STAGES = [
+  { life: -1,  prev: -1,  t: "Заблокирован", s: "Мёртвая скала. Сначала освой предыдущие навыки." },
+  { life: 0,   prev: -1,  t: "Доступен",     s: "Серый камень ждёт твоего первого шага." },
+  { life: 0.5, prev: 0,   t: "В процессе",   s: "Проступает вода, пробивается первая зелень." },
+  { life: 1,   prev: 0.5, t: "Освоен",       s: "Цветущий мир с океанами, облаками и атмосферой." },
+];
+
+function PlanetStageCard({ life, prev, t, s, i }) {
+  const mobile = useIsMobile();
+  const [replay, setReplay] = useState(0);
+  const canAnimate = life !== prev;
+  return (
+    <Reveal i={i}>
+      <div className="al-card"
+        onMouseEnter={() => { if (!mobile && canAnimate) setReplay((r) => r + 1); }}
+        style={{ height: "100%", textAlign: "center", padding: "26px 16px 24px", cursor: canAnimate ? "pointer" : "default" }}>
+        <PlanetView key={replay} fromLife={prev} toLife={life} size={150} />
+        <div style={{ marginTop: 18, fontWeight: 800, fontSize: 18, color: "#fff", letterSpacing: "-0.3px" }}>
+          {i > 0 && <span style={{ color: PURPLE, marginRight: 8 }}>→</span>}{t}
+        </div>
+        <div style={{ marginTop: 6, fontSize: 13.5, color: "rgba(255,255,255,0.5)", lineHeight: 1.55 }}>{s}</div>
+      </div>
+    </Reveal>
+  );
+}
+
+function PlanetStagesSection() {
+  return (
+    <Section>
+      <Reveal>
+        <div style={{ textAlign: "center", marginBottom: "clamp(40px,6vw,64px)" }}>
+          <Eyebrow color={PURPLE}>Живая карта навыков</Eyebrow>
+          <H2>Каждый навык — это мир</H2>
+          <Lead style={{ maxWidth: 600, margin: "0 auto" }}>Твой прогресс виден сразу. Планеты оживают по мере освоения навыков — наведи на любую и посмотри.</Lead>
+        </div>
+      </Reveal>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 24 }} className="al-grid-4">
+        {PLANET_STAGES.map((p, i) => <PlanetStageCard key={p.t} {...p} i={i} />)}
+      </div>
+    </Section>
+  );
+}
+
+// ── «Создай своего героя»: 3D-минифигурка + сеты экипировки + фоны магазина ───
+const SET_CARDS = [
+  { id: "pilot",   icon: "🪖",   name: "Пилот",     desc: "Лётная куртка, шлем с визором и крепкие ботинки" },
+  { id: "astro",   icon: "🧑‍🚀", name: "Астронавт", desc: "Белый скафандр, сферический шлем и магнитные сапоги" },
+  { id: "trooper", icon: "🤖",   name: "Десантник", desc: "Тяжёлая броня, кибер-визор и реактивные ботинки" },
+];
+const SHOP_BG_PREVIEWS = [
+  { name: "Манга",       src: "/shop/backgrounds/manga-style.svg" },
+  { name: "Аниме город", src: "/shop/backgrounds/anime-city.jpg" },
+  { name: "Сакура",      src: "/shop/backgrounds/sakura.jpg" },
+  { name: "Cyberpunk",   src: "/shop/backgrounds/cyberpunk.jpg" },
+];
+
+// items в EQUIPMENT_SETS идут в порядке слотов: helmet, top, bottom, boots.
+function setToEquipped(setId) {
+  const [helmet, top, bottom, boots] = EQUIPMENT_SETS[setId].items;
+  return { helmet, top, bottom, boots };
+}
+
+function CustomizeSection() {
+  const [setId, setSetId] = useState("astro");
+  return (
+    <Section bg="rgba(255,255,255,0.018)">
+      <Reveal>
+        <div style={{ textAlign: "center", marginBottom: "clamp(40px,6vw,64px)" }}>
+          <Eyebrow color={PURPLE}>Кастомизация</Eyebrow>
+          <H2>Прокачивай не только знания</H2>
+          <Lead style={{ maxWidth: 600, margin: "0 auto" }}>Зарабатывай кристаллы за решённые задачи, покупай экипировку, меняй фоны. Сделай героя, который тебе нравится.</Lead>
+        </div>
+      </Reveal>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "clamp(28px,4vw,56px)", alignItems: "center" }} className="al-grid-2">
+        <Reveal>
+          <div className="al-card" style={{ padding: "16px 10px 4px",
+            background: "radial-gradient(ellipse at 50% 35%, rgba(124,58,237,0.16), transparent 70%), rgba(255,255,255,0.03)" }}>
+            <LazyMount height={400}>
+              <LegoCharacter3D equipped={setToEquipped(setId)} height={400} autoSpin={0.25} />
+            </LazyMount>
+            <div style={{ textAlign: "center", fontSize: 12.5, color: "rgba(255,255,255,0.4)", padding: "8px 0 12px" }}>
+              ↔ Покрути героя мышкой или пальцем
+            </div>
+          </div>
+        </Reveal>
+        <div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {SET_CARDS.map((c, i) => {
+              const active = setId === c.id;
+              return (
+                <Reveal key={c.id} i={i}>
+                  <button onClick={() => setSetId(c.id)} className="al-card"
+                    style={{ width: "100%", textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center", gap: 16,
+                      padding: "16px 20px", fontFamily: "'Inter',sans-serif",
+                      border: `1px solid ${active ? PURPLE : "rgba(255,255,255,0.09)"}`,
+                      background: active ? "rgba(167,139,250,0.1)" : "rgba(255,255,255,0.035)",
+                      boxShadow: active ? "0 0 24px rgba(167,139,250,0.18)" : "none", transition: "border-color .25s, background .25s, box-shadow .25s" }}>
+                    <span style={{ fontSize: 32, flexShrink: 0 }}>{c.icon}</span>
+                    <span>
+                      <span style={{ display: "block", fontWeight: 800, fontSize: 17, color: "#fff" }}>
+                        {c.name}
+                        <span style={{ marginLeft: 10, fontSize: 11, fontWeight: 800, color: PURPLE, background: "rgba(167,139,250,0.14)",
+                          border: "1px solid rgba(167,139,250,0.4)", padding: "2px 8px", borderRadius: 99, verticalAlign: "2px" }}>
+                          сет-бонус +{EQUIPMENT_SETS[c.id].bonus} HP
+                        </span>
+                      </span>
+                      <span style={{ display: "block", fontSize: 13.5, color: "rgba(255,255,255,0.55)", marginTop: 3, lineHeight: 1.5 }}>{c.desc}</span>
+                    </span>
+                  </button>
+                </Reveal>
+              );
+            })}
+          </div>
+          <Reveal i={3}>
+            <div style={{ marginTop: 26 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>
+                Фоны профиля из магазина
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
+                {SHOP_BG_PREVIEWS.map((b) => (
+                  <div key={b.name} style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,0.12)", position: "relative", aspectRatio: "4 / 3", background: "#0a0e1a" }}>
+                    <img src={b.src} alt={b.name} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 8px 6px", fontSize: 11, fontWeight: 700, color: "#fff",
+                      background: "linear-gradient(transparent, rgba(7,11,22,0.85))", textAlign: "center" }}>{b.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+// ── «Сразись с боссом»: PixelBoss в действии + тающий HP-бар с тряской ────────
+// Демо-цикл: «правильный ответ» каждые ~1.6с наносит урон; на нуле босс
+// возрождается. Крутится только пока секция в viewport.
+function BossBattleSection() {
+  const hostRef = useRef(null);
+  const [active, setActive] = useState(false);
+  const [hp, setHp] = useState(100);
+  const hpRef = useRef(100);
+  const [shake, setShake] = useState(false);
+  const [hit, setHit] = useState(0);
+  const [defeated, setDefeated] = useState(false);
+
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") { setActive(true); return; }
+    const io = new IntersectionObserver((es) => setActive(es.some((e) => e.isIntersecting)), { rootMargin: "60px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    let shakeT;
+    const id = setInterval(() => {
+      if (hpRef.current <= 0) { hpRef.current = 100; setHp(100); setDefeated(false); return; }
+      hpRef.current = Math.max(0, hpRef.current - 17);
+      setHp(hpRef.current);
+      setHit((c) => c + 1);
+      setShake(true);
+      shakeT = setTimeout(() => setShake(false), 240);
+      if (hpRef.current <= 0) setDefeated(true);
+    }, 1600);
+    return () => { clearInterval(id); clearTimeout(shakeT); };
+  }, [active]);
+
+  return (
+    <Section>
+      <style>{`@keyframes bossBarShake{0%,100%{transform:none}20%{transform:translateX(-5px)}45%{transform:translateX(4px)}70%{transform:translateX(-3px)}}`}</style>
+      <div ref={hostRef} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "clamp(28px,4vw,56px)", alignItems: "center" }} className="al-grid-2">
+        <Reveal>
+          <Eyebrow color="#f87171">Битвы с боссами</Eyebrow>
+          <H2>Сразись с боссом</H2>
+          <Lead style={{ marginBottom: 14 }}>
+            После каждого раздела — битва с боссом. Решай задачи правильно — наноси урон. Промахнулся — теряешь HP.
+          </Lead>
+          <Lead>Драматичная мотивация дойти до конца: экипировка из магазина добавляет твоему герою здоровья в бою.</Lead>
+        </Reveal>
+        <Reveal i={1}>
+          <div className="al-card" style={{ padding: "26px 26px 30px", textAlign: "center", overflow: "hidden",
+            background: "radial-gradient(ellipse at 50% 30%, rgba(220,38,38,0.14), transparent 70%), rgba(255,255,255,0.03)" }}>
+            {/* HP-бар босса (трясётся при попадании) */}
+            <div style={{ animation: shake ? "bossBarShake 0.24s linear" : "none" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>
+                <span>👹 Босс главы</span><span style={{ color: hp < 35 ? "#f87171" : "#fff" }}>{hp} / 100 HP</span>
+              </div>
+              <div style={{ height: 14, borderRadius: 99, background: "rgba(10,15,35,0.75)", border: "1px solid rgba(248,113,113,0.4)", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${hp}%`, borderRadius: 99, transition: "width 0.4s ease",
+                  background: "linear-gradient(90deg,#dc2626,#f87171)", boxShadow: "0 0 12px rgba(220,38,38,0.7)" }} />
+              </div>
+            </div>
+            {/* арена */}
+            <div style={{ position: "relative", marginTop: 26, minHeight: 210, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ transform: "scale(1.55)", transformOrigin: "center" }}>
+                <PixelBoss type="chapter" hpPct={hp} shake={shake} />
+              </div>
+              {/* всплывающий урон */}
+              <AnimatePresence>
+                {hit > 0 && !defeated && (
+                  <motion.div key={hit} initial={{ opacity: 0, y: 6, scale: 0.7 }} animate={{ opacity: 1, y: -34, scale: 1.1 }}
+                    exit={{ opacity: 0 }} transition={{ duration: 0.7, ease: "easeOut" }}
+                    style={{ position: "absolute", top: 28, right: "22%", fontWeight: 900, fontSize: 26, color: "#fbbf24",
+                      textShadow: "0 2px 10px rgba(0,0,0,0.6)", pointerEvents: "none" }}>
+                    −17
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {defeated && (
+                <motion.div initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }}
+                  style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: "rgba(7,11,22,0.72)", borderRadius: 16, fontWeight: 900, fontSize: 24, color: "#fbbf24" }}>
+                  💥 Босс повержен!
+                </motion.div>
+              )}
+            </div>
+            <div style={{ marginTop: 14, fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.5)" }}>
+              ✅ Правильный ответ — <span style={{ color: "#fbbf24" }}>−17 HP боссу</span> · ❌ ошибка — урон тебе
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </Section>
+  );
+}
+
+// ── «Собирай корабль прогресса»: живой ShipProgress с 70% плана ────────────────
+function ShipSection() {
+  // Сбрасываем «seen»-метку демо-uid, чтобы анимация сборки проигрывалась
+  // при каждом посещении лендинга (ShipProgress пишет её в localStorage).
+  useState(() => { try { localStorage.removeItem("aapa_ship_parts_landing-demo"); } catch {} return 0; });
+  return (
+    <Section bg="rgba(255,255,255,0.018)">
+      <Reveal>
+        <div style={{ textAlign: "center", marginBottom: "clamp(36px,5vw,56px)" }}>
+          <Eyebrow color={PURPLE}>Корабль прогресса</Eyebrow>
+          <H2>Собирай корабль прогресса</H2>
+          <Lead style={{ maxWidth: 620, margin: "0 auto" }}>
+            Твой учебный план — это космолёт. Каждые 10% освоенного плана открывают новую деталь корабля. На 100% — взлёт.
+          </Lead>
+        </div>
+      </Reveal>
+      <Reveal i={1}>
+        {/* ShipProgress красит подписи из темы приложения (light по умолчанию) —
+            на всегда-тёмном лендинге перебиваем цвета override-классом */}
+        <style>{`.al-ship-stats div{color:rgba(255,255,255,0.55)!important;}
+          .al-ship-stats b{color:#f5c518!important;}`}</style>
+        <div className="al-card al-ship-stats" style={{ maxWidth: 640, margin: "0 auto", padding: "30px 28px 26px",
+          background: "radial-gradient(ellipse at 50% 30%, rgba(102,178,255,0.1), transparent 70%), rgba(255,255,255,0.03)" }}>
+          <LazyMount height={170}>
+            <ShipProgress mastered={7} total={10} ready uid="landing-demo" />
+          </LazyMount>
+        </div>
+      </Reveal>
+      <Reveal i={2}>
+        <p style={{ textAlign: "center", marginTop: 24, fontSize: 14.5, color: "rgba(255,255,255,0.45)", maxWidth: 560, marginLeft: "auto", marginRight: "auto", lineHeight: 1.7 }}>
+          Метафора простая: знания собираются по детали, как настоящий корабль. Видно, сколько уже готово — и сколько осталось до орбиты. 🚀
+        </p>
+      </Reveal>
+    </Section>
+  );
+}
+
+// ── «На любом устройстве»: CSS-фреймы ноутбука / планшета / телефона ──────────
+function DeviceFrame({ kind, img, label }) {
+  const screen = { width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block", background: "#0c1020" };
+  if (kind === "laptop") {
+    return (
+      <div>
+        <div style={{ border: "10px solid #181c2c", borderBottomWidth: 18, borderRadius: "14px 14px 4px 4px", overflow: "hidden",
+          aspectRatio: "16 / 10", boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}>
+          <img src={img} alt={label} loading="lazy" style={screen} />
+        </div>
+        <div style={{ height: 13, width: "112%", margin: "0 -6%", borderRadius: "0 0 14px 14px",
+          background: "linear-gradient(#2a3046,#161a28)", boxShadow: "0 10px 24px rgba(0,0,0,0.45)" }} />
+      </div>
+    );
+  }
+  if (kind === "tablet") {
+    return (
+      <div style={{ border: "12px solid #181c2c", borderRadius: 26, overflow: "hidden", aspectRatio: "3 / 4", boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}>
+        <img src={img} alt={label} loading="lazy" style={screen} />
+      </div>
+    );
+  }
+  return (
+    <div style={{ border: "9px solid #181c2c", borderRadius: 32, overflow: "hidden", aspectRatio: "9 / 19", position: "relative", boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}>
+      <div style={{ position: "absolute", top: 7, left: "50%", transform: "translateX(-50%)", width: 64, height: 14, borderRadius: 99, background: "#181c2c", zIndex: 2 }} />
+      <img src={img} alt={label} loading="lazy" style={screen} />
+    </div>
+  );
+}
+
+function DevicesSection({ accent = PURPLE }) {
+  const devices = [
+    { kind: "laptop", img: deviceDesktopImg, label: "Компьютер" },
+    { kind: "tablet", img: deviceTabletImg,  label: "Планшет" },
+    { kind: "phone",  img: devicePhoneImg,   label: "Телефон" },
+  ];
+  return (
+    <Section>
+      <Reveal>
+        <div style={{ textAlign: "center", marginBottom: "clamp(40px,6vw,64px)" }}>
+          <Eyebrow color={accent}>На любом устройстве</Eyebrow>
+          <H2>Учись где удобно</H2>
+          <Lead style={{ maxWidth: 560, margin: "0 auto" }}>Платформа работает на компьютере, планшете и телефоне одинаково — прогресс общий.</Lead>
+        </div>
+      </Reveal>
+      <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr 0.72fr", gap: "clamp(20px,3vw,40px)", alignItems: "end" }} className="al-grid-3">
+        {devices.map((d, i) => (
+          <Reveal key={d.kind} i={i}>
+            <DeviceFrame {...d} />
+            <div style={{ textAlign: "center", marginTop: 16, fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>{d.label}</div>
+          </Reveal>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  ЛЕНДИНГ ДЛЯ УЧЕНИКА
 // ══════════════════════════════════════════════════════════════════════════════
 function StudentLanding({ onCta }) {
@@ -511,21 +901,44 @@ function StudentLanding({ onCta }) {
             </div>
             <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 16 }}>Старт бесплатно · Без банковской карты</p>
           </Reveal>
-          <VideoFrame src={skillMapVid} label="🗺️ Живая карта навыков" accent={PURPLE} />
+          {/* ЖИВАЯ 3D-планета вместо видео: расцветает из камня при загрузке */}
+          <Reveal i={1}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 14.5, fontWeight: 600, color: "rgba(255,255,255,0.62)", marginBottom: 16, letterSpacing: "0.2px" }}>
+                Каждый навык — это планета. Освой её — и она расцветёт.
+              </div>
+              <PlanetView fromLife={0} toLife={1} size={420} />
+            </div>
+          </Reveal>
         </div>
       </Section>
+
+      {/* КАЖДЫЙ НАВЫК — ЭТО МИР (4 стадии планеты) */}
+      <PlanetStagesSection />
 
       <StatsBand accent={PURPLE} />
 
       <HowItWorks accent={PURPLE} />
 
-      {/* ГЕЙМИФИКАЦИЯ */}
+      {/* СОЗДАЙ СВОЕГО ГЕРОЯ (кастомизация) */}
+      <CustomizeSection />
+
+      {/* СРАЗИСЬ С БОССОМ (битвы) */}
+      <BossBattleSection />
+
+      {/* СОБИРАЙ КОРАБЛЬ ПРОГРЕССА */}
+      <ShipSection />
+
+      {/* НА ЛЮБОМ УСТРОЙСТВЕ */}
+      <DevicesSection accent={PURPLE} />
+
+      {/* КАК ЭТО РАБОТАЕТ — видео-демо реальных экранов (карусель сохранена) */}
       <Section bg="rgba(255,255,255,0.018)">
         <Reveal>
           <div style={{ textAlign: "center", marginBottom: "clamp(40px,6vw,64px)" }}>
-            <Eyebrow color={PURPLE}>Геймификация</Eyebrow>
-            <H2>Твой путь героя математики</H2>
-            <Lead style={{ maxWidth: 560, margin: "0 auto" }}>Реальные экраны игры — карта, кристаллы, рейтинг и серия дней.</Lead>
+            <Eyebrow color={PURPLE}>Видео-демо</Eyebrow>
+            <H2>Как это работает</H2>
+            <Lead style={{ maxWidth: 560, margin: "0 auto" }}>Реальные экраны платформы — карта, кристаллы, рейтинг и серия дней.</Lead>
           </div>
         </Reveal>
         <VideoCarousel accent={PURPLE} />

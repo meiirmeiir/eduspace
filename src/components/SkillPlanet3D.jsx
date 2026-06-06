@@ -115,8 +115,9 @@ void main(){
   gl_FragColor=vec4(ATMO,a);
 }`;
 
-// ── CSS-фолбэк: радиальный круг по life ──
-function fallbackGradient(life) {
+// ── CSS-фолбэк: радиальный круг по life (экспорт — лендинг использует его как
+//    статичную «планету» на мобильных, без WebGL) ──
+export function fallbackGradient(life) {
   if (life < 0)    return 'radial-gradient(circle at 38% 32%, #6b5c4e, #2c241d 70%)';
   if (life < 0.2)  return 'radial-gradient(circle at 38% 32%, #9aa0a8, #4a4d54 70%)';
   if (life < 0.6)  return 'radial-gradient(circle at 38% 32%, #6fae8f, #2b5a6e 72%)';
