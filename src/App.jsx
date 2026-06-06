@@ -12,6 +12,8 @@ import { useNpc } from './NpcContext.jsx';
 import { app, auth, signOut, reauthenticateWithCredential, updatePassword, EmailAuthProvider } from "./lib/firebase";
 import EmailAuthScreen from "./components/auth/EmailAuthScreen.jsx";
 import AboutLanding from "./screens/AboutLanding.jsx";
+import DemoScreen from "./screens/DemoScreen.jsx";
+import DemoResultScreen from "./screens/DemoResultScreen.jsx";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import {
   doc, getDoc, setDoc, updateDoc,
@@ -172,6 +174,17 @@ function AppInner() {
     }catch{}
     return null;
   });
+  // Демо-режим без регистрации: /demo (мини-диагностика) и /demo/result (план).
+  const [demoRoute,setDemoRoute]=useState(()=>{
+    try{
+      const p=window.location.pathname||"/";
+      if(p.startsWith("/demo/result")) return {step:"result"};
+      if(p.startsWith("/demo"))        return {step:"quiz"};
+    }catch{}
+    return null;
+  });
+  const [demoResult,setDemoResult]=useState(()=>{try{const r=localStorage.getItem("demoResult");return r?JSON.parse(r):null;}catch{return null;}});
+  const [authFrom,setAuthFrom]=useState(null);
   const [showAuth,setShowAuth]=useState(false);
   // Sync Firestore profile → user; fix landing flicker (bug2) and missing onboarding (bug1).
   // ВАЖНО: всегда мержим свежий profile из Firestore поверх локального state — иначе
@@ -561,6 +574,66 @@ function AppInner() {
     _setScreen(prev);
   },[_setScreen]);
 
+  // ── Демо-режим без регистрации ──────────────────────────────────────────
+  const startDemo=React.useCallback(()=>{
+    setDemoResult(null);
+    try{localStorage.removeItem("demoResult");}catch{}
+    setDemoRoute({step:"quiz"});
+    try{window.history.pushState(null,"","/demo");}catch{}
+    window.scrollTo(0,0);
+  },[]);
+  const finishDemo=React.useCallback((res)=>{
+    setDemoResult(res);
+    try{localStorage.setItem("demoResult",JSON.stringify(res));}catch{}
+    setDemoRoute({step:"result"});
+    try{window.history.pushState(null,"","/demo/result");}catch{}
+    window.scrollTo(0,0);
+  },[]);
+  const exitDemo=React.useCallback(()=>{
+    setDemoRoute(null);
+    try{window.history.pushState(null,"","/");}catch{}
+    window.scrollTo(0,0);
+  },[]);
+  const demoRegister=React.useCallback(()=>{
+    setAuthFrom("demo");
+    setDemoRoute(null);
+    setShowAuth(true);
+    try{window.history.replaceState(null,"","#");}catch{}
+  },[]);
+
+  // Залогиненный зашёл на /demo — демо ему не нужно, уводим в кабинет.
+  useEffect(()=>{
+    if(demoRoute&&firebaseUser){
+      setDemoRoute(null);
+      try{window.history.replaceState(null,"","#dashboard");}catch{}
+      _setScreen("dashboard");
+    }
+  },[demoRoute,firebaseUser,_setScreen]);
+
+  // После авторизации (логин/регистрация из демо) — переносим результаты демо
+  // в профиль: users/{uid}.demoCompleted + initialWeakTopics. Один раз.
+  useEffect(()=>{
+    if(!profile?.uid) return;
+    let demo;
+    try{const raw=localStorage.getItem("demoResult");demo=raw?JSON.parse(raw):null;}catch{}
+    if(!demo) return;
+    if(profile.demoCompleted){try{localStorage.removeItem("demoResult");}catch{}return;}
+    (async()=>{
+      try{
+        await updateDoc(doc(db,"users",profile.uid),{
+          demoCompleted:true,
+          demoCompletedAt:new Date().toISOString(),
+          initialWeakTopics:demo.weakTopics||[],
+          initialStrongTopics:demo.strongTopics||[],
+          demoScore:{correct:demo.correctCount,total:demo.total},
+        });
+        try{localStorage.removeItem("demoResult");}catch{}
+        setProfile&&setProfile({...profile,demoCompleted:true,initialWeakTopics:demo.weakTopics||[]});
+      }catch{}
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[profile?.uid]);
+
   // Публичный профиль: открыть (с сохранением uid в localStorage для reload)
   // и закрыть (с replace вместо push, чтобы публичный профиль не попадал в стек
   // истории — иначе Back из leaderboard ведёт обратно в public_profile).
@@ -931,10 +1004,12 @@ function AppInner() {
       <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,color:THEME.primary,fontSize:16}}>Загрузка...</div>
     </div>
   );
-  // Гость: новый лендинг с выбором роли; форма входа открывается по CTA (onStart).
+  // Гость: демо-режим без регистрации (/demo · /demo/result), затем лендинг.
   if (!firebaseUser) {
-    if (showAuth) return <EmailAuthScreen onSuccess={()=>{setAboutRoute(null);_setScreen('dashboard');}} onBack={()=>setShowAuth(false)}/>;
-    return <AboutLanding initialRole={aboutRoute?.role ?? null} onStart={()=>setShowAuth(true)}/>;
+    if (demoRoute?.step==="result") return <DemoResultScreen result={demoResult} onRegister={demoRegister} onRestart={startDemo} onExit={exitDemo}/>;
+    if (demoRoute?.step==="quiz")   return <DemoScreen onFinish={finishDemo} onExit={exitDemo}/>;
+    if (showAuth) return <EmailAuthScreen from={authFrom} onSuccess={()=>{setAboutRoute(null);setDemoRoute(null);_setScreen('dashboard');}} onBack={()=>{setShowAuth(false);setAuthFrom(null);}}/>;
+    return <AboutLanding initialRole={aboutRoute?.role ?? null} onStart={()=>setShowAuth(true)} onDemo={startDemo}/>;
   }
   // Залогинен, но открыт публичный лендинг (/about · /landing/*) — показываем для шеринга.
   if (aboutRoute) {

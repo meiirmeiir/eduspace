@@ -86,8 +86,8 @@ const FONTS_STYLE = `
 `;
 
 // ── Компонент ─────────────────────────────────────────────────────────────────
-export default function EmailAuthScreen({ onSuccess, onBack }) {
-  const [mode, setMode]         = useState('login');   // 'login' | 'register'
+export default function EmailAuthScreen({ onSuccess, onBack, from }) {
+  const [mode, setMode]         = useState(from === 'demo' ? 'register' : 'login');   // 'login' | 'register'
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
 
@@ -307,6 +307,12 @@ export default function EmailAuthScreen({ onSuccess, onBack }) {
       {/* ── Правая колонка ── */}
       <div className="split-right">
         <div className="form-card">
+
+          {from === 'demo' && (
+            <div style={{marginBottom:18,padding:'12px 16px',borderRadius:12,background:`${THEME.accent}1a`,border:`1px solid ${THEME.accent}55`,fontSize:13.5,color:'#334155',lineHeight:1.5}}>
+              🎯 Результаты твоей диагностики сохранятся — после регистрации увидишь персональный план с подсвеченными пробелами.
+            </div>
+          )}
 
           {/* Табы */}
           <div style={{display:'flex',gap:0,marginBottom:24,borderBottom:`1px solid ${THEME.border}`}}>

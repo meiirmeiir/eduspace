@@ -580,7 +580,7 @@ function FaqItem({ q, a, delay = 0, accent = GOLD }) {
 // ══════════════════════════════════════════════════════════════════════════════
 //  ГЛАВНЫЙ КОМПОНЕНТ
 // ══════════════════════════════════════════════════════════════════════════════
-export default function AboutLanding({ initialRole = null, user = null, onStart, onDashboard }) {
+export default function AboutLanding({ initialRole = null, user = null, onStart, onDashboard, onDemo }) {
   const [role, setRole] = useState(() => initialRole || getRoleCookie() || "parent");
   const accent = role === "student" ? PURPLE : GOLD;
 
@@ -593,7 +593,9 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
 
   useEffect(() => { setRoleCookie(role); }, []); // запомнить стартовую роль
 
-  const cta = user ? onDashboard : onStart;
+  // Гостевые «Попробовать»-CTA ведут на демо-диагностику без регистрации;
+  // явный вход в кабинет — только по «Войти» (onStart) в шапке.
+  const cta = user ? onDashboard : (onDemo || onStart);
 
   return (
     <div style={{ fontFamily: "'Inter',sans-serif", background: BG, color: "#fff", minHeight: "100vh", overflowX: "hidden", position: "relative" }}>
