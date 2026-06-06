@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import Logo from "../components/ui/Logo.jsx";
 
 // Видео-заготовки (Vite импортирует mp4 → URL). Лежат в assets/marketing/videos/.
-import diagnosticVid from "../../assets/marketing/videos/diagnostic.mp4";
-import skillMapVid from "../../assets/marketing/videos/skill-map.mp4";
-import leaderboardVid from "../../assets/marketing/videos/leaderboard.mp4";
-import progressVid from "../../assets/marketing/videos/progress.mp4";
+import diagnosticVid from "../../assets/marketing/videos/diagnostic_v2.mp4";
+import skillMapVid from "../../assets/marketing/videos/skill-map_v2.mp4";
+import leaderboardVid from "../../assets/marketing/videos/leaderboard_v2.mp4";
+import progressVid from "../../assets/marketing/videos/progress_v2.mp4";
 
 /**
  * AboutLanding — тёмный лендинг AAPA в духе AngelList India + Opus Pro:
