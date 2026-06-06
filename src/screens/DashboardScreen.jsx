@@ -30,7 +30,7 @@ function pluralize(n, [one, few, many]) {
   return many;
 }
 
-export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onOpenShop, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
+export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onOpenFriends, onOpenShop, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
   const { startTourIfNew, showNpcMessage } = useNpc();
   const { profile } = useAuth();
   const { theme: THEME, shopTheme } = useTheme();
@@ -313,6 +313,17 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const isTester=user?.status==="tester";
   const isInactive=user?.status==="inactive";
 
+  // Бейдж «Друзья»: количество входящих pending-запросов дружбы.
+  const [pendingFriendCount,setPendingFriendCount]=useState(0);
+  useEffect(()=>{
+    if(!user?.uid) return;
+    let cancelled=false;
+    import("../lib/friendsUtils.js").then(({fetchIncomingPending})=>
+      fetchIncomingPending(user.uid).then(reqs=>{if(!cancelled)setPendingFriendCount(reqs.length);})
+    ).catch(()=>{});
+    return ()=>{cancelled=true;};
+  },[user?.uid]);
+
   // Прогресс по плану: знаменатель — все навыки из individualPlans/{uid}.roadmap[].skills_list[]
   const planSkillsTotal=planSkills?.length||0;
   const masteredCountRaw=masteryStatus.masteredCount||0;
@@ -334,6 +345,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     {id:"theory",icon:"📖",label:"Теория"},
     {id:"daily",icon:"📝",label:"Ежедневные задачи"},
     {id:"leaderboard",icon:"🏆",label:"Таблица рейтинга"},
+    {id:"friends",icon:"👥",label:"Друзья"},
     {id:"shop",icon:"🛍️",label:"Магазин"},
     {id:"faq",icon:"❓",label:"Частые вопросы"},
     ...(isAdmin?[{id:"admin",icon:"⚙️",label:"Администрирование"}]:[]),
@@ -355,6 +367,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
     }
     if(id==="faq"){onOpenFaq?.();return;}
     if(id==="leaderboard"){onOpenLeaderboard?.();return;}
+    if(id==="friends"){onOpenFriends?.();return;}
     if(id==="shop"){onOpenShop?.();return;}
     if(id==="admin"){onOpenAdmin();return;}
     setActiveSection(id);
@@ -399,6 +412,14 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               if (!masteryStatus.hasMastered)         badge = <span className="nav-badge nav-badge-lock" aria-label="заблокировано">🔒</span>;
               else if (masteryStatus.hasDueToday)     badge = <span className="nav-badge nav-badge-due" aria-label="есть задачи"/>;
               else if (masteryStatus.completedToday)  badge = <span className="nav-badge nav-badge-done" aria-label="выполнено">✅</span>;
+            }
+            // Бейдж «Друзья»: число входящих запросов дружбы.
+            if (item.id === "friends" && pendingFriendCount > 0) {
+              badge = <span aria-label={`${pendingFriendCount} запросов дружбы`} style={{
+                background:"#ef4444", color:"#fff", borderRadius:99, fontSize:11, fontWeight:800,
+                minWidth:18, height:18, display:"inline-flex", alignItems:"center",
+                justifyContent:"center", padding:"0 5px", lineHeight:1,
+              }}>{pendingFriendCount}</span>;
             }
             return (
               <button

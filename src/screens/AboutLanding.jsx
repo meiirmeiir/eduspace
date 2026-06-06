@@ -1380,7 +1380,7 @@ function FaqItem({ q, a, delay = 0, accent = GOLD, icon, defaultOpen = false }) 
 // ══════════════════════════════════════════════════════════════════════════════
 //  ГЛАВНЫЙ КОМПОНЕНТ
 // ══════════════════════════════════════════════════════════════════════════════
-export default function AboutLanding({ initialRole = null, user = null, onStart, onDashboard, onDemo }) {
+export default function AboutLanding({ initialRole = null, user = null, onStart, onDashboard, onDemo, invitePending = false }) {
   const [role, setRole] = useState(() => initialRole || getRoleCookie() || "parent");
   const accent = role === "student" ? PURPLE : GOLD;
 
@@ -1428,6 +1428,17 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
       </div>
 
       <div style={{ position: "relative", zIndex: 1 }}>
+        {/* Баннер приглашения в друзья (/invite/{code}) — гость зарегистрируется
+            и автоматически станет другом пригласившего */}
+        {invitePending && (
+          <div style={{ background: `linear-gradient(90deg,${PURPLE}33,${GOLD}22)`, borderBottom: `1px solid ${PURPLE}55`,
+            padding: "10px 20px", textAlign: "center", fontSize: 14, color: "#fff" }}>
+            🎉 <strong>Друг приглашает тебя на платформу!</strong>
+            <span style={{ color: "rgba(255,255,255,0.7)" }}> Зарегистрируйся — и вы сразу окажетесь в друзьях и общем рейтинге.</span>
+            <button onClick={onStart} style={{ marginLeft: 12, background: PURPLE, color: "#fff", border: "none", borderRadius: 99,
+              padding: "6px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>Присоединиться →</button>
+          </div>
+        )}
         {/* ШАПКА */}
         <nav className="al-nav">
           <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>

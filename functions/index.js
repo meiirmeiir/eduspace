@@ -173,11 +173,37 @@ exports.mirrorUserToPublicProfile = onDocumentWritten(
       totalPoints: Number(d.totalPoints || 0),
       weekPoints:  Number(d.weekPoints  || 0),
       xp:          Number(d.xp          || 0),
+      // crystals/streak — публичные игровые метрики для карточек друзей
+      // (FriendsScreen читает прогресс друзей из publicProfiles).
+      crystals:    Number(d.crystals    || 0),
+      streak:      Number(d.streak     || 0),
       details:     d.details     || '',
       region:      d.region      || '',
       updatedAt:   new Date().toISOString(),
     };
     await ref.set(publicData, { merge: true });
+  }
+);
+
+// ── Cloud Function: обоюдная дружба при акцепте запроса ─────────────────────
+// Клиент не может писать в чужой users-док (rules), поэтому при переходе
+// friendRequests/{id}.status → 'accepted' Admin SDK добавляет uid обеих
+// сторон в массивы friends друг друга. Идемпотентно (arrayUnion).
+exports.onFriendRequestWritten = onDocumentWritten(
+  { document: 'friendRequests/{reqId}', region: 'us-central1', memory: '256MiB' },
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) return;
+    const a = after.data() || {};
+    const before = event.data?.before?.exists ? (event.data.before.data() || {}) : {};
+    if (a.status !== 'accepted' || before.status === 'accepted') return;
+    const { fromUid, toUid } = a;
+    if (!fromUid || !toUid || fromUid === toUid) return;
+    const batch = db.batch();
+    batch.set(db.collection('users').doc(fromUid), { friends: FieldValue.arrayUnion(toUid) },   { merge: true });
+    batch.set(db.collection('users').doc(toUid),   { friends: FieldValue.arrayUnion(fromUid) }, { merge: true });
+    await batch.commit();
+    logger.info('friendship accepted', { fromUid, toUid, reqId: event.params.reqId });
   }
 );
 

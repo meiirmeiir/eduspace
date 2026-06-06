@@ -6,6 +6,7 @@ import {
   sendPasswordResetEmail,
 } from '../../lib/firebase';
 import { doc, setDoc, db } from '../../firestore-rest';
+import { genFriendCode } from '../../lib/friendsUtils.js';
 
 // ── Константы (дублированы здесь чтобы не импортировать из App.jsx) ──────────
 const THEME = {
@@ -161,6 +162,7 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
       const uid = userCredential.user.uid;
 
       // Шаг 2: создать профиль в Firestore users/{uid}
+      const friendCode = genFriendCode();
       try {
         await setDoc(doc(db, 'users', uid), {
           uid,
@@ -174,8 +176,13 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
           region:      regRegion,
           role:        'student',
           status:      'trial',
+          friendCode,                       // код приглашения друзей
+          friends:     [],
           registeredAt: new Date().toISOString(),
         });
+        // Резолв-индекс кода → uid (для «добавить по коду» / invite-ссылок).
+        // best-effort: при коллизии/фейле FriendsScreen перегенерит через ensureFriendCode.
+        try { await setDoc(doc(db, 'friendCodes', friendCode), { uid }); } catch {}
       } catch (fsErr) {
         // TODO: orphaned auth user cleanup
         // Auth-пользователь создан, но профиль не записался.

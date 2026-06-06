@@ -90,9 +90,10 @@ async function fetchEntries(weekId) {
 }
 
 const TABS = [
-  { id: 'all',    icon: '🌍', label: 'Все' },
-  { id: 'grade',  icon: '🏫', label: 'Мой класс' },
-  { id: 'region', icon: '📍', label: 'Моя область' },
+  { id: 'all',     icon: '🌍', label: 'Все' },
+  { id: 'grade',   icon: '🏫', label: 'Мой класс' },
+  { id: 'region',  icon: '📍', label: 'Моя область' },
+  { id: 'friends', icon: '👥', label: 'Друзья' },
 ];
 
 // Время до следующего сброса рейтинга — понедельник 00:00 UTC.
@@ -110,9 +111,12 @@ function getTimeUntilReset() {
   return { days, hours, minutes };
 }
 
-export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile }) {
+export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile, onOpenFriends }) {
   const { theme: THEME, shopTheme } = useTheme();
   const [tab, setTab] = useState('all');
+  // Свежий список друзей из Firestore — user.friends в localStorage может
+  // отставать (друг принял запрос с другого устройства).
+  const [myFriends, setMyFriends] = useState(user?.friends || []);
   const [allEntries, setAllEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
@@ -137,6 +141,16 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
     const tick = setInterval(() => setTimeLeft(getTimeUntilReset()), 1000);
     return () => clearInterval(tick);
   }, []);
+
+  // Свежий friends для таба «Друзья».
+  useEffect(() => {
+    if (!user?.uid) return;
+    let cancelled = false;
+    import('../lib/friendsUtils.js').then(({ fetchMyFriendsUids }) =>
+      fetchMyFriendsUids(user.uid).then(uids => { if (!cancelled) setMyFriends(uids); })
+    ).catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.uid]);
 
   // Предыдущая неделя — нужна для week-delta в карточке «Твоя позиция».
   useEffect(() => {
@@ -189,10 +203,12 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
 
   // Фильтр по вкладке
   const filtered = (() => {
-    if (tab === 'grade')  return allEntries.filter(e => e.grade  && e.grade  === user?.details);
-    if (tab === 'region') return allEntries.filter(e => e.region && e.region === user?.region);
+    if (tab === 'grade')   return allEntries.filter(e => e.grade  && e.grade  === user?.details);
+    if (tab === 'region')  return allEntries.filter(e => e.region && e.region === user?.region);
+    if (tab === 'friends') return allEntries.filter(e => e.uid === user?.uid || myFriends.includes(e.uid));
     return allEntries;
   })().sort((a, b) => b.points - a.points);
+  const friendsTabEmpty = tab === 'friends' && myFriends.length === 0;
 
   const top = filtered.slice(0, 50);
   const myIdx = filtered.findIndex(e => e.uid === user?.uid);
@@ -332,7 +348,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
         <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color: lt, marginBottom:6, display:'inline-flex', alignItems:'center'}}>🏆 Рейтинг<InfoTooltip text="Рейтинг по очкам за неделю — за ежедневные задачи, навыки и диагностику. Сбрасывается в понедельник." /></h1>
         <p style={{fontSize:13, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : ltd, marginBottom:18}}>Неделя {weekId} · обновляется в реальном времени</p>
 
-        <div style={{display:'flex', gap:6, marginBottom:18, flexWrap:'wrap'}}>
+        <div style={{display:'flex', gap:6, marginBottom:18, flexWrap:'wrap', alignItems:'center'}}>
           {TABS.map(t => (
             <button key={t.id} className={`theme-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)} style={{
               padding:'8px 14px', borderRadius:99, fontSize:13, fontWeight:700,
@@ -342,6 +358,13 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
               border: `1px solid ${tab===t.id ? THEME.primary : THEME.border}`,
             }}>{t.icon} {t.label}</button>
           ))}
+          {onOpenFriends && (
+            <button onClick={onOpenFriends} style={{
+              marginLeft:'auto', padding:'8px 14px', borderRadius:99, fontSize:13, fontWeight:700,
+              cursor:'pointer', fontFamily:"'Inter',sans-serif",
+              background:'transparent', color: ltd, border:`1px dashed ${THEME.border}`,
+            }}>+ Пригласить друга</button>
+          )}
         </div>
 
         {/* Hero-блок с приглашением + таймер до сброса */}
@@ -369,6 +392,21 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile })
             {tab==='all'    && 'На этой неделе пока нет участников. Решай задачи — попадёшь в рейтинг!'}
             {tab==='grade'  && `В рейтинге ${user?.details||'твоего класса'} ещё никого нет.`}
             {tab==='region' && `В рейтинге ${user?.region||'твоей области'} ещё никого нет.`}
+            {tab==='friends' && (
+              <div>
+                <div style={{fontSize:40, marginBottom:10}}>👥</div>
+                <div style={{marginBottom:6, color:lt, fontWeight:700}}>
+                  {friendsTabEmpty ? 'Добавь друзей, чтобы видеть их в рейтинге' : 'Твои друзья ещё не заработали очков на этой неделе'}
+                </div>
+                <div style={{fontSize:13, marginBottom:16}}>Одноклассники, родные, репетитор — соревнуйтесь своим кругом.</div>
+                {onOpenFriends && (
+                  <button onClick={onOpenFriends} style={{
+                    background:THEME.accent, color:'#0f172a', border:'none', borderRadius:12,
+                    padding:'12px 24px', fontSize:14, fontWeight:800, cursor:'pointer', fontFamily:"'Inter',sans-serif",
+                  }}>Пригласить друзей →</button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

@@ -49,6 +49,7 @@ import PracticeScreen from "./screens/PracticeScreen.jsx";
 import DashboardScreen from "./screens/DashboardScreen.jsx";
 import AdminScreen from "./screens/AdminScreen.jsx";
 import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
+import FriendsScreen from "./screens/FriendsScreen.jsx";
 import PublicProfileScreen from "./screens/PublicProfileScreen.jsx";
 import ShopScreen from "./screens/ShopScreen.jsx";
 import { addPoints } from "./lib/pointsUtils.js";
@@ -183,6 +184,20 @@ function AppInner() {
     }catch{}
     return null;
   });
+  // Приглашение в друзья: /invite/{friendCode}. Код кладём в localStorage —
+  // гость увидит лендинг с баннером, а после входа/регистрации (или сразу,
+  // если уже залогинен) эффект ниже отправит запрос дружбы автоматически.
+  const [inviteBanner,setInviteBanner]=useState(()=>{
+    try{
+      const m=/^\/invite\/(\d{6})$/.exec(window.location.pathname||"");
+      if(m){
+        localStorage.setItem("aapa_invite_code",m[1]);
+        window.history.replaceState(null,"","/");
+        return true;
+      }
+      return !!localStorage.getItem("aapa_invite_code");
+    }catch{ return false; }
+  });
   const [demoResult,setDemoResult]=useState(()=>{try{const r=localStorage.getItem("demoResult");return r?JSON.parse(r):null;}catch{return null;}});
   const [authFrom,setAuthFrom]=useState(null);
   const [showAuth,setShowAuth]=useState(false);
@@ -214,7 +229,7 @@ function AppInner() {
     const hash=window.location.hash.slice(1);
     if(hash){
       // экраны, требующие авторизации
-      const authRequired=["dashboard","plan","practice","admin","diagnostics","theory","daily","intermediate_tests","mastery","boss_fight","report","report_view","smart_diag","quiz_rules","question","upload","roadmap","onboarding","faq","leaderboard","shop","public_profile"];
+      const authRequired=["dashboard","plan","practice","admin","diagnostics","theory","daily","intermediate_tests","mastery","boss_fight","report","report_view","smart_diag","quiz_rules","question","upload","roadmap","onboarding","faq","leaderboard","shop","public_profile","friends"];
       try{
         const raw=localStorage.getItem("aapa_user");
         const hasUser=!!raw;
@@ -567,6 +582,27 @@ function AppInner() {
     customHistory.current.push(screenRef.current);
     _setScreen(s);
   },[_setScreen]);
+
+  // Авто-обработка приглашения /invite/{code}: когда профиль загружен,
+  // резолвим код → отправляем запрос дружбы. Если онбординг пройден —
+  // сразу ведём в раздел «Друзья» (новичку не ломаем онбординг).
+  useEffect(()=>{
+    if(!profile?.uid) return;
+    let code=null;
+    try{ code=localStorage.getItem("aapa_invite_code"); }catch{}
+    if(!code) return;
+    (async()=>{
+      try{
+        const { resolveFriendCode, sendFriendRequest } = await import("./lib/friendsUtils.js");
+        const toUid = await resolveFriendCode(code);
+        if(toUid && toUid!==profile.uid) await sendFriendRequest(profile, toUid);
+      }catch(e){ console.warn("[invite] auto-request failed", e); }
+      try{ localStorage.removeItem("aapa_invite_code"); }catch{}
+      setInviteBanner(false);
+      if(profile.onboardingDone) navigate("friends");
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[profile?.uid]);
 
   // goBack: назад — достаём предыдущий экран из стека
   const goBack=React.useCallback((fallback="dashboard")=>{
@@ -1009,7 +1045,7 @@ function AppInner() {
     if (demoRoute?.step==="result") return <DemoResultScreen result={demoResult} onRegister={demoRegister} onRestart={startDemo} onExit={exitDemo}/>;
     if (demoRoute?.step==="quiz")   return <DemoScreen onFinish={finishDemo} onExit={exitDemo}/>;
     if (showAuth) return <EmailAuthScreen from={authFrom} onSuccess={()=>{setAboutRoute(null);setDemoRoute(null);_setScreen('dashboard');}} onBack={()=>{setShowAuth(false);setAuthFrom(null);}}/>;
-    return <AboutLanding initialRole={aboutRoute?.role ?? null} onStart={()=>setShowAuth(true)} onDemo={startDemo}/>;
+    return <AboutLanding initialRole={aboutRoute?.role ?? null} onStart={()=>setShowAuth(true)} onDemo={startDemo} invitePending={inviteBanner}/>;
   }
   // Залогинен, но открыт публичный лендинг (/about · /landing/*) — показываем для шеринга.
   if (aboutRoute) {
@@ -1248,7 +1284,7 @@ function AppInner() {
 
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);setProfile(p=>p?{...p,onboardingDone:true}:p);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
-      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={tryOpenDaily} onOpenAdmin={openAdmin} onOpenLeaderboard={()=>_setScreen("leaderboard")} onOpenShop={()=>navigate("shop")} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser} masteryStatus={masteryStatus} onOpenDailyLockModal={()=>setLockModalOpen(true)} rankRefreshKey={rankRefreshKey}/>}
+      {screen==="dashboard"&&<DashboardScreen user={user} firebaseUser={firebaseUser} activeSection={dashSection} setActiveSection={navigateDashSection} onOpenDiagnostics={openDiagnostics} onStartSmartDiag={(isContinue)=>startQuiz({_smartDiag:true,goal:user?.goalKey,grade:user?.details,...(isContinue?{_continueSection:true}:{})})} onViewRoadmap={user?.smartDiagDone?viewPlan:null} onViewPlan={viewPlan} onOpenTheory={()=>navigate("theory")} onOpenDaily={tryOpenDaily} onOpenAdmin={openAdmin} onOpenLeaderboard={()=>_setScreen("leaderboard")} onOpenFriends={()=>navigate("friends")} onOpenShop={()=>navigate("shop")} onLogout={handleLogout} onOpenPractice={openPractice} onOpenIntermediateTests={openIntermediateTests} onOpenFaq={openFaq} onUpdateUser={handleUpdateUser} masteryStatus={masteryStatus} onOpenDailyLockModal={()=>setLockModalOpen(true)} rankRefreshKey={rankRefreshKey}/>}
       {screen==="practice"&&<PracticeScreen user={user} onBack={()=>goBack()}/>}
       {screen==="admin"&&<AdminScreen onBack={()=>goBack()} firebaseUser={firebaseUser}/>}
       {screen==="diagnostics"&&(
@@ -1289,7 +1325,8 @@ function AppInner() {
       {screen==="faq"&&<FaqScreen initialQuestion={faqInitial} onBack={()=>goBack()}/>}
       {screen==="intermediate_tests"&&<IntermediateTestsScreen user={user} onStartBoss={sec=>{setBossSection(sec);navigate("boss_fight");}} onBack={()=>goBack()}/>}
       {screen==="boss_fight"&&bossSection&&<BossFightScreen section={bossSection} user={user} onBack={()=>goBack("intermediate_tests")}/>}
-      {screen==="leaderboard"&&<LeaderboardScreen user={user} onBack={()=>goBack()} onOpenPublicProfile={openPublicProfile}/>}
+      {screen==="leaderboard"&&<LeaderboardScreen user={user} onBack={()=>goBack()} onOpenPublicProfile={openPublicProfile} onOpenFriends={()=>navigate("friends")}/>}
+      {screen==="friends"&&<FriendsScreen user={user} onBack={()=>goBack()} onOpenPublicProfile={openPublicProfile}/>}
       {screen==="public_profile"&&publicProfileUid&&<PublicProfileScreen uid={publicProfileUid} onBack={closePublicProfile}/>}
       {screen==="shop"&&<ShopScreen user={user} onBack={()=>goBack()} onUpdateUser={handleUpdateUser}/>}
       {/* Bottom-nav: only on screens where the user is browsing,

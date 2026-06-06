@@ -52,8 +52,63 @@ service cloud.firestore {
                           && request.resource.data.xp <= resource.data.get('xp', 0) + 500
                         )
                       )
+                    ) || (
+                      // Unfriend: НЕ-владелец может удалить РОВНО СВОЙ uid из
+                      // чужого массива friends (обоюдное удаление дружбы без
+                      // Cloud Function). Ничего другого менять нельзя.
+                      isSignedIn() && request.auth.uid != userId
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends'])
+                      && resource.data.get('friends', []).toSet().difference(request.resource.data.get('friends', []).toSet()) == [request.auth.uid].toSet()
+                      && request.resource.data.get('friends', []).toSet().difference(resource.data.get('friends', []).toSet()).size() == 0
                     );
       allow delete: if false;
+    }
+
+    // ── Коды приглашений: friendCodes/{code} = { uid } ───────────────────────
+    // Резолв кода → uid при добавлении друга. Код не раскрывает личных данных.
+    // Создаёт владелец uid (или Admin SDK миграцией); менять/удалять нельзя.
+    match /friendCodes/{code} {
+      allow get:    if isSignedIn();
+      allow list:   if false;
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['uid'])
+                    && code.matches('[0-9]{6}');
+      allow update, delete: if false;
+    }
+
+    // ── Запросы дружбы: friendRequests/{autoId} ──────────────────────────────
+    // create: только от своего имени, только pending. Акцепт/отклонение —
+    // получатель; отметка seenByFrom — отправитель. Обоюдную запись friends
+    // при акцепте делает Cloud Function onFriendRequestWritten.
+    match /friendRequests/{reqId} {
+      allow read:   if isSignedIn()
+                    && (resource.data.fromUid == request.auth.uid
+                        || resource.data.toUid == request.auth.uid);
+      allow create: if isSignedIn()
+                    && request.resource.data.fromUid == request.auth.uid
+                    && request.resource.data.toUid is string
+                    && request.resource.data.toUid != request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.seenByFrom == false
+                    && request.resource.data.fromName is string
+                    && request.resource.data.fromName.size() <= 80;
+      allow update: if isSignedIn() && (
+                      ( // получатель отвечает на pending
+                        resource.data.toUid == request.auth.uid
+                        && resource.data.status == 'pending'
+                        && request.resource.data.status in ['accepted', 'declined']
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt'])
+                      ) || (
+                        // отправитель помечает «видел, что приняли»
+                        resource.data.fromUid == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenByFrom'])
+                        && request.resource.data.seenByFrom == true
+                      )
+                    );
+      allow delete: if isSignedIn()
+                    && (resource.data.fromUid == request.auth.uid
+                        || resource.data.toUid == request.auth.uid);
     }
 
     // ── Медали (субколлекция users/{uid}/medals/{medalId}) ──────────────────
