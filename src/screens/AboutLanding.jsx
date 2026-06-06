@@ -7,7 +7,8 @@ import Logo from "../components/ui/Logo.jsx";
 import SkillPlanet3D, { fallbackGradient } from "../components/SkillPlanet3D.jsx";
 import LegoCharacter3D from "../components/LegoCharacter3D.jsx";
 import ShipProgress from "../components/ShipProgress.jsx";
-import PixelBoss from "../components/PixelBoss.jsx";
+import Boss3D from "../components/Boss3D.jsx";
+import BattleScene3D from "../components/BattleScene3D.jsx";
 import { EQUIPMENT_SETS } from "../lib/shopItems.js";
 
 // Видео-заготовки (Vite импортирует mp4 → URL). Лежат в assets/marketing/videos/.
@@ -21,6 +22,7 @@ import deviceDesktopImg from "../../assets/marketing/screens/device-desktop.jpeg
 import deviceTabletImg from "../../assets/marketing/screens/device-tablet.jpeg";
 import devicePhoneImg from "../../assets/marketing/screens/device-phone.jpeg";
 import taskScreenImg from "../../assets/marketing/screens/task-screen.jpeg";
+import bossBattleImg from "../../assets/marketing/screens/boss-battle-3d.jpeg";
 
 /**
  * AboutLanding — тёмный лендинг AAPA в духе AngelList India + Opus Pro:
@@ -609,16 +611,19 @@ function ParentChildSideSection() {
         </Reveal>
         <Reveal i={2}>
           <div className="al-card" style={{ height: "100%", textAlign: "center", padding: "22px 16px 24px" }}>
-            <div style={{ ...visual, flexDirection: "column", gap: 10 }}>
+            <div style={{ ...visual, flexDirection: "column", gap: 8 }}>
               <div style={{ width: "85%" }}>
                 <div style={{ height: 8, borderRadius: 99, background: "rgba(10,15,35,0.75)", border: "1px solid rgba(248,113,113,0.4)", overflow: "hidden" }}>
                   <div style={{ height: "100%", width: "58%", background: "linear-gradient(90deg,#dc2626,#f87171)", borderRadius: 99 }} />
                 </div>
               </div>
-              <div style={{ transform: "scale(0.85)" }}><PixelBoss type="chapter" hpPct={58} shake={false} /></div>
+              {/* реальный 3D-босс из ежедневных задач (как в продукте) */}
+              <div style={{ width: "100%" }}>
+                <LazyMount height={150}><Boss3D type="dragon" hpPct={58} shake={false} height={150} /></LazyMount>
+              </div>
             </div>
             <div style={caption}>Битвы с боссами</div>
-            <div style={sub}>Финал каждого раздела — проверка знаний в форме сражения</div>
+            <div style={sub}>Битвы с боссом в ежедневных задачах — драматичная мотивация решать правильно</div>
           </div>
         </Reveal>
         <Reveal i={3}>
@@ -1061,16 +1066,19 @@ function CustomizeSection() {
   );
 }
 
-// ── «Сразись с боссом»: PixelBoss в действии + тающий HP-бар с тряской ────────
-// Демо-цикл: «правильный ответ» каждые ~1.6с наносит урон; на нуле босс
-// возрождается. Крутится только пока секция в viewport.
+// ── «Сразись с боссом»: реальная 3D-сцена боя из ежедневных задач
+// (BattleScene3D: герой в экипировке против босса) + тающий HP-бар.
+// Демо-цикл: «правильный ответ» каждые ~1.6с — герой стреляет (attackSeq),
+// босс теряет HP; на нуле возрождается. Крутится только пока секция видна.
+// На мобильных — статичный скриншот сцены (WebGL-сцена с двумя фигурами тяжёлая).
 function BossBattleSection() {
   const hostRef = useRef(null);
+  const mobile = useIsMobile();
   const [active, setActive] = useState(false);
   const [hp, setHp] = useState(100);
   const hpRef = useRef(100);
   const [shake, setShake] = useState(false);
-  const [hit, setHit] = useState(0);
+  const [hit, setHit] = useState(0); // = attackSeq для BattleScene3D (выпад героя + лазер)
   const [defeated, setDefeated] = useState(false);
 
   useEffect(() => {
@@ -1103,10 +1111,9 @@ function BossBattleSection() {
         <Reveal>
           <Eyebrow color="#f87171">Битвы с боссами</Eyebrow>
           <H2>Сразись с боссом</H2>
-          <Lead style={{ marginBottom: 14 }}>
-            После каждого раздела — битва с боссом. Решай задачи правильно — наноси урон. Промахнулся — теряешь HP.
+          <Lead>
+            В ежедневных задачах тебя ждут битвы с боссами. Решай правильно — наноси урон. Промахнулся — теряешь HP. Экипировка из магазина добавляет здоровья.
           </Lead>
-          <Lead>Драматичная мотивация дойти до конца: экипировка из магазина добавляет твоему герою здоровья в бою.</Lead>
         </Reveal>
         <Reveal i={1}>
           <div className="al-card" style={{ padding: "26px 26px 30px", textAlign: "center", overflow: "hidden",
@@ -1114,21 +1121,26 @@ function BossBattleSection() {
             {/* HP-бар босса (трясётся при попадании) */}
             <div style={{ animation: shake ? "bossBarShake 0.24s linear" : "none" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>
-                <span>👹 Босс главы</span><span style={{ color: hp < 35 ? "#f87171" : "#fff" }}>{hp} / 100 HP</span>
+                <span>🐉 Звёздный Дракон</span><span style={{ color: hp < 35 ? "#f87171" : "#fff" }}>{hp} / 100 HP</span>
               </div>
               <div style={{ height: 14, borderRadius: 99, background: "rgba(10,15,35,0.75)", border: "1px solid rgba(248,113,113,0.4)", overflow: "hidden" }}>
                 <div style={{ height: "100%", width: `${hp}%`, borderRadius: 99, transition: "width 0.4s ease",
                   background: "linear-gradient(90deg,#dc2626,#f87171)", boxShadow: "0 0 12px rgba(220,38,38,0.7)" }} />
               </div>
             </div>
-            {/* арена */}
-            <div style={{ position: "relative", marginTop: 26, minHeight: 210, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ transform: "scale(1.55)", transformOrigin: "center" }}>
-                <PixelBoss type="chapter" hpPct={hp} shake={shake} />
-              </div>
-              {/* всплывающий урон */}
+            {/* арена — реальная сцена боя из ежедневных задач (герой + босс) */}
+            <div style={{ position: "relative", marginTop: 26, minHeight: 220 }}>
+              {mobile ? (
+                <img src={bossBattleImg} alt="Битва с боссом" loading="lazy"
+                  style={{ width: "100%", height: 220, objectFit: "cover", borderRadius: 14, display: "block" }} />
+              ) : (
+                <LazyMount height={220}>
+                  <BattleScene3D equipped={setToEquipped("astro")} bossType="dragon" bossHp={hp} attackSeq={hit} hitSeq={0} height={220} />
+                </LazyMount>
+              )}
+              {/* всплывающий урон (на мобиле «−17» уже в статичном кадре) */}
               <AnimatePresence>
-                {hit > 0 && !defeated && (
+                {hit > 0 && !defeated && !mobile && (
                   <motion.div key={hit} initial={{ opacity: 0, y: 6, scale: 0.7 }} animate={{ opacity: 1, y: -34, scale: 1.1 }}
                     exit={{ opacity: 0 }} transition={{ duration: 0.7, ease: "easeOut" }}
                     style={{ position: "absolute", top: 28, right: "22%", fontWeight: 900, fontSize: 26, color: "#fbbf24",
