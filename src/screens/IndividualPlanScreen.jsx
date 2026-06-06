@@ -89,45 +89,56 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
           return (
           <>
             {/* ── Гайд для ученика ── */}
-            <div data-tour="plan-stats" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:12, marginBottom:20 }}>
-              {/* С чего начать */}
-              <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:10, padding:'14px 16px' }}>
-                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#15803d', marginBottom:8 }}>▶ С чего начать</div>
-                {availableMods.length === 0
-                  ? <div style={{ fontSize:12, color:'#64748b', fontFamily:"'Inter',sans-serif" }}>Нет доступных модулей для старта.</div>
-                  : availableMods.slice(0,3).map(m => (
+            <div data-tour="plan-stats" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))', gap:12, marginBottom:20 }}>
+              {/* Сейчас в работе: активные модули + «готовы к старту» одной карточкой */}
+              <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:10, padding:'14px 16px' }}>
+                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#b45309', marginBottom:8 }}>⚡ Сейчас в работе</div>
+                {inProgressMods.length === 0 && availableMods.length === 0 && (
+                  <div style={{ fontSize:12, color:'#64748b', fontFamily:"'Inter',sans-serif" }}>Открой первый модуль на карте ниже.</div>
+                )}
+                {inProgressMods.length === 0 && availableMods.length > 0 && (
+                  <div style={{ fontSize:12, color:'#92400e', fontFamily:"'Inter',sans-serif", marginBottom:6 }}>Ещё ничего не начато — выбери модуль из готовых к старту 👇</div>
+                )}
+                {inProgressMods.slice(0,3).map(m => (
+                  <div key={m.id} style={{ fontSize:12, color:'#92400e', fontFamily:"'Inter',sans-serif", marginBottom:4, padding:'4px 8px', background:'#fef3c7', borderRadius:6, display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ flex:1 }}>{m.moduleName}</span>
+                    <span style={{ flexShrink:0, width:46, height:5, background:'rgba(180,83,9,0.18)', borderRadius:3, overflow:'hidden' }}>
+                      <span style={{ display:'block', height:'100%', width:`${m.mastery}%`, background:'#f59e0b', borderRadius:3 }}/>
+                    </span>
+                    <span style={{ color:'#f59e0b', fontWeight:700, flexShrink:0 }}>{m.mastery}%</span>
+                  </div>
+                ))}
+                {inProgressMods.length > 3 && <div style={{ fontSize:11, color:'#d97706', fontFamily:"'Inter',sans-serif", marginTop:4 }}>+{inProgressMods.length-3} ещё</div>}
+                {availableMods.length > 0 && (
+                  <>
+                    <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:11, color:'#15803d', margin:'10px 0 6px', textTransform:'uppercase', letterSpacing:'0.4px' }}>▶ Готовы к старту</div>
+                    {availableMods.slice(0,2).map(m => (
                       <div key={m.id} style={{ fontSize:12, color:'#166534', fontFamily:"'Inter',sans-serif", marginBottom:4, padding:'4px 8px', background:'#dcfce7', borderRadius:6 }}>
                         {m.moduleName} <span style={{ color:'#4ade80' }}>· {m.grade}</span>
                       </div>
-                    ))
-                }
-                {availableMods.length > 3 && <div style={{ fontSize:11, color:'#16a34a', fontFamily:"'Inter',sans-serif", marginTop:4 }}>+{availableMods.length-3} ещё</div>}
+                    ))}
+                    {availableMods.length > 2 && <div style={{ fontSize:11, color:'#16a34a', fontFamily:"'Inter',sans-serif", marginTop:4 }}>+{availableMods.length-2} ещё</div>}
+                  </>
+                )}
               </div>
 
-              {/* Сейчас изучаешь */}
-              <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:10, padding:'14px 16px' }}>
-                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#b45309', marginBottom:8 }}>⚡ Сейчас изучаешь</div>
-                {inProgressMods.length === 0
-                  ? <div style={{ fontSize:12, color:'#64748b', fontFamily:"'Inter',sans-serif" }}>Ещё не начал ни одного модуля.</div>
-                  : inProgressMods.slice(0,3).map(m => (
-                      <div key={m.id} style={{ fontSize:12, color:'#92400e', fontFamily:"'Inter',sans-serif", marginBottom:4, padding:'4px 8px', background:'#fef3c7', borderRadius:6 }}>
-                        {m.moduleName} <span style={{ color:'#f59e0b' }}>· {m.mastery}%</span>
-                      </div>
-                    ))
-                }
-                {inProgressMods.length > 3 && <div style={{ fontSize:11, color:'#d97706', fontFamily:"'Inter',sans-serif", marginTop:4 }}>+{inProgressMods.length-3} ещё</div>}
-              </div>
-
-              {/* Активные навыки */}
-              <div style={{ background: activeSkills >= 3 ? '#fef2f2' : '#f5f3ff', border:`1px solid ${activeSkills >= 3 ? '#fca5a5' : '#c4b5fd'}`, borderRadius:10, padding:'14px 16px' }}>
-                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color: activeSkills >= 3 ? '#b91c1c' : '#6d28d9', marginBottom:8 }}>
-                  {activeSkills >= 3 ? '⚠️ Лимит навыков' : '📊 Активные навыки'}
+              {/* Сейчас в фокусе: до 3 активных навыков — фокусировка, не ограничение */}
+              <div style={{ background:'#fefce8', border:'1px solid #fde047', borderRadius:10, padding:'14px 16px' }}>
+                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#a16207', marginBottom:8 }}>
+                  🎯 Сейчас в фокусе
                 </div>
-                <div style={{ fontSize:28, fontWeight:800, color: activeSkills >= 3 ? '#ef4444' : '#7c3aed', fontFamily:"'Montserrat',sans-serif", marginBottom:4 }}>
-                  {activeSkills} <span style={{ fontSize:14, fontWeight:400, color:'#94a3b8' }}>/ 3</span>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                  <div style={{ fontSize:28, fontWeight:800, color:'#ca8a04', fontFamily:"'Montserrat',sans-serif" }}>
+                    {activeSkills} <span style={{ fontSize:14, fontWeight:400, color:'#94a3b8' }}>/ 3</span>
+                  </div>
+                  <div style={{ display:'flex', gap:4 }}>
+                    {[0,1,2].map(i => (
+                      <span key={i} style={{ width:18, height:7, borderRadius:99, background: i < activeSkills ? '#eab308' : 'rgba(148,163,184,0.3)' }}/>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ fontSize:11, color:'#64748b', fontFamily:"'Inter',sans-serif", lineHeight:1.5 }}>
-                  {activeSkills >= 3 ? 'Завершите один из навыков, чтобы взять новый.' : `Ты можешь добавить ещё ${3-activeSkills} навык${3-activeSkills===1?'':'а'}.`}
+                <div style={{ fontSize:11, color:'#854d0e', fontFamily:"'Inter',sans-serif", lineHeight:1.5 }}>
+                  Чтобы не распыляться — открываем до 3 навыков одновременно. Заверши один — откроется следующий.
                 </div>
               </div>
 

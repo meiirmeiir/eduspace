@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import './MapStyles.css';
 
 // Узел карты = 2D-планета (CSS, без WebGL — на карте много узлов). Состояние
 // поверхности отражает прогресс модуля (5 стадий, как у 3D-планеты в попапе).
 // Footprint 312px и handles сохранены — раскладка/связи не меняются.
+// Заблокированная планета не «мёртвый камень»: дышащий rim-glow («ждёт
+// пробуждения»), а на hover — кроссфейд в превью цветущего мира + тултип
+// с незакрытыми пререквизитами.
 const NODE_W = 312;
 const PLANET = 92;       // диаметр планеты
 const ORBIT_R = 58;      // радиус орбиты звёзд-этапов
@@ -28,7 +32,8 @@ const PLANET_BG = {
   lush: 'radial-gradient(ellipse 12% 7% at 56% 32%, rgba(255,255,255,0.7) 0 70%, transparent 74%), radial-gradient(ellipse 10% 6% at 38% 60%, rgba(255,255,255,0.5) 0 70%, transparent 74%), radial-gradient(ellipse 26% 18% at 64% 46%, #1e6fb0 0 72%, transparent 74%), radial-gradient(ellipse 22% 16% at 32% 64%, #1b62a0 0 72%, transparent 74%), radial-gradient(ellipse 20% 15% at 48% 30%, #3fa85a 0 72%, transparent 74%), radial-gradient(circle at 36% 30%, #5fbf7a, #1e5a8a 76%)',
 };
 const PLANET_GLOW = {
-  dead: '', stone: '0 0 8px rgba(200,210,230,0.12)',
+  dead: '0 0 10px rgba(167,139,250,0.14)', // едва заметный rim — планета «ждёт пробуждения»
+  stone: '0 0 8px rgba(200,210,230,0.12)',
   s1: '0 0 10px rgba(90,160,220,0.22)', s2: '0 0 13px rgba(80,180,255,0.28)',
   lush: '0 0 16px rgba(120,200,255,0.5)',
 };
@@ -37,7 +42,8 @@ const INSET_SHADE = 'inset -6px -8px 14px rgba(0,0,0,0.55), inset 7px 7px 12px r
 const BAR_COLOR = { mastered: '#22c55e', inprogress: '#f59e0b', available: '#3b82f6', locked: '#64748b' };
 
 export default function CustomNode({ data }) {
-  const { title, grade, status = 'active', mastery = 0, appearDelay = 0 } = data;
+  const { title, grade, status = 'active', mastery = 0, appearDelay = 0, prereqsLeft = [] } = data;
+  const [hovered, setHovered] = useState(false);
   const vs = status === 'locked' ? 'locked'
     : mastery >= 100 ? 'mastered'
     : mastery > 0 ? 'inprogress'
@@ -45,23 +51,42 @@ export default function CustomNode({ data }) {
   const stage = planetStage(vs, mastery);
   const starsLit = STAGE_STARS[stage];
   const badge = vs === 'locked' ? '🔒' : vs === 'mastered' ? '✓' : null;
+  const locked = vs === 'locked';
+  const preview = locked && hovered; // hover по заблокированной → превью «будущего вида»
 
   return (
-    <div className={`skill-node skill-node-${vs}`}>
+    <div className={`skill-node skill-node-${vs}`}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <Handle type="target" position={Position.Bottom} style={{ opacity: 0 }} />
 
       <div className="skill-node-appear" style={{ animationDelay: `${appearDelay}s`, width: NODE_W, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Планета + орбита-звёзды */}
         <div style={{ position: 'relative', width: PLANET, height: PLANET }}>
-          {stage === 'lush' && (
+          {(stage === 'lush' || preview) && (
             <div className="planet-glow" style={{ position: 'absolute', inset: -12, borderRadius: '50%', background: 'radial-gradient(circle, rgba(120,200,255,0.55), transparent 70%)', pointerEvents: 'none' }} />
+          )}
+          {/* Дышащий rim — заблокированная планета «ждёт пробуждения» */}
+          {locked && !preview && (
+            <div className="planet-dormant-glow" style={{ position: 'absolute', inset: -8, borderRadius: '50%', background: 'radial-gradient(circle, transparent 52%, rgba(167,139,250,0.30) 66%, transparent 76%)', pointerEvents: 'none' }} />
           )}
           <div className="planet-ball" style={{
             position: 'absolute', inset: 0, borderRadius: '50%',
             background: PLANET_BG[stage],
             boxShadow: INSET_SHADE + (PLANET_GLOW[stage] ? ', ' + PLANET_GLOW[stage] : ''),
-            opacity: stage === 'dead' ? 0.92 : 1,
+            opacity: preview ? 0 : stage === 'dead' ? 0.92 : 1,
+            transition: 'opacity 0.45s ease',
           }} />
+          {/* Превью цветущего мира (кроссфейд на hover по заблокированной) */}
+          {locked && (
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: '50%',
+              background: PLANET_BG.lush,
+              boxShadow: INSET_SHADE + ', ' + PLANET_GLOW.lush,
+              opacity: preview ? 1 : 0,
+              transition: 'opacity 0.45s ease',
+              pointerEvents: 'none',
+            }} />
+          )}
 
           {/* 3 звезды-этапа на вращающейся орбите */}
           <div className="planet-orbit" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
@@ -83,20 +108,56 @@ export default function CustomNode({ data }) {
           </div>
 
           {badge && (
-            <div style={{ position: 'absolute', top: -2, right: -2, fontSize: 16, lineHeight: 1, textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>{badge}</div>
+            <div style={{ position: 'absolute', top: -2, right: -2, fontSize: 16, lineHeight: 1, textShadow: '0 1px 3px rgba(0,0,0,0.7)', opacity: preview ? 0 : 1, transition: 'opacity 0.3s' }}>{badge}</div>
+          )}
+
+          {/* Тултип пробуждения: что нужно закрыть, чтобы разблокировать */}
+          {preview && (
+            <div style={{
+              position: 'absolute', left: '50%', bottom: PLANET + 16, transform: 'translateX(-50%)',
+              width: 230, zIndex: 30, pointerEvents: 'none',
+              background: 'rgba(10,14,28,0.92)', backdropFilter: 'blur(6px)',
+              border: '1px solid rgba(167,139,250,0.45)', borderRadius: 12,
+              padding: '10px 14px', textAlign: 'left',
+              boxShadow: '0 8px 28px rgba(0,0,0,0.5)',
+            }}>
+              <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 11.5, fontWeight: 700, color: '#c4b5fd', marginBottom: 4 }}>
+                ✨ Так планета будет выглядеть после пробуждения
+              </div>
+              <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, color: 'rgba(226,232,240,0.85)', lineHeight: 1.45 }}>
+                {prereqsLeft.length > 0 ? (
+                  <>
+                    Чтобы пробудить, освой:
+                    {prereqsLeft.slice(0, 3).map(p => (
+                      <div key={p.name} style={{ marginTop: 3, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                        <span style={{ color: '#fff' }}>• {p.name}</span>
+                        <span style={{ color: '#fbbf24', flexShrink: 0, fontWeight: 700 }}>{p.mastery}%</span>
+                      </div>
+                    ))}
+                    {prereqsLeft.length > 3 && <div style={{ marginTop: 3, color: 'rgba(226,232,240,0.6)' }}>и ещё {prereqsLeft.length - 3}…</div>}
+                  </>
+                ) : 'Освой пререквизиты, чтобы пробудить этот мир.'}
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Подпись + класс + прогресс */}
-        <div style={{ textAlign: 'center', marginTop: 16, width: '100%' }}>
-          <div style={{ fontFamily: "'Inter',sans-serif", fontWeight: 800, fontSize: 13, color: '#f1f5f9', lineHeight: 1.25, textShadow: '0 1px 4px rgba(0,0,0,0.8)', maxWidth: 190, margin: '0 auto', wordBreak: 'break-word' }}>
-            {title}
+        {/* Подпись + класс + прогресс — на тёмной подложке, читаемо на любом зуме */}
+        <div style={{ textAlign: 'center', marginTop: 14, width: '100%' }}>
+          <div style={{
+            display: 'inline-block', maxWidth: 230,
+            background: 'rgba(8,12,26,0.62)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)',
+            border: '1px solid rgba(148,163,184,0.16)', borderRadius: 11, padding: '6px 12px 7px',
+          }}>
+            <div style={{ fontFamily: "'Inter',sans-serif", fontWeight: 800, fontSize: 15, color: '#ffffff', lineHeight: 1.3, textShadow: '0 1px 5px rgba(0,0,0,0.9)', wordBreak: 'break-word' }}>
+              {title}
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', marginTop: 2, textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>{grade}</div>
           </div>
-          <div style={{ fontSize: 10, color: 'rgba(226,232,240,0.65)', marginTop: 2, textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>{grade}</div>
           <div style={{ width: 140, height: 5, margin: '7px auto 0', background: 'rgba(0,0,0,0.4)', borderRadius: 3, overflow: 'hidden', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)' }}>
             <div style={{ height: '100%', width: `${mastery}%`, background: BAR_COLOR[vs], borderRadius: 3, boxShadow: `0 0 6px ${BAR_COLOR[vs]}`, transition: 'width 0.4s ease' }} />
           </div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(241,245,249,0.85)', marginTop: 3, textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>{mastery}%</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', marginTop: 3, textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>{mastery}%</div>
         </div>
       </div>
 

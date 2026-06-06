@@ -108,6 +108,13 @@
   50%     { opacity: 0.95; }
 }
 
+/* Заблокирован — едва заметный «дышащий» rim: планета ждёт пробуждения */
+.planet-dormant-glow { animation: planetDormantBreath 3.6s ease-in-out infinite; will-change: opacity; }
+@keyframes planetDormantBreath {
+  0%,100% { opacity: 0.30; }
+  50%     { opacity: 0.75; }
+}
+
 /* Звёзды-этапы — медленная орбита (transform, GPU) */
 .planet-orbit { animation: planetOrbit 24s linear infinite; will-change: transform; }
 @keyframes planetOrbit { to { transform: rotate(360deg); } }

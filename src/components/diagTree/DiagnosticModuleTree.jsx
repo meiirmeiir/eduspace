@@ -263,6 +263,8 @@ function buildDiagModuleLayout(diagModules, diagEdges) {
   });
 
   const nodes = [];
+  // Для тултипа «что нужно, чтобы пробудить»: пререквизиты модуля с mastery < 100.
+  const modById = Object.fromEntries((diagModules || []).map(m => [m.id, m]));
   sortedGrades.forEach((grade, fi) => {
     const mods = gradeMap[grade];
     const y = floorY(fi);
@@ -284,6 +286,11 @@ function buildDiagModuleLayout(diagModules, diagEdges) {
           // ── поля для CustomNode ──
           title: mod.moduleName,
           status: mod.isLocked ? 'locked' : mod.mastery >= 100 ? 'mastered' : 'active',
+          // незакрытые пререквизиты — для hover-тултипа заблокированной планеты
+          prereqsLeft: (mod.prerequisiteModuleIds || [])
+            .map(pid => modById[pid])
+            .filter(p => p && p.mastery < 100)
+            .map(p => ({ name: p.moduleName, mastery: p.mastery })),
           micro_skills: (mod.skills||[]).map(sk => ({
             id: sk.id,
             phase_status: sk.mastery >= 100 ? 'mastered' : sk.mastery >= 80 ? 'phase_B_done' : sk.mastery >= 40 ? 'phase_A_done' : 'not_started',
@@ -398,8 +405,8 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
           </div>
         )}
         {!mod.isLocked && activeCount >= 3 && (
-          <div style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:8, padding:'10px 12px', marginBottom:12, fontFamily:"'Inter',sans-serif", fontSize:12, color:'#dc2626' }}>
-            ⚠️ У тебя уже 3 активных навыка. Сначала заверши один из них, чтобы начать новый.
+          <div style={{ background:'rgba(234,179,8,0.10)', border:'1px solid rgba(234,179,8,0.35)', borderRadius:8, padding:'10px 12px', marginBottom:12, fontFamily:"'Inter',sans-serif", fontSize:12, color:'#a16207' }}>
+            🎯 Сейчас в фокусе 3 навыка — это максимум, чтобы не распыляться. Заверши один, и откроется следующий.
           </div>
         )}
         <div style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:THEME.textLight, marginBottom:10 }}>Навыки с пробелами:</div>
@@ -441,7 +448,7 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
                       border:'none', color:'#fff', padding:'8px 12px', borderRadius:7,
                       cursor: anyDisabled ? 'not-allowed' : 'pointer', width:'100%',
                       opacity: anyDisabled ? 0.6 : 1 }}>
-                    {mod.isLocked ? '🔒 Модуль заблокирован' : limitReached ? '🔒 Лимит: 3 активных навыка' : skillSrsLocked ? `🚀 Экспедиция через ${fmtCountdown(msLeft)}` : stages > 0 ? `🚀 Продолжить экспедицию (Этап ${stages+1})` : '🚀 Начать экспедицию'}
+                    {mod.isLocked ? '🔒 Модуль заблокирован' : limitReached ? '🎯 Сначала заверши один из 3 активных' : skillSrsLocked ? `🚀 Экспедиция через ${fmtCountdown(msLeft)}` : stages > 0 ? `🚀 Продолжить экспедицию (Этап ${stages+1})` : '🚀 Начать экспедицию'}
                   </button>
                 )}
               </div>
