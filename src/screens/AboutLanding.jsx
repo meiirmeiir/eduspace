@@ -16,10 +16,11 @@ import skillMapVid from "../../assets/marketing/videos/skill-map_v2.mp4";
 import leaderboardVid from "../../assets/marketing/videos/leaderboard_v2.mp4";
 import progressVid from "../../assets/marketing/videos/progress_v2.mp4";
 
-// Скриншоты платформы для секции «На любом устройстве» (assets/marketing/screens/).
+// Скриншоты платформы (assets/marketing/screens/): устройства + экран задачи.
 import deviceDesktopImg from "../../assets/marketing/screens/device-desktop.jpeg";
 import deviceTabletImg from "../../assets/marketing/screens/device-tablet.jpeg";
 import devicePhoneImg from "../../assets/marketing/screens/device-phone.jpeg";
+import taskScreenImg from "../../assets/marketing/screens/task-screen.jpeg";
 
 /**
  * AboutLanding — тёмный лендинг AAPA в духе AngelList India + Opus Pro:
@@ -436,14 +437,423 @@ function PriceSection({ onCta, accent = GOLD, perks, ctaText }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+//  СЕКЦИИ РОДИТЕЛЬСКОГО ЛЕНДИНГА (реальный продукт вместо абстракций)
+// ══════════════════════════════════════════════════════════════════════════════
+const BLUE = "#60a5fa";   // отчёты/аналитика
+const GREEN = "#34d399";  // безопасность
+
+// ── Мокап еженедельного отчёта родителя (hero-ноутбук, секция отчёта, слайд) ──
+function ParentReportCard({ compact = false }) {
+  const f = (n) => compact ? n * 0.78 : n; // компактный масштаб для маленьких экранов
+  const topics = [["Дроби", 78], ["Уравнения", 64], ["Геометрия", 41]];
+  return (
+    <div style={{ height: "100%", background: "linear-gradient(170deg,#0e1530,#0a0e1f)", padding: f(22), fontFamily: "'Inter',sans-serif", textAlign: "left" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: f(14) }}>
+        <span style={{ fontSize: f(13), fontWeight: 800, color: "#fff" }}>📊 Отчёт для родителя</span>
+        <span style={{ fontSize: f(10.5), fontWeight: 700, color: BLUE, background: "rgba(96,165,250,0.14)", border: "1px solid rgba(96,165,250,0.4)", padding: `${f(3)}px ${f(9)}px`, borderRadius: 99 }}>неделя 23</span>
+      </div>
+      <div style={{ fontSize: f(11.5), color: "rgba(255,255,255,0.55)", marginBottom: f(12) }}>Аружан · 6 класс</div>
+      <div style={{ display: "flex", gap: f(10), marginBottom: f(14) }}>
+        {[["47", "задач за неделю"], ["+12", "к прошлой"], ["+18%", "рост за месяц"]].map(([n, l], i) => (
+          <div key={l} style={{ flex: 1, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: f(10), padding: `${f(8)}px ${f(10)}px` }}>
+            <div style={{ fontSize: f(17), fontWeight: 800, color: i === 2 ? GREEN : "#fff", lineHeight: 1 }}>{n}</div>
+            <div style={{ fontSize: f(9.5), color: "rgba(255,255,255,0.45)", marginTop: f(4) }}>{l}</div>
+          </div>
+        ))}
+      </div>
+      {topics.map(([t, p]) => (
+        <div key={t} style={{ marginBottom: f(9) }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: f(10.5), fontWeight: 600, color: "rgba(255,255,255,0.75)", marginBottom: f(4) }}>
+            <span>{t}</span><span style={{ color: BLUE }}>{p}%</span>
+          </div>
+          <div style={{ height: f(7), borderRadius: 99, background: "rgba(255,255,255,0.07)" }}>
+            <div style={{ height: "100%", width: `${p}%`, borderRadius: 99, background: `linear-gradient(90deg,${BLUE},#3b82f6)` }} />
+          </div>
+        </div>
+      ))}
+      <div style={{ marginTop: f(12), fontSize: f(10.5), color: "rgba(255,255,255,0.55)" }}>
+        <span style={{ fontWeight: 700, color: "#f87171" }}>Слабые места:</span> деление дробей · площадь треугольника
+      </div>
+    </div>
+  );
+}
+
+// ── Hero-визуал родителя: ноутбук с отчётом + телефон ребёнка + связка ────────
+function ParentHeroVisual() {
+  return (
+    <Reveal i={1}>
+      <div style={{ position: "relative", maxWidth: 560, margin: "0 auto", paddingBottom: 44, paddingRight: 24 }}>
+        <DeviceFrame kind="laptop" label="Отчёт родителя"><ParentReportCard compact /></DeviceFrame>
+        <div style={{ position: "absolute", right: -6, bottom: 0, width: "25%", zIndex: 2, filter: "drop-shadow(0 18px 36px rgba(0,0,0,0.6))" }}>
+          <DeviceFrame kind="phone" img={devicePhoneImg} label="Кабинет ребёнка" />
+        </div>
+        <div style={{ position: "absolute", left: 0, bottom: 2, background: "rgba(7,11,22,0.85)", backdropFilter: "blur(8px)",
+          border: `1px solid ${GOLD}55`, borderRadius: 99, padding: "8px 16px", fontSize: 12.5, fontWeight: 700, color: "#fff" }}>
+          👀 Вы видите прогресс <span style={{ color: GOLD, margin: "0 4px" }}>→</span> 🎮 ребёнок учится в игре
+        </div>
+      </div>
+    </Reveal>
+  );
+}
+
+// ── «Что увидите вы»: ноутбук с отчётом + объяснение ──────────────────────────
+function ParentReportSection() {
+  const points = [
+    ["📬", "Приходит на email каждое воскресенье"],
+    ["📈", "Видно, где сильные места и где нужно помочь"],
+    ["🧭", "Конкретика: какие темы решал, что западает"],
+  ];
+  return (
+    <Section bg="rgba(255,255,255,0.018)">
+      <div style={{ display: "grid", gridTemplateColumns: "1.15fr 1fr", gap: "clamp(28px,4vw,56px)", alignItems: "center" }} className="al-grid-2">
+        <Reveal>
+          <DeviceFrame kind="laptop" label="Еженедельный отчёт"><ParentReportCard /></DeviceFrame>
+        </Reveal>
+        <Reveal i={1}>
+          <Eyebrow color={BLUE}>Что увидите вы</Eyebrow>
+          <H2>Понятный отчёт без жаргона</H2>
+          <Lead style={{ marginBottom: 24 }}>Не «образовательная аналитика», а простой ответ на вопрос «как дела у моего ребёнка по математике».</Lead>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {points.map(([ic, t]) => (
+              <div key={t} style={{ display: "flex", gap: 12, alignItems: "center", fontSize: 15.5, color: "rgba(255,255,255,0.78)" }}>
+                <span style={{ fontSize: 20, flexShrink: 0 }}>{ic}</span>{t}
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </div>
+    </Section>
+  );
+}
+
+// ── «Спокойно даёте планшет»: большие карточки с реальным контентом ───────────
+function ParentSafetySection() {
+  return (
+    <Section>
+      <Reveal>
+        <div style={{ textAlign: "center", marginBottom: "clamp(40px,6vw,64px)" }}>
+          <Eyebrow color={GREEN}>Безопасно для ребёнка</Eyebrow>
+          <H2>Спокойно даёте планшет</H2>
+        </div>
+      </Reveal>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24 }} className="al-grid-3">
+        {/* Без AI-чатов: реальный скриншот задачи */}
+        <Reveal>
+          <div className="al-card" style={{ height: "100%", padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <div style={{ position: "relative", aspectRatio: "16 / 11", overflow: "hidden", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+              <img src={taskScreenImg} alt="Экран задачи" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 30%" }} />
+              <span style={{ position: "absolute", left: 12, bottom: 12, background: "rgba(7,11,22,0.85)", border: `1px solid ${GREEN}55`,
+                color: "#fff", fontSize: 11.5, fontWeight: 700, padding: "5px 12px", borderRadius: 99 }}>Только структурированные задачи</span>
+            </div>
+            <div style={{ padding: "24px 26px 28px" }}>
+              <div style={{ fontWeight: 800, fontSize: 21, color: "#fff", marginBottom: 8 }}>🚫🤖 Без AI-чатов</div>
+              <div style={{ fontSize: 14.5, color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>Никаких генеративных собеседников. Задача → варианты → объяснение решения. Всё.</div>
+            </div>
+          </div>
+        </Reveal>
+        {/* Без рекламы: сравнение с «обычным приложением» */}
+        <Reveal i={1}>
+          <div className="al-card" style={{ height: "100%", padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <div style={{ aspectRatio: "16 / 11", display: "flex", gap: 10, padding: 16, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+              {/* «обычное приложение» — баннеры и попапы */}
+              <div style={{ flex: 1, borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(248,113,113,0.35)", padding: 8, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                <div style={{ fontSize: 9.5, fontWeight: 800, color: "#f87171", textAlign: "center" }}>обычное приложение</div>
+                <div style={{ flex: 1, borderRadius: 6, background: "rgba(255,255,255,0.05)" }} />
+                <div style={{ height: 22, borderRadius: 6, background: "rgba(248,113,113,0.18)", border: "1px dashed rgba(248,113,113,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8.5, fontWeight: 800, color: "#f87171", letterSpacing: 1 }}>РЕКЛАМА</div>
+                <div style={{ height: 22, borderRadius: 6, background: "rgba(248,113,113,0.18)", border: "1px dashed rgba(248,113,113,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8.5, fontWeight: 800, color: "#f87171", letterSpacing: 1 }}>КУПИ МОНЕТЫ</div>
+              </div>
+              {/* наш экран — чист */}
+              <div style={{ flex: 1, borderRadius: 10, background: "rgba(52,211,153,0.06)", border: `1px solid ${GREEN}55`, padding: 8, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                <div style={{ fontSize: 9.5, fontWeight: 800, color: GREEN, textAlign: "center" }}>AAPA</div>
+                <div style={{ flex: 1, borderRadius: 6, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.85)", letterSpacing: 0.5 }}>12 ÷ 4 = ?</div>
+                <div style={{ height: 22, borderRadius: 6, background: "rgba(52,211,153,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: GREEN }}>только математика</div>
+              </div>
+            </div>
+            <div style={{ padding: "24px 26px 28px" }}>
+              <div style={{ fontWeight: 800, fontSize: 21, color: "#fff", marginBottom: 8 }}>📵 Без рекламы</div>
+              <div style={{ fontSize: 14.5, color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>Ни баннеров, ни внешних ссылок, ни покупок за деньги внутри. Кристаллы зарабатываются только решением задач.</div>
+            </div>
+          </div>
+        </Reveal>
+        {/* Без незнакомцев: замкнутая среда */}
+        <Reveal i={2}>
+          <div className="al-card" style={{ height: "100%", padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <div style={{ aspectRatio: "16 / 11", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, borderBottom: "1px solid rgba(255,255,255,0.08)", background: "radial-gradient(ellipse at 50% 40%, rgba(52,211,153,0.1), transparent 70%)" }}>
+              <div style={{ width: 74, height: 74, borderRadius: "50%", background: "rgba(52,211,153,0.12)", border: `2px solid ${GREEN}66`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34 }}>🔒</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: GREEN }}>Замкнутая среда</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {["🧒 ученики", "🏫 учителя"].map((t) => (
+                  <span key={t} style={{ fontSize: 10.5, fontWeight: 700, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", padding: "4px 10px", borderRadius: 99 }}>{t}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{ padding: "24px 26px 28px" }}>
+              <div style={{ fontWeight: 800, fontSize: 21, color: "#fff", marginBottom: 8 }}>🛡️ Без незнакомцев</div>
+              <div style={{ fontSize: 14.5, color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>Никакого открытого общения с посторонними. В рейтинге — только сверстники, без переписки.</div>
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </Section>
+  );
+}
+
+// ── «Что увидит ребёнок»: игровая сторона глазами родителя ────────────────────
+function ParentChildSideSection() {
+  const LB_ROWS = [["🥇", "Арман", "1 340"], ["🥈", "Аружан", "1 180"], ["🥉", "Дана", "950"]];
+  const caption = { fontWeight: 800, fontSize: 16, color: "#fff", marginTop: 14 };
+  const sub = { fontSize: 12.5, color: "rgba(255,255,255,0.5)", lineHeight: 1.55, marginTop: 5 };
+  const visual = { height: 190, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" };
+  return (
+    <Section bg="rgba(255,255,255,0.018)">
+      <Reveal>
+        <div style={{ textAlign: "center", marginBottom: "clamp(40px,6vw,64px)" }}>
+          <Eyebrow>Что увидит ребёнок</Eyebrow>
+          <H2>Игровая оболочка вокруг серьёзного содержания</H2>
+          <Lead style={{ maxWidth: 620, margin: "0 auto" }}>Зачем это родителю: ребёнок сам хочет заходить — вы не воюете за домашку.</Lead>
+        </div>
+      </Reveal>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20 }} className="al-grid-4">
+        <Reveal>
+          <div className="al-card" style={{ height: "100%", textAlign: "center", padding: "22px 16px 24px" }}>
+            <div style={visual}><PlanetView fromLife={0.4} toLife={1} size={160} /></div>
+            <div style={caption}>Планеты навыков</div>
+            <div style={sub}>Каждая тема — мир, который расцветает по мере освоения</div>
+          </div>
+        </Reveal>
+        <Reveal i={1}>
+          <div className="al-card" style={{ height: "100%", textAlign: "center", padding: "22px 16px 24px" }}>
+            <div style={visual}>
+              <LazyMount height={190}><LegoCharacter3D equipped={setToEquipped("astro")} height={190} autoSpin={0.35} /></LazyMount>
+            </div>
+            <div style={caption}>Свой герой</div>
+            <div style={sub}>Экипировка покупается за кристаллы — награду за решённые задачи</div>
+          </div>
+        </Reveal>
+        <Reveal i={2}>
+          <div className="al-card" style={{ height: "100%", textAlign: "center", padding: "22px 16px 24px" }}>
+            <div style={{ ...visual, flexDirection: "column", gap: 10 }}>
+              <div style={{ width: "85%" }}>
+                <div style={{ height: 8, borderRadius: 99, background: "rgba(10,15,35,0.75)", border: "1px solid rgba(248,113,113,0.4)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: "58%", background: "linear-gradient(90deg,#dc2626,#f87171)", borderRadius: 99 }} />
+                </div>
+              </div>
+              <div style={{ transform: "scale(0.85)" }}><PixelBoss type="chapter" hpPct={58} shake={false} /></div>
+            </div>
+            <div style={caption}>Битвы с боссами</div>
+            <div style={sub}>Финал каждого раздела — проверка знаний в форме сражения</div>
+          </div>
+        </Reveal>
+        <Reveal i={3}>
+          <div className="al-card" style={{ height: "100%", textAlign: "center", padding: "22px 16px 24px" }}>
+            <div style={{ ...visual, flexDirection: "column", justifyContent: "center", gap: 8 }}>
+              {LB_ROWS.map(([m, n, p], i) => (
+                <div key={n} style={{ width: "92%", display: "flex", alignItems: "center", gap: 10, background: i === 0 ? "rgba(212,175,55,0.1)" : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${i === 0 ? "rgba(212,175,55,0.45)" : "rgba(255,255,255,0.08)"}`, borderRadius: 10, padding: "8px 12px" }}>
+                  <span style={{ fontSize: 17 }}>{m}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", flex: 1, textAlign: "left" }}>{n}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: GOLD }}>{p}</span>
+                </div>
+              ))}
+            </div>
+            <div style={caption}>Лиги с друзьями</div>
+            <div style={sub}>Соревнование со сверстниками — без чатов и переписки</div>
+          </div>
+        </Reveal>
+      </div>
+    </Section>
+  );
+}
+
+// ── Карусель «Что внутри» для родителя: разные ситуации, не 3 одинаковых
+//    телефона. Слайды-компоненты + автопрокрутка + точки ───────────────────────
+function ParentBarChart() {
+  const weeks = [["нед 1", 32], ["нед 2", 41], ["нед 3", 47], ["нед 4", 58]];
+  return (
+    <div className="al-card" style={{ width: "100%", maxWidth: 520, margin: "0 auto", padding: "28px 30px 24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>Решено задач по неделям</span>
+        <span style={{ fontSize: 12, fontWeight: 800, color: GREEN, background: "rgba(52,211,153,0.12)", border: `1px solid ${GREEN}55`, padding: "4px 12px", borderRadius: 99 }}>+18% за месяц</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 18, height: 180 }}>
+        {weeks.map(([w, n], i) => (
+          <div key={w} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, height: "100%", justifyContent: "flex-end" }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: i === weeks.length - 1 ? GREEN : "rgba(255,255,255,0.7)" }}>{n}</span>
+            <motion.div initial={{ height: 0 }} whileInView={{ height: `${(n / 58) * 100}%` }} viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
+              style={{ width: "100%", maxWidth: 56, borderRadius: "8px 8px 3px 3px",
+                background: i === weeks.length - 1 ? `linear-gradient(180deg,${GREEN},#10b981)` : `linear-gradient(180deg,${BLUE},#3b82f6)` }} />
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>{w}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ParentShowcaseCarousel() {
+  const slides = [
+    { t: "Ребёнок занимается сам", s: "Адаптивные задачи держат в потоке: не слишком легко, не слишком сложно. 15–20 минут в день достаточно.",
+      render: () => (
+        <div style={{ maxWidth: 560, margin: "0 auto", position: "relative" }}>
+          <DeviceFrame kind="laptop" img={taskScreenImg} label="Экран задачи" />
+          <span style={{ position: "absolute", left: 18, bottom: 28, background: "rgba(7,11,22,0.85)", border: `1px solid ${GOLD}55`,
+            color: "#fff", fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 99 }}>🔬 Реальный экран задач</span>
+        </div>
+      ) },
+    { t: "Вы видите общую картину", s: "Дашборд прогресса: сколько решено, какие навыки освоены, как идёт план.",
+      render: () => <div style={{ maxWidth: 560, margin: "0 auto" }}><DeviceFrame kind="laptop" img={deviceDesktopImg} label="Дашборд" /></div> },
+    { t: "Еженедельный отчёт на email", s: "Каждое воскресенье — короткое письмо: что решал, что западает, где помочь.",
+      render: () => (
+        <div style={{ maxWidth: 480, margin: "0 auto", borderRadius: 18, overflow: "hidden", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}>
+          <div style={{ background: "rgba(255,255,255,0.05)", padding: "12px 18px", fontSize: 12, color: "rgba(255,255,255,0.6)", borderBottom: "1px solid rgba(255,255,255,0.08)", textAlign: "left" }}>
+            <div><b style={{ color: "#fff" }}>От:</b> AAPA &lt;reports@aapa.kz&gt;</div>
+            <div><b style={{ color: "#fff" }}>Тема:</b> 📊 Отчёт за неделю — Аружан</div>
+          </div>
+          <ParentReportCard />
+        </div>
+      ) },
+    { t: "Прогресс растёт измеримо", s: "Не ощущения, а цифры: динамика решённых задач и закрытых навыков по неделям.",
+      render: () => <ParentBarChart /> },
+  ];
+  const n = slides.length;
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  useEffect(() => {
+    if (paused) return;
+    const id = setTimeout(() => setIndex((i) => (i + 1) % n), 6000);
+    return () => clearTimeout(id);
+  }, [index, paused, n]);
+  const cur = slides[index];
+  return (
+    <div onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      <div style={{ position: "relative", minHeight: 480, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <AnimatePresence mode="wait">
+          <motion.div key={index} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}
+            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }} style={{ width: "100%" }}>
+            {cur.render()}
+          </motion.div>
+        </AnimatePresence>
+        <button className="al-car-arrow" onClick={() => setIndex((i) => (i - 1 + n) % n)} aria-label="Назад" style={{ left: 0 }}>‹</button>
+        <button className="al-car-arrow" onClick={() => setIndex((i) => (i + 1) % n)} aria-label="Вперёд" style={{ right: 0 }}>›</button>
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 26 }}>
+        {slides.map((_, i) => (
+          <button key={i} onClick={() => setIndex(i)} aria-label={`Слайд ${i + 1}`}
+            style={{ width: i === index ? 30 : 10, height: 10, borderRadius: 99, border: "none", cursor: "pointer", padding: 0,
+              background: i === index ? GOLD : "rgba(255,255,255,0.22)", transition: "width 0.35s ease, background 0.35s ease" }} />
+        ))}
+      </div>
+      <div style={{ textAlign: "center", marginTop: 24, minHeight: 96 }}>
+        <AnimatePresence mode="wait">
+          <motion.div key={index} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
+            <div style={{ fontWeight: 800, fontSize: "clamp(20px,2.6vw,27px)", color: "#fff", marginBottom: 10, letterSpacing: "-0.5px" }}>{cur.t}</div>
+            <p style={{ fontSize: 15.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.65, maxWidth: 540, margin: "0 auto" }}>{cur.s}</p>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+// ── Цена в контексте: карточка + сравнение с репетитором ──────────────────────
+function ParentPriceSection({ onCta, perks }) {
+  return (
+    <Section>
+      <Reveal>
+        <div style={{ textAlign: "center", marginBottom: "clamp(40px,6vw,64px)" }}>
+          <Eyebrow>Простая подписка</Eyebrow>
+          <H2>Дешевле одного часа репетитора</H2>
+        </div>
+      </Reveal>
+      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: "clamp(24px,3.5vw,48px)", alignItems: "stretch" }} className="al-grid-2">
+        <Reveal>
+          <div className="al-card" style={{ height: "100%", border: `2px solid ${GOLD}`, background: `linear-gradient(160deg,${GOLD}14,transparent)`,
+            padding: "clamp(30px,4vw,44px) clamp(24px,3.5vw,40px)", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10, margin: "0 0 8px" }}>
+              <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "clamp(52px,9vw,92px)", fontWeight: 800, color: GOLD, lineHeight: 1, letterSpacing: "-3px" }}>2000</span>
+              <span style={{ fontSize: 21, color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>₸ / мес</span>
+            </div>
+            <Lead style={{ maxWidth: 420, margin: "0 auto 26px" }}>Полный доступ. Без скрытых платежей. Отменить можно в любой момент.</Lead>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 24px", maxWidth: 480, margin: "0 auto 28px", textAlign: "left" }} className="al-perks">
+              {perks.map((p) => (
+                <div key={p} style={{ display: "flex", gap: 9, fontSize: 14.5, color: "rgba(255,255,255,0.78)", alignItems: "flex-start" }}>
+                  <span style={{ color: GOLD, fontWeight: 800, flexShrink: 0 }}>✓</span>{p}
+                </div>
+              ))}
+            </div>
+            <button className="al-btn-primary" onClick={onCta} style={{ width: "100%", maxWidth: 400, margin: "0 auto", fontSize: 16.5, padding: "17px 30px" }}>Дайте ребёнку попробовать →</button>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 13 }}>Первая диагностика бесплатно · Без банковской карты</p>
+          </div>
+        </Reveal>
+        {/* сравнение со столбцами */}
+        <Reveal i={1}>
+          <div className="al-card" style={{ height: "100%", padding: "clamp(26px,3.5vw,38px) clamp(22px,3vw,34px)", display: "flex", flexDirection: "column" }}>
+            <div style={{ fontWeight: 800, fontSize: 19, color: "#fff", marginBottom: 6 }}>Сравните за месяц</div>
+            <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.5)", marginBottom: 26 }}>Репетитор: 5 000 ₸/час × 8 занятий. Платформа — каждый день.</div>
+            <div style={{ flex: 1, display: "flex", alignItems: "flex-end", gap: 32, minHeight: 220, padding: "0 10px" }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, height: "100%", justifyContent: "flex-end" }}>
+                <span style={{ fontSize: 17, fontWeight: 800, color: "#f87171" }}>40 000 ₸</span>
+                <motion.div initial={{ height: 0 }} whileInView={{ height: "100%" }} viewport={{ once: true }}
+                  transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ width: "100%", maxWidth: 110, borderRadius: "12px 12px 4px 4px", background: "linear-gradient(180deg,#7f1d1d,#450a0a)", border: "1px solid rgba(248,113,113,0.4)", maxHeight: 230 }} />
+                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", textAlign: "center" }}>репетитор<br />8 часов в месяц</span>
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, height: "100%", justifyContent: "flex-end" }}>
+                <span style={{ fontSize: 17, fontWeight: 800, color: GOLD }}>2 000 ₸</span>
+                <motion.div initial={{ height: 0 }} whileInView={{ height: "8%" }} viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ width: "100%", maxWidth: 110, borderRadius: "8px 8px 4px 4px", background: `linear-gradient(180deg,${GOLD},#b8860b)`, boxShadow: `0 0 24px ${GOLD}44`, minHeight: 18 }} />
+                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", textAlign: "center" }}>AAPA<br />каждый день</span>
+              </div>
+            </div>
+            <div style={{ marginTop: 24, textAlign: "center", background: "rgba(212,175,55,0.08)", border: `1px solid ${GOLD}45`, borderRadius: 14, padding: "14px 18px" }}>
+              <span style={{ fontSize: 15.5, fontWeight: 800, color: GOLD }}>В 20 раз дешевле</span>
+              <span style={{ fontSize: 13.5, color: "rgba(255,255,255,0.55)" }}> — и занятия не 2 раза в неделю, а каждый день</span>
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </Section>
+  );
+}
+
+// ── «Безопасно и легально»: блок доверия перед футером ────────────────────────
+function ParentTrustSection() {
+  const items = [
+    ["🛡️", "Детский контент", "Соответствует требованиям к контенту для детей. Возрастной рейтинг 5+."],
+    ["📚", "Школьная программа РК", "Задачи 5–11 класса по программе казахстанской школы."],
+    ["🔒", "Минимум данных", "Для работы нужны только имя и класс ребёнка. Никаких лишних персональных данных."],
+  ];
+  return (
+    <Section bg="rgba(255,255,255,0.018)">
+      <Reveal>
+        <div style={{ textAlign: "center", marginBottom: "clamp(32px,5vw,52px)" }}>
+          <Eyebrow color={GREEN}>Безопасно и легально</Eyebrow>
+          <H2 style={{ fontSize: "clamp(26px,4vw,40px)" }}>Платформа, которой можно доверять</H2>
+        </div>
+      </Reveal>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }} className="al-grid-3">
+        {items.map(([ic, t, s], i) => (
+          <Reveal key={t} i={i}>
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start", background: "rgba(52,211,153,0.05)", border: "1px solid rgba(52,211,153,0.25)", borderRadius: 18, padding: "22px 24px", height: "100%" }}>
+              <span style={{ fontSize: 30, flexShrink: 0 }}>{ic}</span>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16.5, color: "#fff", marginBottom: 5 }}>{t}</div>
+                <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>{s}</div>
+              </div>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  ЛЕНДИНГ ДЛЯ РОДИТЕЛЯ
 // ══════════════════════════════════════════════════════════════════════════════
 function ParentLanding({ onCta }) {
-  const safety = [
-    ["🚫🤖", "Без AI-чатов", "Никаких генеративных собеседников — только задачи по школьной программе."],
-    ["📵", "Без рекламы", "Ни баннеров, ни внешних ссылок, ни покупок внутри. Чистая среда обучения."],
-    ["🛡️", "Без незнакомцев", "Никакого открытого общения с посторонними. Закрытое безопасное пространство."],
-  ];
   const testimonials = [
     { quote: "За месяц увидела по отчёту, что у сына проседают дроби — раньше школа просто ставила тройку без объяснений.", name: "Айгерим", role: "мама ученика 6 класса", initial: "А" },
     { quote: "Дешевле одного часа репетитора, а ребёнок занимается каждый день сам. Для меня это главный аргумент.", name: "Дмитрий", role: "отец ученицы 8 класса", initial: "Д" },
@@ -451,10 +861,13 @@ function ParentLanding({ onCta }) {
   ];
   const perks = ["Адаптивная диагностика", "1600 задач 5–11 класса", "Теория к каждому навыку", "Прогресс по 307 навыкам", "Еженедельный отчёт", "Безопасная среда без чатов"];
   const faqs = [
-    { q: "Это замена репетитору?", a: "Для большинства тем — да. Система находит пробелы точнее, чем репетитор за первые занятия, и ребёнок тренируется столько, сколько нужно. Для форсированной подготовки к экзамену можно сочетать." },
-    { q: "Ребёнок не будет просто играть?", a: "Геймификация — это обёртка над реальными задачами по школьной программе. Награды даются за решённые навыки, а не за «время в приложении». Прогресс вы видите в отчёте." },
-    { q: "С какого класса подходит?", a: "5–11 класс, по школьной программе Казахстана. Система сама определяет уровень ребёнка через диагностику и подбирает задачи." },
-    { q: "Что если не понравится?", a: "Первая диагностика и старт — бесплатно. Подписка 2000 ₸/мес, отменить можно в любой момент. Без скрытых платежей." },
+    { icon: "💰", defaultOpen: true, q: "Это замена репетитору?", a: "Для большинства тем — да. Система находит пробелы точнее, чем репетитор за первые занятия, и ребёнок тренируется столько, сколько нужно. Для форсированной подготовки к экзамену можно сочетать." },
+    { icon: "🎮", q: "Ребёнок не будет просто играть?", a: "Геймификация — это обёртка над реальными задачами по школьной программе. Награды даются за решённые навыки, а не за «время в приложении». Прогресс вы видите в отчёте." },
+    { icon: "⏱️", q: "Сколько времени в день нужно?", a: "15–20 минут в день достаточно. План разбит на короткие шаги: ребёнок решает несколько задач, закрывает этап навыка и видит прогресс. Регулярность важнее длительности — за это отвечает серия дней и ежедневные задания." },
+    { icon: "😕", q: "А если ребёнок не любит математику?", a: "Чаще всего «не любит» = «не получается». Диагностика находит пробел, из-за которого всё валится, и план начинает именно с него. Когда начинает получаться, появляются награды и видимый прогресс — отношение меняется." },
+    { icon: "🎓", q: "С какого класса подходит?", a: "5–11 класс, по школьной программе Казахстана. Система сама определяет уровень ребёнка через диагностику и подбирает задачи." },
+    { icon: "👧👦", q: "Можно ли подключить нескольких детей?", a: "Да — у каждого ребёнка свой аккаунт со своей диагностикой, планом и прогрессом. Подписка оформляется на каждый аккаунт отдельно." },
+    { icon: "🤔", q: "Что если не понравится?", a: "Первая диагностика и старт — бесплатно. Подписка 2000 ₸/мес, отменить можно в любой момент. Без скрытых платежей." },
   ];
   return (
     <>
@@ -475,7 +888,8 @@ function ParentLanding({ onCta }) {
             </div>
             <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 16 }}>Первая диагностика бесплатно · Без банковской карты</p>
           </Reveal>
-          <VideoFrame src={diagnosticVid} label="🔬 Умная диагностика" />
+          {/* Композиция «вы видите → ребёнок учится» вместо вечно грузящегося видео */}
+          <ParentHeroVisual />
         </div>
       </Section>
 
@@ -483,8 +897,17 @@ function ParentLanding({ onCta }) {
 
       <HowItWorks accent={GOLD} />
 
-      {/* ЧТО ВНУТРИ */}
-      <Section bg="rgba(255,255,255,0.018)">
+      {/* ЧТО УВИДИТЕ ВЫ — еженедельный отчёт */}
+      <ParentReportSection />
+
+      {/* БЕЗОПАСНО ДЛЯ РЕБЁНКА — большие карточки с реальным контентом */}
+      <ParentSafetySection />
+
+      {/* ЧТО УВИДИТ РЕБЁНОК — игровая сторона глазами родителя */}
+      <ParentChildSideSection />
+
+      {/* ЧТО ВНУТРИ — слайды с разными ситуациями использования */}
+      <Section>
         <Reveal>
           <div style={{ textAlign: "center", marginBottom: "clamp(40px,6vw,64px)" }}>
             <Eyebrow>Что внутри</Eyebrow>
@@ -492,33 +915,13 @@ function ParentLanding({ onCta }) {
             <Lead style={{ maxWidth: 560, margin: "0 auto" }}>Реальные экраны платформы — то, что увидите вы и ваш ребёнок.</Lead>
           </div>
         </Reveal>
-        <VideoCarousel accent={GOLD} />
-      </Section>
-
-      {/* БЕЗОПАСНО ДЛЯ РЕБЁНКА */}
-      <Section>
-        <Reveal>
-          <div style={{ textAlign: "center", marginBottom: "clamp(40px,6vw,64px)" }}>
-            <Eyebrow color="#34d399">Безопасно для ребёнка</Eyebrow>
-            <H2>Спокойно даёте планшет</H2>
-          </div>
-        </Reveal>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24 }} className="al-grid-3">
-          {safety.map(([icon, t, s], i) => (
-            <Reveal key={t} i={i}>
-              <div className="al-card" style={{ height: "100%", textAlign: "center", padding: "40px 30px" }}>
-                <div style={{ fontSize: 44, marginBottom: 18 }}>{icon}</div>
-                <div style={{ fontWeight: 800, fontSize: 24, color: "#fff", marginBottom: 12, letterSpacing: "-0.5px" }}>{t}</div>
-                <div style={{ fontSize: 15, color: "rgba(255,255,255,0.55)", lineHeight: 1.65 }}>{s}</div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
+        <ParentShowcaseCarousel />
       </Section>
 
       <Testimonials items={testimonials} accent={GOLD} />
 
-      <PriceSection onCta={onCta} accent={GOLD} perks={perks} ctaText="Дайте ребёнку попробовать →" />
+      {/* ЦЕНА В КОНТЕКСТЕ — сравнение с репетитором */}
+      <ParentPriceSection onCta={onCta} perks={perks} />
 
       {/* FAQ */}
       <Section narrow>
@@ -532,6 +935,9 @@ function ParentLanding({ onCta }) {
           {faqs.map((f, i) => <FaqItem key={i} {...f} delay={i} accent={GOLD} />)}
         </div>
       </Section>
+
+      {/* БЕЗОПАСНО И ЛЕГАЛЬНО — блок доверия перед футером */}
+      <ParentTrustSection />
     </>
   );
 }
@@ -809,15 +1215,19 @@ function ShipSection() {
   );
 }
 
-// ── «На любом устройстве»: CSS-фреймы ноутбука / планшета / телефона ──────────
-function DeviceFrame({ kind, img, label }) {
+// ── CSS-фреймы устройств: ноутбук / планшет / телефон. Контент — либо img,
+//    либо произвольные children (мокапы вроде отчёта родителя) ─────────────────
+function DeviceFrame({ kind, img, label, children }) {
   const screen = { width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block", background: "#0c1020" };
+  const content = children
+    ? <div style={{ width: "100%", height: "100%", overflow: "hidden", background: "#0c1020" }}>{children}</div>
+    : <img src={img} alt={label} loading="lazy" style={screen} />;
   if (kind === "laptop") {
     return (
       <div>
         <div style={{ border: "10px solid #181c2c", borderBottomWidth: 18, borderRadius: "14px 14px 4px 4px", overflow: "hidden",
           aspectRatio: "16 / 10", boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}>
-          <img src={img} alt={label} loading="lazy" style={screen} />
+          {content}
         </div>
         <div style={{ height: 13, width: "112%", margin: "0 -6%", borderRadius: "0 0 14px 14px",
           background: "linear-gradient(#2a3046,#161a28)", boxShadow: "0 10px 24px rgba(0,0,0,0.45)" }} />
@@ -827,14 +1237,14 @@ function DeviceFrame({ kind, img, label }) {
   if (kind === "tablet") {
     return (
       <div style={{ border: "12px solid #181c2c", borderRadius: 26, overflow: "hidden", aspectRatio: "3 / 4", boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}>
-        <img src={img} alt={label} loading="lazy" style={screen} />
+        {content}
       </div>
     );
   }
   return (
-    <div style={{ border: "9px solid #181c2c", borderRadius: 32, overflow: "hidden", aspectRatio: "9 / 19", position: "relative", boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}>
+    <div style={{ border: "9px solid #181c2c", borderRadius: 32, overflow: "hidden", aspectRatio: "9 / 19", position: "relative", boxShadow: "0 24px 60px rgba(0,0,0,0.5)", background: "#0c1020" }}>
       <div style={{ position: "absolute", top: 7, left: "50%", transform: "translateX(-50%)", width: 64, height: 14, borderRadius: 99, background: "#181c2c", zIndex: 2 }} />
-      <img src={img} alt={label} loading="lazy" style={screen} />
+      {content}
     </div>
   );
 }
@@ -964,9 +1374,9 @@ function StudentLanding({ onCta }) {
   );
 }
 
-// ── FAQ-айтем (раскрывающийся, крупнее) ────────────────────────────────────────
-function FaqItem({ q, a, delay = 0, accent = GOLD }) {
-  const [open, setOpen] = useState(false);
+// ── FAQ-айтем (раскрывающийся, крупнее; опц. иконка и открыт по умолчанию) ─────
+function FaqItem({ q, a, delay = 0, accent = GOLD, icon, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <Reveal i={delay}>
       <div className="al-card" style={{ padding: 0, overflow: "hidden" }}>
@@ -974,7 +1384,7 @@ function FaqItem({ q, a, delay = 0, accent = GOLD }) {
           style={{ width: "100%", textAlign: "left", background: "transparent", border: "none", cursor: "pointer",
             padding: "22px 26px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14,
             color: "#fff", fontWeight: 700, fontSize: 17, fontFamily: "'Inter',sans-serif", letterSpacing: "-0.2px" }}>
-          {q}
+          <span>{icon && <span style={{ marginRight: 12 }}>{icon}</span>}{q}</span>
           <motion.span animate={{ rotate: open ? 45 : 0 }} style={{ color: accent, fontSize: 24, flexShrink: 0, lineHeight: 1 }}>+</motion.span>
         </button>
         <AnimatePresence initial={false}>
