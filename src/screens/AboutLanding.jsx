@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from "../components/ui/Logo.jsx";
 
@@ -182,24 +182,135 @@ function HowItWorks({ accent = GOLD }) {
   );
 }
 
-// ── карточка фичи с видео-демо (hover приподнимается) ──────────────────────────
-function FeatureCard({ video, title, desc, accent = GOLD, i = 0 }) {
+// ── слайды карусели «Что внутри / Геймификация» (общие для обеих ролей) ─────────
+const CAROUSEL = [
+  { video: diagnosticVid, t: "Умная диагностика", s: "Каждый ученик решает разные вопросы — мы определяем слабые места за 15 минут." },
+  { video: progressVid, t: "Прогресс по навыкам", s: "Каждый из 307 навыков отслеживается отдельно — видно, что освоено, а что в процессе." },
+  { video: skillMapVid, t: "Карта обучения", s: "Учебный материал по школьной программе, а не хаотическая выдача задач." },
+  { video: leaderboardVid, t: "Мотивация без принуждения", s: "Лиги и рейтинги поддерживают мотивацию — ребёнок сам хочет заниматься." },
+];
+
+// ── горизонтальная карусель видео-демо ─────────────────────────────────────────
+// Центральное видео крупно (телефон 9:16), соседи ghosted по бокам. Играет только
+// центральное (остальные на паузе) — решает «неровно играют одновременно».
+// Автопрокрутка 6с с паузой на hover, клик по соседу/точке, стрелки, свайп.
+function VideoCarousel({ accent = GOLD }) {
+  const slides = CAROUSEL;
+  const n = slides.length;
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [W, setW] = useState(860);
+  const stageRef = useRef(null);
+  const videoRefs = useRef([]);
+
+  // измеряем ширину сцены → считаем размеры в px (без скачков лейаута)
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    setW(el.clientWidth);
+    const ro = new ResizeObserver((entries) => { for (const e of entries) setW(e.contentRect.width); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const mobile = W < 768;
+  const centerH = mobile ? Math.min(Math.round((W * 0.78 * 16) / 9), 500) : 520;
+  const centerW = Math.round((centerH * 9) / 16);
+  const offset = mobile ? Math.round(W * 0.9) : Math.round(centerW * 0.92 + 30);
+  const neighborOpacity = mobile ? 0.22 : 0.4;
+
+  const go = useCallback((dir) => setIndex((i) => (i + dir + n) % n), [n]);
+  const goTo = useCallback((i) => setIndex(((i % n) + n) % n), [n]);
+
+  // автопрокрутка (пауза на hover/драг)
+  useEffect(() => {
+    if (paused) return;
+    const id = setTimeout(() => setIndex((i) => (i + 1) % n), 6000);
+    return () => clearTimeout(id);
+  }, [index, paused, n]);
+
+  // только центральное видео играет, при переключении — с начала
+  useEffect(() => {
+    videoRefs.current.forEach((v, i) => {
+      if (!v) return;
+      if (i === index) { try { v.currentTime = 0; const p = v.play(); if (p) p.catch(() => {}); } catch {} }
+      else { try { v.pause(); } catch {} }
+    });
+  }, [index]);
+
+  const cur = slides[index];
+
   return (
-    <motion.div
-      variants={fadeUp} custom={i} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-50px" }}
-      whileHover={{ y: -8, transition: { duration: 0.25 } }}
-      className="al-card al-feature" style={{ padding: 0, overflow: "hidden", height: "100%", display: "flex", flexDirection: "column" }}>
-      <div style={{ position: "relative", height: 420, display: "flex", alignItems: "center", justifyContent: "center",
-        borderBottom: `1px solid rgba(255,255,255,0.06)`, background: `radial-gradient(circle at 50% 28%, ${accent}16, transparent 70%)` }}>
-        <video src={video} autoPlay muted loop playsInline preload="metadata"
-          style={{ height: "88%", width: "auto", maxWidth: "78%", objectFit: "contain", borderRadius: 18,
-            boxShadow: `0 22px 50px rgba(0,0,0,0.55), 0 0 0 1px ${accent}33`, background: "#0a0e1a" }} />
+    <div>
+      {/* сцена со стрелками */}
+      <div style={{ position: "relative" }}
+        onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+        <div ref={stageRef} style={{ position: "relative", height: centerH, overflow: "hidden" }}>
+          {slides.map((s, i) => {
+            const rel = (i - index + n) % n; // 0 центр, 1 справа, n-1 слева, иначе скрыт
+            const isCenter = rel === 0;
+            const isRight = rel === 1;
+            const isLeft = rel === n - 1;
+            const visible = isCenter || isRight || isLeft;
+            const x = isCenter ? 0 : isRight ? offset : isLeft ? -offset : 0;
+            const scale = isCenter ? 1 : 0.85;
+            const opacity = isCenter ? 1 : visible ? neighborOpacity : 0;
+            const z = isCenter ? 3 : visible ? 2 : 0;
+            return (
+              <motion.div key={i}
+                animate={{ x, scale, opacity }}
+                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                style={{ position: "absolute", top: 0, left: "50%", width: centerW, height: centerH,
+                  marginLeft: -centerW / 2, zIndex: z, pointerEvents: visible ? "auto" : "none" }}>
+                <motion.div
+                  drag={isCenter ? "x" : false}
+                  dragConstraints={{ left: 0, right: 0 }} dragElastic={0.16}
+                  onDragStart={() => setPaused(true)}
+                  onDragEnd={(e, info) => { setPaused(false); if (info.offset.x < -60) go(1); else if (info.offset.x > 60) go(-1); }}
+                  onClick={() => { if (isRight) go(1); else if (isLeft) go(-1); }}
+                  style={{ width: "100%", height: "100%", borderRadius: 28, overflow: "hidden",
+                    border: `1px solid ${accent}${isCenter ? "55" : "33"}`, background: "#0a0e1a",
+                    cursor: isCenter ? "grab" : "pointer",
+                    boxShadow: isCenter ? `0 30px 80px rgba(0,0,0,0.55), 0 0 60px ${accent}22` : "0 16px 40px rgba(0,0,0,0.45)" }}>
+                  <video ref={(el) => (videoRefs.current[i] = el)} src={s.video} muted loop playsInline preload="metadata"
+                    style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+                  {isCenter && (
+                    <div style={{ position: "absolute", left: 14, bottom: 14, background: "rgba(7,11,22,0.8)", backdropFilter: "blur(8px)",
+                      border: `1px solid ${accent}55`, color: "#fff", fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 99 }}>
+                      {index + 1} / {n}
+                    </div>
+                  )}
+                </motion.div>
+              </motion.div>
+            );
+          })}
+        </div>
+        {/* стрелки */}
+        <button className="al-car-arrow" onClick={() => go(-1)} aria-label="Назад" style={{ left: 0 }}>‹</button>
+        <button className="al-car-arrow" onClick={() => go(1)} aria-label="Вперёд" style={{ right: 0 }}>›</button>
       </div>
-      <div style={{ padding: "26px 26px 30px" }}>
-        <div style={{ fontWeight: 800, fontSize: 20, color: "#fff", marginBottom: 8, letterSpacing: "-0.4px" }}>{title}</div>
-        <div style={{ fontSize: 14.5, color: "rgba(255,255,255,0.55)", lineHeight: 1.65 }}>{desc}</div>
+
+      {/* точки-индикаторы */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 28 }}>
+        {slides.map((_, i) => (
+          <button key={i} onClick={() => goTo(i)} aria-label={`Слайд ${i + 1}`}
+            style={{ width: i === index ? 30 : 10, height: 10, borderRadius: 99, border: "none", cursor: "pointer", padding: 0,
+              background: i === index ? accent : "rgba(255,255,255,0.22)", transition: "width 0.35s ease, background 0.35s ease" }} />
+        ))}
       </div>
-    </motion.div>
+
+      {/* описание текущего слайда (fade при смене) */}
+      <div style={{ textAlign: "center", marginTop: 26, minHeight: 116, position: "relative" }}>
+        <AnimatePresence mode="wait">
+          <motion.div key={index}
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+            <div style={{ fontWeight: 800, fontSize: "clamp(22px,3vw,30px)", color: "#fff", marginBottom: 12, letterSpacing: "-0.6px" }}>{cur.t}</div>
+            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.6)", lineHeight: 1.65, maxWidth: 540, margin: "0 auto" }}>{cur.s}</p>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }
 
@@ -268,12 +379,6 @@ function PriceSection({ onCta, accent = GOLD, perks, ctaText }) {
 //  ЛЕНДИНГ ДЛЯ РОДИТЕЛЯ
 // ══════════════════════════════════════════════════════════════════════════════
 function ParentLanding({ onCta }) {
-  const features = [
-    { video: diagnosticVid, t: "Умная диагностика", s: "Находит конкретные пробелы ребёнка точнее, чем репетитор за первые занятия." },
-    { video: progressVid, t: "Прогресс по навыкам", s: "Каждый из 307 навыков отслеживается отдельно — видно, что освоено, а что в красной зоне." },
-    { video: skillMapVid, t: "Карта обучения", s: "Ребёнок движется по понятному маршруту, а не по случайным задачам из учебника." },
-    { video: leaderboardVid, t: "Мотивация без принуждения", s: "Лиги и рейтинг подстёгивают заниматься — ребёнок сам хочет заходить." },
-  ];
   const safety = [
     ["🚫🤖", "Без AI-чатов", "Никаких генеративных собеседников — только задачи по школьной программе."],
     ["📵", "Без рекламы", "Ни баннеров, ни внешних ссылок, ни покупок внутри. Чистая среда обучения."],
@@ -327,9 +432,7 @@ function ParentLanding({ onCta }) {
             <Lead style={{ maxWidth: 560, margin: "0 auto" }}>Реальные экраны платформы — то, что увидите вы и ваш ребёнок.</Lead>
           </div>
         </Reveal>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 24 }} className="al-grid-2">
-          {features.map((f, i) => <FeatureCard key={f.t} video={f.video} title={f.t} desc={f.s} accent={GOLD} i={i % 2} />)}
-        </div>
+        <VideoCarousel accent={GOLD} />
       </Section>
 
       {/* БЕЗОПАСНО ДЛЯ РЕБЁНКА */}
@@ -377,12 +480,6 @@ function ParentLanding({ onCta }) {
 //  ЛЕНДИНГ ДЛЯ УЧЕНИКА
 // ══════════════════════════════════════════════════════════════════════════════
 function StudentLanding({ onCta }) {
-  const game = [
-    { video: skillMapVid, t: "Карта мира", s: "Изучай навыки в своём порядке — открывай новые планеты на живой карте." },
-    { video: progressVid, t: "Кристаллы и ачивки", s: "Награды за каждый освоенный навык и серию дней подряд." },
-    { video: leaderboardVid, t: "Лидерборд", s: "Соревнуйся с друзьями по лигам и областям. Подиум топ-3 недели." },
-    { video: diagnosticVid, t: "Streak и диагностика", s: "Держи серию дней и узнавай свой уровень — система строит точный маршрут." },
-  ];
   const testimonials = [
     { quote: "Раньше математику ненавидел. Теперь захожу ради streak'а и чтобы обогнать друга в лиге. Реально затягивает.", name: "Арман", role: "ученик 7 класса", initial: "А" },
     { quote: "Карта как в игре — видно, какие планеты-навыки ещё закрыты. Хочется открыть все.", name: "Аружан", role: "ученица 6 класса", initial: "А" },
@@ -431,9 +528,7 @@ function StudentLanding({ onCta }) {
             <Lead style={{ maxWidth: 560, margin: "0 auto" }}>Реальные экраны игры — карта, кристаллы, рейтинг и серия дней.</Lead>
           </div>
         </Reveal>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 24 }} className="al-grid-2">
-          {game.map((f, i) => <FeatureCard key={f.t} video={f.video} title={f.t} desc={f.s} accent={PURPLE} i={i % 2} />)}
-        </div>
+        <VideoCarousel accent={PURPLE} />
       </Section>
 
       <Testimonials items={testimonials} accent={PURPLE} />
@@ -510,7 +605,8 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
         .al-btn-ghost:hover{background:rgba(255,255,255,.07);}
         .al-card{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09);border-radius:22px;padding:28px 26px;transition:border-color .25s,box-shadow .25s;}
         .al-card:hover{border-color:rgba(255,255,255,.18);}
-        .al-feature:hover{border-color:rgba(255,255,255,.22);box-shadow:0 24px 60px rgba(0,0,0,.45);}
+        .al-car-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:5;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(10,10,20,.7);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:26px;line-height:1;cursor:pointer;transition:background .2s,border-color .2s,transform .2s;font-family:'Inter',sans-serif;}
+        .al-car-arrow:hover{background:rgba(10,10,20,.92);border-color:rgba(255,255,255,.4);transform:translateY(-50%) scale(1.08);}
         .al-nav{position:sticky;top:0;z-index:100;background:rgba(10,10,20,.82);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.07);padding:0 32px;min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
         @media(max-width:880px){
           .al-grid-2,.al-grid-3,.al-grid-4{grid-template-columns:1fr!important;}
