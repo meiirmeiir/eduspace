@@ -26,13 +26,16 @@ const FF = 'C:\\Users\\hp\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFm
 for (const d of [USER_DATA, RAW, OUT]) mkdirSync(d, { recursive: true });
 
 const STUDENT_UID = 'bsZhaekYhxODSY9Xanxvh3WutIQ2';
-const INIT = `() => { try {
+// ВАЖНО: строка-IIFE, не стрелочная функция. Playwright строку в addInitScript/
+// evaluate выполняет «как есть»: выражение `() => {}` вычисляется в функцию,
+// но НЕ вызывается — из-за этого тема/NPC-флаги раньше не применялись.
+const INIT = `(() => { try {
   localStorage.setItem('theme','dark');
   document.documentElement.setAttribute('data-theme','dark'); // main.jsx иногда не успевает подхватить ls → ставим атрибут явно
   var seen = {dashboard:true,plan:true,tasks:true,daily:true,leaderboard:true,rating:true,theory:true,profile:true,diagnostic:true,diagnostics:true,shop:true,map:true,homework:true,practice:true};
   localStorage.setItem('aapa_npc_seen_tours_${STUDENT_UID}', JSON.stringify(seen));
   localStorage.setItem('aapa_npc_greeted_${STUDENT_UID}', '1');
-} catch(e){} }`;
+} catch(e){} })()`;
 const sleep = (ms) => new Promise((f) => setTimeout(f, ms));
 
 async function launch(record) {
@@ -68,6 +71,9 @@ async function doLogin() {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await sleep(2500);
   if (await isLoggedIn(page)) { console.log('уже залогинен'); await ctx.close(); return; }
+  // новый лендинг (2df5b18+): форма логина открывается кнопкой «Войти» в шапке
+  const loginBtn = page.getByRole('button', { name: /^Войти$/ }).first();
+  if (await loginBtn.isVisible().catch(() => false)) { await loginBtn.click().catch(() => {}); await sleep(1500); }
   // логин-форма: поля по позиции (0=email, 1=пароль) — устойчивее к лейблам
   const boxes = page.getByRole('textbox');
   await boxes.nth(0).click(); await boxes.nth(0).fill(STUDENT.email);
@@ -86,6 +92,7 @@ function nav(page, name) { return page.getByRole('button', { name }).first().cli
 const CLIPS = {
   'leaderboard': { sec: 15, fn: async (page) => {
     await nav(page, /🏆 Рейтинг|Рейтинг/); await sleep(3500);
+    await dismissTour(page); // НПС-гид рейтинга вылезает после перехода
     // плавная прокрутка подиума/таблицы
     for (let y = 0; y < 4; y++) { await page.mouse.wheel(0, 220); await sleep(1200); }
     await page.mouse.wheel(0, -880); await sleep(2000);
@@ -166,6 +173,12 @@ async function recordClip(name) {
   for (let i = 0; i < 12; i++) { await sleep(1000); if (await isLoggedIn(page)) { logged = true; break; } }
   await dismissTour(page);
   if (!logged) { console.log('⚠️ не залогинен — запусти `login`'); await ctx.close(); return; }
+  // страховка: addInitScript на persistent-контексте иногда не отрабатывает
+  // (light-тема и НПС в записи) → ставим тему/seen-флаги явно и перезагружаем.
+  await page.evaluate(INIT);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await sleep(3000);
+  await dismissTour(page);
   await sleep(800);
   await spec.fn(page);
   await sleep(800);
