@@ -21,8 +21,12 @@
   --radius-lg: 16px;  /* sections, big modals, hero cards */
 }
 
-/* Prevent horizontal scroll on the whole document (BUG-6) */
-html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-box; }
+/* Prevent horizontal scroll on the whole document (BUG-6).
+   margin:0 — браузерный default body{margin:8px} давал белые полосы по
+   краям на /landing/*: глобальный reset из App.jsx (<style>*{margin:0}…)
+   не рендерится на ранних return-ах (aboutRoute), поэтому сброс должен
+   жить здесь, в безусловно загружаемом index.css. */
+html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-box; margin:0; padding:0; }
 *, *::before, *::after { box-sizing:border-box; }
 
 /* ──────────────────────────────────────────────────────────────

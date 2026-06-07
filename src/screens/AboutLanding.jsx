@@ -1411,6 +1411,14 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
 
   useEffect(() => { setRoleCookie(role); }, []); // запомнить стартовую роль
 
+  // Тёмный фон на сам body: без него белый canvas просвечивает при
+  // overscroll/быстрой прокрутке и в недорисованных областях по краям.
+  useEffect(() => {
+    const prev = document.body.style.background;
+    document.body.style.background = BG;
+    return () => { document.body.style.background = prev; };
+  }, []);
+
   // Гостевые «Попробовать»-CTA ведут на демо-диагностику без регистрации;
   // явный вход в кабинет — только по «Войти» (onStart) в шапке.
   const cta = user ? onDashboard : (onDemo || onStart);
