@@ -292,7 +292,7 @@ function ShipSvg({ K, seen }) {
 function HoloBar({ pct, K }) {
   return (
     <div style={{ position: 'relative', marginTop: 18, padding: '0 6px' }}>
-      <div style={{ position: 'relative', height: 12, borderRadius: 99, background: 'rgba(10,15,35,0.65)', overflow: 'hidden', border: '1px solid rgba(102,178,255,0.35)', boxShadow: 'inset 0 0 8px rgba(102,178,255,0.25)' }}>
+      <div style={{ position: 'relative', height: 16, borderRadius: 99, background: 'rgba(10,15,35,0.65)', overflow: 'hidden', border: '1px solid rgba(102,178,255,0.35)', boxShadow: 'inset 0 0 8px rgba(102,178,255,0.25)' }}>
         <div style={{ position: 'relative', height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #f5c518, #66b2ff)', borderRadius: 99, boxShadow: '0 0 10px rgba(102,178,255,0.7)', transition: 'width 0.5s ease', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, bottom: 0, width: '35%', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.65), transparent)', animation: 'holoSweep 2.2s linear infinite' }} />
         </div>
@@ -302,7 +302,7 @@ function HoloBar({ pct, K }) {
           const reached = i + 1 <= K;
           return (
             <span key={p.id} title={p.name} style={{
-              position: 'absolute', left: `${(i + 1) * 10}%`, top: 6, transform: 'translate(-50%,-50%) rotate(45deg)',
+              position: 'absolute', left: `${(i + 1) * 10}%`, top: 8, transform: 'translate(-50%,-50%) rotate(45deg)',
               width: 9, height: 9, boxSizing: 'border-box',
               border: `1.5px solid ${reached ? '#f5c518' : 'rgba(102,178,255,0.5)'}`,
               background: reached ? '#f5c518' : 'rgba(10,15,35,0.6)',
@@ -338,11 +338,11 @@ export default function ShipProgress({ mastered = 0, total = 0, ready = false, u
 
       <HoloBar pct={pct} K={K} />
 
-      <div style={{ marginTop: 14, fontSize: 13, color: THEME.textLight, fontWeight: 600, textAlign: 'center' }}>
+      <div style={{ marginTop: 14, fontSize: 15, color: THEME.text, fontWeight: 700, textAlign: 'center' }}>
         Освоено <b style={{ color: THEME.primary }}>{mastered}</b> из {total} навыков · собрано <b style={{ color: '#f5c518' }}>{K}</b> из 10 деталей
       </div>
       {K < 10
-        ? <div style={{ marginTop: 4, fontSize: 12, color: THEME.textLight, textAlign: 'center' }}>До следующей детали: ещё {nextPct}%</div>
+        ? <div style={{ marginTop: 5, fontSize: 13.5, fontWeight: 600, color: THEME.text, textAlign: 'center', opacity: 0.85 }}>До следующей детали: ещё {nextPct}%</div>
         : <div style={{ marginTop: 6, fontSize: 14, fontWeight: 800, color: '#f5c518', textAlign: 'center', textShadow: '0 0 12px rgba(245,197,24,0.6)' }}>🚀 Корабль собран! Ты освоил весь план</div>}
     </div>
   );

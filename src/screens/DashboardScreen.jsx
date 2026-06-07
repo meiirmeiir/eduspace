@@ -19,7 +19,7 @@ import NewUserDashboard from "../components/dashboard/NewUserDashboard.jsx";
 import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
-import { getShopItem } from "../lib/shopItems.js";
+import { getDashboardMock } from "../lib/mockDashboardData.js";
 
 // Простая русская плюрализация: pluralize(2, ['день','дня','дней']) → 'дня'
 function pluralize(n, [one, few, many]) {
@@ -31,10 +31,17 @@ function pluralize(n, [one, few, many]) {
   return many;
 }
 
-export default function DashboardScreen({ user, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onOpenFriends, onOpenShop, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
+export default function DashboardScreen({ user: userProp, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onOpenFriends, onOpenShop, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus: masteryStatusProp = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
+  // ── DEBUG: ?dashboard_debug=new|beginner|active|advanced → мок-данные ──
+  // ВРЕМЕННЫЙ инструмент (см. lib/mockDashboardData.js). Единственная точка
+  // подмены: user и masteryStatus здесь; rankInfo/planSkills/progressData —
+  // ранние return-ы в их загрузчиках ниже; квесты — prop mockQuests.
+  const debugMock = useMemo(() => getDashboardMock(), []);
+  const user = debugMock ? { ...userProp, ...debugMock.user } : userProp;
+  const masteryStatus = debugMock ? debugMock.masteryStatus : masteryStatusProp;
   const { startTourIfNew, showNpcMessage } = useNpc();
   const { profile } = useAuth();
-  const { theme: THEME, shopTheme } = useTheme();
+  const { theme: THEME } = useTheme();
   /* If App passes activeSection/setActiveSection — use them (allows
      external navigation, e.g. mobile bottom-nav). Otherwise fall back
      to local state for backwards compatibility. */
@@ -72,6 +79,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
 
   useEffect(()=>{
     let cancelled=false;
+    if(debugMock){ setRankInfo(debugMock.rankInfo); return; } // DEBUG-мок
     const uid=user?.uid||user?.id;
     if(!uid){ setRankInfo(null); return; }
     getMyWeeklyRank(uid, user?.details, user?.region).then(r=>{ if(!cancelled) setRankInfo(r); }).catch(()=>{});
@@ -125,6 +133,13 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   const [newLessonError,setNewLessonError]=useState('');
 
   const loadDashData = async ()=>{
+    if (debugMock) { // DEBUG-мок: без походов в Firestore
+      setPlanSkills(debugMock.planSkills);
+      setProgressData(debugMock.progressData);
+      setSchedule([]); setHomework([]); setZoomLessons([]); setHwSubmissions([]);
+      setLoadingData(false);
+      return;
+    }
     if (!firebaseUser) return;
     // Use firebaseUser.uid — always reliable (user.uid may be absent if Firestore doc lacks uid field)
     const uid = firebaseUser.uid;
@@ -391,26 +406,14 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
   // (внизу сайдбара) и аватару в мобильном топбаре.
   const openProfile=()=>{ setSidebarOpen(false); setActiveSection("profile"); };
 
-  // Кастомный фон из магазина (equipped.background) — wallpaper-эффект
-  // на весь дашборд. Слой кладётся в root-stack (position:fixed, z-1)
-  // и для просвечивания .dashboard-layout помечается классом .has-bg
-  // (CSS-правила в index.css делают карточки/сайдбар полупрозрачными
-  // и сам layout — transparent).
-  const equippedBg = user?.equipped?.background ? getShopItem(user.equipped.background) : null;
+  // Кастомный фон из магазина (equipped.background) больше НЕ применяется к
+  // дашборду как wallpaper: он делал «Что делать сегодня», приветствие и
+  // XP-бар нечитаемыми. Фон живёт только в личном кабинете (карточка героя,
+  // см. ProfileSection) и на экране рейтинга.
 
   return(
     <>
-    {equippedBg && (
-      <div aria-hidden="true" style={{
-        position:'fixed', inset:0, zIndex:-1,
-        backgroundImage:`url(${equippedBg.file})`,
-        backgroundSize:'cover', backgroundPosition:'center',
-        // sakura — светлая тема, тёмный wallpaper заглушает розовое UI.
-        // Снижаем opacity до 0.25, чтобы текст карточек оставался читаемым.
-        opacity: shopTheme === 'sakura' ? 0.25 : 0.5, pointerEvents:'none',
-      }}/>
-    )}
-    <div className={`dashboard-layout${equippedBg ? ' has-bg' : ''}`}>
+    <div className="dashboard-layout">
       {sidebarOpen&&<div className="sidebar-overlay" onClick={()=>setSidebarOpen(false)}/>}
       <div className={`sidebar-backdrop ${sidebarOpen?"visible":""}`} onClick={()=>setSidebarOpen(false)}/>
       <aside className={`dashboard-sidebar ${sidebarOpen?"open":""}`}>
@@ -739,15 +742,16 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                     </div>
                   )}
 
-                  {/* CTA */}
+                  {/* CTA — фиксированный золотой стиль: цвет лиги (accent) на
+                      Серебре/Алмазе сливался с тёмным фоном виджета */}
                   <button onClick={()=>onOpenLeaderboard?.()} style={{
-                    background:'transparent',color:accent,
-                    border:`1px solid ${accent}66`,borderRadius:10,
+                    background:'transparent',color:'#fbbf24',
+                    border:'1.5px solid #fbbf24',borderRadius:10,
                     padding:'9px 18px',fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,cursor:'pointer',
                     transition:'all 0.2s',
                   }}
-                    onMouseEnter={e=>{ e.currentTarget.style.background = `${accent}1a`; e.currentTarget.style.borderColor = accent; }}
-                    onMouseLeave={e=>{ e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = `${accent}66`; }}
+                    onMouseEnter={e=>{ e.currentTarget.style.background = 'rgba(251,191,36,0.14)'; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.background = 'transparent'; }}
                   >Посмотреть рейтинг →</button>
                 </div>
               );
@@ -770,7 +774,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
             <div className="pg-col">
 
             {/* Задания дня/недели (на этапе 2 недельные скрыты до 1-го дневного) */}
-            <QuestsWidget user={user} onUpdateUser={onUpdateUser} starterGate={stage==='starter'} />
+            <QuestsWidget user={user} onUpdateUser={onUpdateUser} starterGate={stage==='starter'} mockQuests={debugMock?.quests} />
 
             {/* ЭТАП 2: виральность — пригласи друга, пока втягиваешься */}
             {stage==='starter' && (
@@ -815,7 +819,10 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
 
             {stage==='active' && (
             <div className="stats-row" style={{marginBottom:14}}>
-              {!isSolo&&!isInactive&&<div className="stat-card"><div className="stat-icon">📚</div><div><div className="stat-value">{homework.filter(h=>new Date(h.dueDate+"T23:59:59")>=today).length}</div><div className="stat-label">активных ДЗ</div></div></div>}
+              {/* «0 активных ДЗ» — мёртвая карточка: показываем только когда
+                  ДЗ-функционал реально используется (есть хотя бы одно ДЗ).
+                  grid auto-fit растянет оставшиеся карточки на всю ширину. */}
+              {!isSolo&&!isInactive&&homework.length>0&&<div className="stat-card"><div className="stat-icon">📚</div><div><div className="stat-value">{homework.filter(h=>new Date(h.dueDate+"T23:59:59")>=today).length}</div><div className="stat-label">активных ДЗ</div></div></div>}
               {/* Освоено навыков — SVG-галочка «рисуется» при загрузке */}
               <div className="stat-card">
                 <span className="stat-icon-svg" aria-hidden="true">
@@ -851,13 +858,15 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
                   </div>
                 );
               })()}
-              <div className="stat-card"><div className="stat-icon">📖</div><div><div className="stat-value">{topicsGreen}</div><div className="stat-label">{pluralize(topicsGreen, ['тема изучена','темы изучено','тем изучено'])}</div></div></div>
+              {/* «0 тем изучено» — скрываем нулевую карточку */}
+              {topicsGreen>0&&<div className="stat-card"><div className="stat-icon">📖</div><div><div className="stat-value">{topicsGreen}</div><div className="stat-label">{pluralize(topicsGreen, ['тема изучена','темы изучено','тем изучено'])}</div></div></div>}
             </div>
             )}
 
-            {/* Schedule — на этапе starter пустой календарь скрыт совсем
-                (появится, когда учитель назначит занятия) */}
-            {showFull&&!isSolo&&!isInactive&&(stage==='active'||zoomLessons.length>0)&&(
+            {/* Schedule — пустой календарь скрыт у учеников НА ЛЮБОМ этапе
+                (появится, когда учитель назначит занятия). Учитель видит
+                всегда — ему нужна кнопка «+ Добавить». */}
+            {showFull&&!isSolo&&!isInactive&&(isTeacher||zoomLessons.length>0)&&(
             <div data-tour="next-lesson" className="dashboard-section" style={{marginBottom:18}}>
               <div className="section-title-row">
                 <h2 className="section-title">📅 Расписание занятий</h2>
@@ -911,8 +920,9 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
               </div>
             </div>
             )}
-            {/* Homework — на этапе starter без ДЗ блок скрыт совсем */}
-            {showFull&&!isSolo&&!isInactive&&(stage==='active'||homework.length>0)&&(
+            {/* Homework — пустой блок скрыт у учеников на любом этапе;
+                учитель видит всегда (кнопка «+ Добавить ДЗ») */}
+            {showFull&&!isSolo&&!isInactive&&(isTeacher||homework.length>0)&&(
             <div data-tour="homework" className="dashboard-section" style={{marginBottom:18}}>
               <div className="section-title-row"><h2 className="section-title">📚 Домашние задания</h2>{isTeacher&&<button className="add-btn" onClick={()=>setShowHwForm(true)}>+ Добавить ДЗ</button>}</div>
               {loadingData?<div className="empty-state">Загрузка...</div>:dataError?<ErrorCard onRetry={loadDashData}/>:homework.length===0?<div className="empty-state">{isTeacher?"Нажмите «+ Добавить ДЗ».":"Домашних заданий пока нет."}</div>:(

@@ -8,7 +8,11 @@ export default function XpBar({ xp = 0, large = false, style, help }) {
   const info = getLevelInfo(xp);
   const pct = Math.round(info.progress * 100);
   const fs = large ? 15 : 12;
-  const barH = large ? 16 : 8;
+  const barH = large ? 16 : 12;
+  // На высоких уровнях (напр. 2000/12000 XP) заливка в пару процентов почти
+  // невидима и читается как «нулевой прогресс» — держим минимум 3.5%, когда
+  // прогресс внутри уровня ненулевой.
+  const fillWidth = info.currentLevelXp > 0 ? `max(${pct}%, 3.5%)` : '0%';
   return (
     <div style={{ width: '100%', ...style }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: large ? 6 : 4, fontSize: fs }}>
@@ -21,7 +25,7 @@ export default function XpBar({ xp = 0, large = false, style, help }) {
       </div>
       <div style={{ height: barH, borderRadius: 99, background: 'rgba(148,163,184,0.25)', overflow: 'hidden' }}>
         <div style={{
-          height: '100%', width: `${pct}%`,
+          height: '100%', width: fillWidth,
           background: `linear-gradient(90deg, ${info.tier.color}, ${info.tier.color}cc)`,
           borderRadius: 99, boxShadow: `0 0 ${large ? 12 : 8}px ${info.tier.color}80`,
           transition: 'width 0.6s cubic-bezier(0.4,0,0.2,1)',
