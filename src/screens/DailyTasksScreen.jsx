@@ -270,8 +270,15 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       const sessionAns = sessionAnswersRef.current;
       if (sessionAns.length) {
         const merged = [...(Array.isArray(data.recentAnswers) ? data.recentAnswers : []), ...sessionAns].slice(-50);
-        try { await updateDoc(userRef, { recentAnswers: merged }); }
-        catch (e) { console.error('recentAnswers update:', e); }
+        // activity — счётчик решённых задач по дням (YYYY-MM-DD → count) для
+        // GitHub-графика активности в профиле. Храним последние ~120 дней.
+        const activity = { ...(data.activity || {}) };
+        const todayKey = getAlmatyDateStr(0);
+        activity[todayKey] = (Number(activity[todayKey]) || 0) + sessionAns.length;
+        const cutoff = getAlmatyDateStr(-120);
+        for (const k of Object.keys(activity)) { if (k < cutoff) delete activity[k]; }
+        try { await updateDoc(userRef, { recentAnswers: merged, activity }); }
+        catch (e) { console.error('recentAnswers/activity update:', e); }
         sessionAnswersRef.current = [];
       }
       const today     = getAlmatyDateStr(0);

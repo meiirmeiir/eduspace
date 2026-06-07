@@ -999,7 +999,7 @@ export default function DashboardScreen({ user, firebaseUser, activeSection: act
         )}
 
         {activeSection==="profile"&&(
-          <ProfileSection user={user} statusObj={statusObj} onOpenDiagnostics={onOpenDiagnostics} onViewPlan={onViewPlan} onUpdateUser={onUpdateUser}/>
+          <ProfileSection user={user} statusObj={statusObj} onOpenDiagnostics={onOpenDiagnostics} onViewPlan={onViewPlan} onUpdateUser={onUpdateUser} onOpenShop={onOpenShop}/>
         )}
       </main>
 

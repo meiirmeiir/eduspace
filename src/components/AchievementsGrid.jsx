@@ -51,8 +51,12 @@ export default function AchievementsGrid({ uid, progress }) {
         <div className="section-title" style={{ fontFamily: "'Montserrat',sans-serif", fontSize: 15, fontWeight: 800, color: THEME.primary, margin: 0 }}>
           🏆 Достижения
         </div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: THEME.textLight }}>
-          Получено {earnedCount} из {ACHIEVEMENTS.length}
+        <div style={{
+          fontSize: 13, fontWeight: 800, color: '#fbbf24',
+          background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.35)',
+          borderRadius: 99, padding: '4px 14px',
+        }}>
+          ⭐ Получено {earnedCount} из {ACHIEVEMENTS.length}
         </div>
       </div>
 

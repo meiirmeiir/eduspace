@@ -8,7 +8,8 @@ import ChangePasswordInline from "./ChangePasswordInline.jsx";
 import ExpertReportView from "../screens/ExpertReportView.jsx";
 import ErrorCard from "./ui/ErrorCard.jsx";
 import Medal from "./Medal.jsx";
-import { getShopItem, FRAME_STYLES } from "../lib/shopItems.js";
+import { getShopItem, FRAME_STYLES, computePlayerHp, completedSet, EQUIPMENT_SETS } from "../lib/shopItems.js";
+import { getLevelInfo, LEVEL_TIERS } from "../lib/levelUtils.js";
 import LevelRing from "./LevelRing.jsx";
 import TierRing3D from "./TierRing3D.jsx";
 import CreatorRing from "./CreatorRing.jsx";
@@ -18,7 +19,72 @@ import XpBar from "./XpBar.jsx";
 import AchievementsGrid from "./AchievementsGrid.jsx";
 import InfoTooltip from "./InfoTooltip.jsx";
 
-export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser }) {
+// ── График активности (GitHub-style): user.activity = { 'YYYY-MM-DD': count } ──
+const ACT_WEEKS = 16; // колонок-недель в сетке
+function activityLast(map, days) {
+  // последние N дней: [{ key, count, date }]
+  const out = [];
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 86400000);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    out.push({ key, count: Number(map?.[key]) || 0, date: d });
+  }
+  return out;
+}
+function longestRun(map) {
+  // самый длинный стрик по истории activity (дни с count>0 подряд)
+  const days = activityLast(map, 120);
+  let best = 0, cur = 0;
+  for (const d of days) { cur = d.count > 0 ? cur + 1 : 0; if (cur > best) best = cur; }
+  return best;
+}
+
+function ActivityGraph({ activity, streak, THEME }) {
+  const days = activityLast(activity, ACT_WEEKS * 7);
+  // выравнивание на понедельник: добиваем пустыми клетками в начале
+  const firstDow = (days[0].date.getDay() + 6) % 7; // 0=пн
+  const cells = [...Array(firstDow).fill(null), ...days];
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  const colorFor = (c) => c === 0 ? 'rgba(148,163,184,0.18)'
+    : c <= 5 ? 'rgba(34,197,94,0.35)'
+    : c <= 15 ? 'rgba(34,197,94,0.65)'
+    : '#22c55e';
+  const longest = Math.max(longestRun(activity), Number(streak) || 0);
+  const total = days.reduce((s, d) => s + d.count, 0);
+  return (
+    <div className="dashboard-section" style={{ marginBottom: 24 }}>
+      <h2 className="section-title" style={{ marginBottom: 4 }}>📊 Твоя активность</h2>
+      <div style={{ fontSize: 12, color: THEME.textLight, marginBottom: 14 }}>
+        {total > 0 ? `${total} задач за последние ${ACT_WEEKS} недель` : 'Решай ежедневные задачи — здесь появится твоя карта активности'}
+      </div>
+      <div style={{ display: 'flex', gap: 3, overflowX: 'auto', paddingBottom: 6 }}>
+        {weeks.map((week, wi) => (
+          <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {week.map((d, di) => d === null
+              ? <span key={di} style={{ width: 13, height: 13 }}/>
+              : <span key={di}
+                  title={`${d.count} задач · ${d.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`}
+                  style={{ width: 13, height: 13, borderRadius: 3, background: colorFor(d.count), cursor: 'default' }}/>
+            )}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 10, fontSize: 12, color: THEME.textLight, flexWrap: 'wrap' }}>
+        <span>🔥 Стрик: <b style={{ color: '#f59e0b' }}>{Number(streak) || 0} дн</b></span>
+        <span>🏅 Самый длинный стрик: <b style={{ color: THEME.text }}>{longest} дн</b></span>
+        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          Меньше
+          {[0, 3, 10, 20].map(c => <span key={c} style={{ width: 11, height: 11, borderRadius: 3, background: colorFor(c) }}/>)}
+          Больше
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser, onOpenShop }) {
   const { firebaseUser } = useAuth();
   const { theme: THEME, dark, shopTheme } = useTheme();
   // Дарк-UI = либо системная dark тема, либо тёмная shop-тема (galaxy/matrix/fire).
@@ -122,12 +188,38 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
 
   if(viewingExpert) return <ExpertReportView report={viewingExpert} studentPhotos={viewingPhotos} onBack={()=>{setViewingExpert(null);setViewingPhotos([]);}}/>;
 
-  const totalDiag=results.length;
-  const totalSec=results.reduce((s,r)=>s+(r.totalTime||0),0);
-  const totalMin=Math.floor(totalSec/60);
-  const totalHr=Math.floor(totalMin/60);
-  const timeLabel=totalHr>0?`${totalHr} ч ${totalMin%60} мин`:`${totalMin} мин ${totalSec%60} сек`;
   const fmtTime=sec=>{const m=Math.floor(sec/60),s=sec%60;return m>0?`${m} мин ${s} с`:`${s} с`;};
+
+  // ── Мотивирующие статы ──────────────────────────────────────────────────
+  const activity = user?.activity || {};
+  // Решено задач: ежедневные (activity по дням) + вопросы диагностик
+  // activity начали записывать недавно — для старых аккаунтов нижняя оценка
+  // через recentAnswers (последние 50 реально решённых задач).
+  const ra = Array.isArray(user?.recentAnswers) ? user.recentAnswers : [];
+  const tasksDaily = Object.values(activity).reduce((s, v) => s + (Number(v) || 0), 0);
+  const tasksDiag  = results.reduce((s, r) => s + (Number(r.totalQuestions) || 0), 0);
+  const tasksTotal = Math.max(tasksDaily + tasksDiag, ra.length);
+  const accuracy = ra.length ? Math.round(ra.filter(Boolean).length / ra.length * 100) : null;
+  // Лучший день: максимум activity → день недели + количество
+  const bestDay = (() => {
+    let bestKey = null, bestCount = 0;
+    for (const [k, v] of Object.entries(activity)) {
+      const n = Number(v) || 0;
+      if (n > bestCount) { bestCount = n; bestKey = k; }
+    }
+    if (!bestKey) return null;
+    const d = new Date(bestKey + 'T12:00:00');
+    return { day: d.toLocaleDateString('ru-RU', { weekday: 'short' }), count: bestCount };
+  })();
+  // Герой: HP, надетый сет, собранные сеты
+  const heroHp = computePlayerHp(user?.equipped);
+  const heroSetId = completedSet(user?.equipped);
+  const inventoryArr = Array.isArray(user?.inventory) ? user.inventory : [];
+  const ownedSets = Object.entries(EQUIPMENT_SETS).filter(([, s]) => s.items.every(id => inventoryArr.includes(id)));
+  const equippedItems = ['helmet','top','bottom','boots'].map(s => getShopItem(user?.equipped?.[s])).filter(Boolean);
+  // Следующий тир уровня — долгосрочная цель под XP-баром
+  const levelInfo = getLevelInfo(user?.xp ?? 0);
+  const nextTier = LEVEL_TIERS[LEVEL_TIERS.findIndex(t => t.tier === levelInfo.tier.tier) + 1] || null;
 
   const equippedBg    = user?.equipped?.background ? getShopItem(user.equipped.background) : null;
   const frameStyle    = user?.equipped?.frame ? (FRAME_STYLES[user.equipped.frame] || null) : null;
@@ -250,16 +342,18 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                       {user?.goal && <span style={{display:'inline-block', background:'transparent', color:THEME.textLight, fontWeight:600, fontSize:12, padding:'4px 12px', borderRadius:6, border:`1px solid ${THEME.border}`}}>{user.goal}</span>}
                     </div>
                     <div style={{marginTop:14, maxWidth:300}}><XpBar xp={user?.xp ?? 0} help={<InfoTooltip text="Твой уровень и тир. Растёт за опыт (XP) и не сбрасывается." />} /></div>
+                    {/* Долгосрочная цель: следующий тир уровней */}
+                    {nextTier && (
+                      <div style={{marginTop:8, fontSize:12, color:THEME.textLight}}>
+                        Следующий ранг: <b style={{color:nextTier.color}}>{nextTier.name}</b> — с {nextTier.min} уровня
+                      </div>
+                    )}
                   </div>
-                  {/* Правый столбец: класс, область, дата, npc-toggle */}
+                  {/* Правый столбец: класс, область, дата */}
                   <div>
                     {user?.details && <div className="profile-detail" style={{marginBottom:6}}>📚 {user.details}</div>}
                     {user?.region && <div className="profile-detail" style={{marginBottom:6}}>📍 {user.region}</div>}
                     <div className="profile-date" style={{marginBottom:10}}>📅 Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
-                    <label style={{display:'flex', alignItems:'center', gap:10, fontSize:13, color:THEME.textLight, cursor:'pointer'}}>
-                      <input type="checkbox" checked={npcOn} onChange={e=>{setNpcOn(e.target.checked);setNpcEnabled(uid,e.target.checked);}} style={{width:16,height:16,cursor:'pointer'}}/>
-                      Показывать подсказки помощника
-                    </label>
                   </div>
                 </div>
                 {/* Кнопки под обоими столбцами, смещены влево для визуального
@@ -271,9 +365,6 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                     background:'transparent', color:THEME.text,
                     cursor:'pointer', whiteSpace:'nowrap', minWidth:160,
                   }}>✏️ Редактировать профиль</button>
-                  <div style={{minWidth:160}}>
-                    <ChangePasswordInline />
-                  </div>
                 </div>
               </>
               );
@@ -282,21 +373,57 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
         </div>
       </div>
 
-      {/* Мой герой — 3D Lego-персонаж с надетым снаряжением (из equipped) */}
+      {/* Мой герой — 3D-персонаж слева + сводка снаряжения справа */}
       <div className="dashboard-section" style={{marginBottom:24}}>
         <h2 className="section-title" style={{marginBottom:8}}>🦸 Мой герой</h2>
-        <LegoCharacter3D
-          equipped={{ helmet: user?.equipped?.helmet, top: user?.equipped?.top, bottom: user?.equipped?.bottom, boots: user?.equipped?.boots }}
-          autoSpin={0.4} height={340}
-        />
+        <div style={{display:'flex', gap:20, flexWrap:'wrap', alignItems:'stretch'}}>
+          <div style={{flex:'1 1 280px', minWidth:260}}>
+            <LegoCharacter3D
+              equipped={{ helmet: user?.equipped?.helmet, top: user?.equipped?.top, bottom: user?.equipped?.bottom, boots: user?.equipped?.boots }}
+              autoSpin={0.4} height={320}
+            />
+          </div>
+          <div style={{flex:'1 1 240px', minWidth:220, display:'flex', flexDirection:'column', justifyContent:'center', gap:12}}>
+            <div style={{display:'flex', alignItems:'baseline', gap:8}}>
+              <span style={{fontSize:30, fontWeight:800, fontFamily:"'Montserrat',sans-serif", color:'#ef4444'}}>❤️ {heroHp}</span>
+              <span style={{fontSize:13, color:THEME.textLight}}>HP в боях с боссами</span>
+            </div>
+            <div style={{fontSize:13, color:THEME.text, lineHeight:1.6}}>
+              <span style={{color:THEME.textLight}}>🎽 Надет: </span>
+              {heroSetId
+                ? <b style={{color:'#f5c518'}}>Сет «{EQUIPMENT_SETS[heroSetId].name}» (+{EQUIPMENT_SETS[heroSetId].bonus} ❤️)</b>
+                : equippedItems.length > 0
+                  ? equippedItems.map(it => it.name).join(' · ')
+                  : <span style={{color:THEME.textLight}}>ничего — загляни в магазин</span>}
+            </div>
+            <div style={{fontSize:13, color:THEME.text}}>
+              <span style={{color:THEME.textLight}}>🎁 Собрано сетов: </span>
+              <b>{ownedSets.length}</b> из {Object.keys(EQUIPMENT_SETS).length}
+              {ownedSets.length > 0 && <span style={{color:THEME.textLight}}> ({ownedSets.map(([,s]) => s.name).join(', ')})</span>}
+            </div>
+            {onOpenShop && (
+              <button onClick={onOpenShop} style={{
+                alignSelf:'flex-start', padding:'10px 20px', borderRadius:10, border:'none', cursor:'pointer',
+                fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13,
+                background:THEME.accent, color:THEME.onAccent ?? '#0f172a',
+              }}>Изменить снаряжение →</button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Stats summary */}
-      <div className="profile-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:16,marginBottom:24}}>
-        <div className="stat-card"><div className="stat-icon">📋</div><div style={{minWidth:0}}><div className="stat-value">{totalDiag}</div><div className="stat-label">диагностик пройдено</div></div></div>
-        <div className="stat-card"><div className="stat-icon">⏱️</div><div style={{minWidth:0}}><div className="stat-value" style={{fontSize:totalHr>0?14:18,wordBreak:"break-word"}}>{totalDiag>0?timeLabel:"—"}</div><div className="stat-label">всего потрачено</div></div></div>
+      {/* ── 6 мотивирующих стат-карточек ── */}
+      <div className="profile-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(150px, 1fr))",gap:14,marginBottom:24}}>
+        <div className="stat-card"><div className="stat-icon">🎯</div><div style={{minWidth:0}}><div className="stat-value">{tasksTotal.toLocaleString('ru-RU')}</div><div className="stat-label">решено задач</div></div></div>
+        <div className="stat-card"><div className="stat-icon">🔥</div><div style={{minWidth:0}}><div className="stat-value" style={{color:'#f59e0b'}}>{Number(user?.streak||0)}</div><div className="stat-label">дней подряд</div></div></div>
+        <div className="stat-card"><div className="stat-icon">🪐</div><div style={{minWidth:0}}><div className="stat-value">{masteredCount}<span style={{fontSize:13, fontWeight:600, color:THEME.textLight}}> / 307</span></div><div className="stat-label">освоено навыков</div></div></div>
         <div className="stat-card"><div className="stat-icon">💎</div><div style={{minWidth:0}}><div className="stat-value">{(user?.crystals??0).toLocaleString('ru-RU')}</div><div className="stat-label">{(()=>{const n=user?.crystals??0,m=Math.abs(n)%100,b=m%10;if(m>10&&m<20)return 'кристаллов';if(b>1&&b<5)return 'кристалла';if(b===1)return 'кристалл';return 'кристаллов';})()}</div></div></div>
+        <div className="stat-card"><div className="stat-icon">📈</div><div style={{minWidth:0}}><div className="stat-value" style={{color: accuracy==null?THEME.textLight:accuracy>=80?'#22c55e':accuracy>=60?'#f59e0b':'#ef4444'}}>{accuracy==null?'—':`${accuracy}%`}</div><div className="stat-label">средняя точность</div></div></div>
+        <div className="stat-card"><div className="stat-icon">🏆</div><div style={{minWidth:0}}><div className="stat-value" style={{fontSize: bestDay?18:22}}>{bestDay?`${bestDay.day} · ${bestDay.count}`:'—'}</div><div className="stat-label">лучший день</div></div></div>
       </div>
+
+      {/* ── График активности (GitHub-style) ── */}
+      <ActivityGraph activity={activity} streak={user?.streak} THEME={THEME}/>
 
       {/* Достижения — свой профиль, с живым прогрессом X/Y */}
       <div style={{marginBottom:24}}>
@@ -326,12 +453,11 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
         </div>
       )}
 
-      {/* Rank medals (weekly leaderboard awards) */}
-      <div className="dashboard-section" style={{marginBottom:24}}>
-        <h2 className="section-title" style={{marginBottom:16, display:'inline-flex', alignItems:'center'}}>🏆 Мои награды<InfoTooltip text="Достижения за успехи в учёбе. За каждый уровень — кристаллы." /></h2>
-        {rankMedals.length===0 ? (
-          <div className="empty-state" style={{padding:"20px 0"}}>Попади в топ-10 рейтинга чтобы получить медаль</div>
-        ) : (
+      {/* Медали недельного рейтинга — секция видна только когда медали есть
+          (пустая секция с замочком демотивирует) */}
+      {rankMedals.length>0 && (
+        <div className="dashboard-section" style={{marginBottom:24}}>
+          <h2 className="section-title" style={{marginBottom:16, display:'inline-flex', alignItems:'center'}}>🏅 Медали рейтинга<InfoTooltip text="Награды за топ-10 в недельном рейтинге." /></h2>
           <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:16}}>
             {rankMedals.map(m=>(
               <div key={m.id} style={{display:"flex", justifyContent:"center"}}>
@@ -339,8 +465,8 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* History — full width */}
       <div data-tour="diag-history" className="dashboard-section" style={{marginBottom:24}}>
@@ -370,23 +496,47 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                       <div style={{fontSize:12,color:THEME.textLight}}>{new Date(r.completedAt).toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"})} · {r.totalQuestions} вопросов · {fmtTime(r.totalTime||0)}</div>
                       {hasReport
                         ? <div style={{fontSize:11,color:THEME.accent,fontWeight:700,marginTop:5}}>📋 Экспертный отчёт доступен — нажмите чтобы открыть →</div>
-                        : <div style={{fontSize:11,color:THEME.textLight,marginTop:5}}>⏳ Ожидает проверки преподавателя</div>
+                        : <div style={{fontSize:11,color:'#22c55e',fontWeight:700,marginTop:5}}>✅ Завершено · {pct}% правильно</div>
                       }
                     </div>
-                    {hasReport&&(
-                      <div style={{flexShrink:0,textAlign:"center"}}>
-                        <div style={{width:50,height:50,borderRadius:12,background:color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15}}>{pct}%</div>
-                        <div style={{marginTop:6,height:4,width:50,borderRadius:99,background:THEME.border,overflow:"hidden"}}>
-                          <div style={{height:"100%",width:`${pct}%`,background:color,borderRadius:99}}/>
-                        </div>
+                    {/* Процент-блок показываем для ВСЕХ строк (раньше — только с отчётом) */}
+                    <div style={{flexShrink:0,textAlign:"center"}}>
+                      <div style={{width:50,height:50,borderRadius:12,background:color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:15}}>{pct}%</div>
+                      <div style={{marginTop:6,height:4,width:50,borderRadius:99,background:THEME.border,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${pct}%`,background:color,borderRadius:99}}/>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
         )}
+      </div>
+
+      {/* ── Настройки ── */}
+      <div className="dashboard-section" style={{marginBottom:24}}>
+        <h2 className="section-title" style={{marginBottom:16}}>⚙️ Настройки</h2>
+        <div style={{display:'flex', flexDirection:'column', gap:14}}>
+          <label style={{display:'flex', alignItems:'center', gap:10, fontSize:14, color:THEME.text, cursor:'pointer'}}>
+            <input type="checkbox" checked={npcOn} onChange={e=>{setNpcOn(e.target.checked);setNpcEnabled(uid,e.target.checked);}} style={{width:16,height:16,cursor:'pointer'}}/>
+            Показывать подсказки помощника
+          </label>
+          <div style={{maxWidth:280}}>
+            <ChangePasswordInline />
+          </div>
+          {/* Место для будущих настроек (язык, тема и т.д.) */}
+          <button
+            onClick={()=>{
+              if(window.confirm('Удалить аккаунт? Все данные будут потеряны безвозвратно.')){
+                alert('Для удаления аккаунта напишите нам: meirbekbazarbek@gmail.com — удалим в течение 24 часов.');
+              }
+            }}
+            style={{alignSelf:'flex-start', marginTop:8, background:'none', border:'none', padding:0,
+              fontSize:11, color:THEME.textLight, opacity:0.7, cursor:'pointer', textDecoration:'underline'}}>
+            Удалить аккаунт
+          </button>
+        </div>
       </div>
     </div>
   );
