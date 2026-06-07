@@ -278,6 +278,10 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
         {busy ? '...' : 'Надеть'}
       </button>;
     }
+    if (item.achievementOnly) {
+      // Не продаётся: открывается системой достижений (сет «Король математики»).
+      return <button disabled style={{...baseStyle, background:'rgba(251,191,36,0.1)', color:'#d4af37', cursor:'not-allowed', border:'1px solid rgba(251,191,36,0.35)'}}>🔒 За достижение</button>;
+    }
     if (item.isExclusive && !leagueOk) {
       return <button disabled style={{...baseStyle, background:'rgba(167,139,250,0.12)', color:'#a78bfa', cursor:'not-allowed', border:'1px solid rgba(167,139,250,0.35)'}}>🔒 Только Алмаз</button>;
     }
@@ -417,10 +421,10 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
           </>
         )}
 
-        {/* ── Наборы со скидкой ── */}
+        {/* ── Наборы со скидкой (achievementOnly-сеты живут в «Эксклюзивах») ── */}
         {sectionTitle('📦', 'Наборы со скидкой')}
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:14}}>
-          {Object.entries(EQUIPMENT_SETS).map(([setId, set]) => {
+          {Object.entries(EQUIPMENT_SETS).filter(([, set]) => !set.achievementOnly).map(([setId, set]) => {
             const full = setFullPrice(setId);
             const { missing, price } = setPurchasePrice(setId, inventory);
             const allOwned = missing.length === 0;
@@ -508,6 +512,15 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
                 <div style={{fontSize:12, color:THEME.textLight, lineHeight:1.5}}>
                   {owned ? <span style={{color:'#4ade80', fontWeight:700}}>Получено ✓</span> : <>🎯 {ex._req}</>}
                 </div>
+                {/* Сет короля можно примерить на 3D-герое даже до получения */}
+                {ex.id === 'set-king' && (
+                  <button onClick={() => setPreviewSet('king')} style={{
+                    width:'100%', padding:'8px 14px', borderRadius:10,
+                    fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12,
+                    border:`1px solid ${THEME.border}`, background:'transparent',
+                    color:THEME.text, cursor:'pointer',
+                  }}>👁 Примерить на герое</button>
+                )}
               </div>
             );
           })}
@@ -696,7 +709,11 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
               <LegoCharacter3D equipped={{}} tryOn={setTry}/>
               <div style={{padding:'14px 18px', display:'flex', flexDirection:'column', gap:10}}>
                 <div style={{fontSize:13, color:'#94a3b8'}}>Бонус сета: <b style={{color:'#ef4444'}}>+{set.bonus} ❤️</b> · 4 предмета</div>
-                {missing.length > 0
+                {set.achievementOnly
+                  ? <div style={{fontSize:13, fontWeight:700, color:'#d4af37', textAlign:'center'}}>
+                      {missing.length === 0 ? 'Сет получен ✓' : '🔒 Откроется за освоение всех 307 навыков'}
+                    </div>
+                  : missing.length > 0
                   ? (crystals >= price
                     ? <button onClick={() => { handleBuySet(previewSet); setPreviewSet(null); }} disabled={busy} style={{padding:'12px 18px', borderRadius:10, border:'none', cursor:'pointer', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, background:'#22c55e', color:'#052e16'}}>
                         {busy ? '...' : `Купить полный сет за ${price} 💎`}
