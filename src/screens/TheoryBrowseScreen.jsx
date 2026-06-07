@@ -1,12 +1,97 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { getContent } from "../lib/contentCache.js";
+import { doc, getDoc, updateDoc, db } from "../firestore-rest.js";
 import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
+import SkillPlanet3D, { fallbackGradient } from "../components/SkillPlanet3D.jsx";
+import { buildDiagModuleTree } from "../components/diagTree/DiagnosticModuleTree.jsx";
+
+// ── Хелперы ───────────────────────────────────────────────────────────────────
+
+// Канонический skill_id записи теории (теория привязана 1:1 к навыку).
+const sidOf = (t) => t.skill_id || t.id;
+
+// Состояние навыка → life планеты (контракт SkillPlanet3D):
+//   locked → -1 (мёртвая скала) · mastery 0 → 0 (серый камень)
+//   0<m<50 → 0.4 (первая зелень) · 50≤m<100 → 0.8 (океаны) · 100 → 1.0 (цветущий)
+function lifeFor(state) {
+  if (!state) return 0;            // навык вне плана — «доступен, не начат»
+  if (state.locked) return -1;
+  const m = state.mastery || 0;
+  if (m >= 100) return 1.0;
+  if (m >= 50)  return 0.8;
+  if (m > 0)    return 0.4;
+  return 0;
+}
+
+// Русские названия вертикалей для заголовков секций каталога
+// (в данных vertical_line_id — английские id). Фолбэк — id как есть.
+const RU_VERTICALS = {
+  ALGEBRA: 'АЛГЕБРА',
+  ARITHMETIC: 'АРИФМЕТИКА',
+  GEOMETRY: 'ГЕОМЕТРИЯ',
+  WORD_PROBLEMS: 'ТЕКСТОВЫЕ ЗАДАЧИ',
+};
+
+const ruPlural = (n, [one, few, many]) => {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+};
+
+// Ленивый маунт тяжёлого контента (3D-планеты) при приближении к viewport —
+// тот же приём, что на лендинге (AboutLanding.LazyMount).
+function LazyMount({ height, children, rootMargin = "200px" }) {
+  const ref = useRef(null);
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") { setShow(true); return; }
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { setShow(true); io.disconnect(); }
+    }, { rootMargin });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [rootMargin]);
+  return <div ref={ref} style={{ minHeight: height }}>{show ? children : null}</div>;
+}
+
+function useIsMobile(bp = 880) {
+  const [m, setM] = useState(() => typeof window !== "undefined" && window.matchMedia(`(max-width:${bp}px)`).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width:${bp}px)`);
+    const fn = (e) => setM(e.matches);
+    mq.addEventListener ? mq.addEventListener("change", fn) : mq.addListener(fn);
+    return () => mq.removeEventListener ? mq.removeEventListener("change", fn) : mq.removeListener(fn);
+  }, [bp]);
+  return m;
+}
+
+// Статичная мини-планета (CSS-градиент SkillPlanet3D-фолбэка). Используется на
+// всех карточках каталога: 289 живых WebGL-контекстов невозможны (лимит браузера
+// ~8-16 на страницу), поэтому 3D — только в секции «Сейчас изучаешь».
+function PlanetDot({ life, size = 52 }) {
+  return (
+    <div aria-hidden="true" style={{ position:'relative', width:size, height:size, flexShrink:0 }}>
+      <div style={{
+        width:size, height:size, borderRadius:'50%',
+        background: fallbackGradient(life),
+        boxShadow: life >= 0.8 ? '0 0 14px rgba(120,200,255,0.45)' : life >= 0 ? '0 0 8px rgba(120,200,255,0.15)' : 'none',
+      }}/>
+      {life < 0 && (
+        <span style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:Math.round(size*0.38), opacity:0.85 }}>🔒</span>
+      )}
+    </div>
+  );
+}
 
 export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
   const { theme: THEME } = useTheme();
+  const isMobile = useIsMobile(880);
   const [skillTheories, setSkillTheories] = useState([]);
   const [namesMap, setNamesMap] = useState({}); // skill_id → Russian name
   const [loading, setLoading] = useState(true);
@@ -16,12 +101,26 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
   const [selected, setSelected] = useState(null); // skillTheory entry
   // Per-task inline practice state: array of {chosen, revealed}
   const [taskStates, setTaskStates] = useState([]);
+  // Персонализация: состояние навыков из плана + skillMastery + meta пользователя
+  const [skillState, setSkillState] = useState({});       // sid → { mastery 0..100, locked }
+  const [activeSids, setActiveSids] = useState([]);       // навыки в фокусе (0 < stages < 3)
+  const [availableSids, setAvailableSids] = useState([]); // mastery=0, prerequisites выполнены
+  const [recentTheory, setRecentTheory] = useState([]);   // [{id, ts}] max 20
+  const [theoryRead, setTheoryRead] = useState([]);       // [sid] — все прочитанные
+  const [showAllAvail, setShowAllAvail] = useState(false);
+  const [collapsed, setCollapsed] = useState({});         // sectionKey → bool
 
   useEffect(() => {
+    const uid = user?.uid;
     Promise.all([
       getContent('skillTheory'),
-      getContent('skillHierarchies')
-    ]).then(([theories, shItems]) => {
+      getContent('skillHierarchies'),
+      getContent('crossGradeLinks'),
+      uid ? getDoc(doc(db, 'individualPlans', uid)).catch(() => null) : null,
+      uid ? getDoc(doc(db, 'skillProgress',   uid)).catch(() => null) : null,
+      uid ? getDoc(doc(db, 'skillMastery',    uid)).catch(() => null) : null,
+      uid ? getDoc(doc(db, 'users',           uid)).catch(() => null) : null,
+    ]).then(([theories, shItems, cgLinks, planSnap, progSnap, masterySnap, userSnap]) => {
       setSkillTheories(theories);
       // Build skill_id → Russian name from skillHierarchies
       const nm = {};
@@ -33,21 +132,71 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
         });
       });
       setNamesMap(nm);
+
+      // ── Персонализация: переиспользуем модульную логику карты плана ──
+      const plan    = planSnap?.exists?.() ? planSnap.data() : null;
+      const prog    = progSnap?.exists?.() ? (progSnap.data()?.skills || {}) : {};
+      const mastery = masterySnap?.exists?.() ? (masterySnap.data()?.skills || {}) : {};
+      if (plan) {
+        const diag = buildDiagModuleTree(plan, prog, cgLinks, nm, mastery);
+        const st = {};
+        const avail = [];
+        for (const m of (diag.modules || [])) {
+          for (const sk of (m.skills || [])) {
+            st[sk.id] = { mastery: sk.mastery || 0, locked: !!m.isLocked };
+            // «Готово к старту»: prerequisites выполнены (модуль не заблокирован), не начат
+            if (!m.isLocked && (sk.mastery || 0) === 0) avail.push(sk.id);
+          }
+        }
+        setSkillState(st);
+        // «Сейчас изучаешь» — навыки в фокусе (начат, но не завершён 3-этапный
+        // цикл). Навыки заблокированных модулей не показываем: на карте их
+        // нельзя продолжить, секция «изучаешь» с замком сбивала бы с толку.
+        const act = Object.entries(mastery)
+          .filter(([, s]) => (s.stagesCompleted || 0) > 0 && (s.stagesCompleted || 0) < 3)
+          .map(([id]) => id)
+          .filter(id => !st[id]?.locked);
+        setActiveSids(act);
+        setAvailableSids(avail.filter(id => !act.includes(id)));
+      }
+      const u = userSnap?.exists?.() ? userSnap.data() : null;
+      const loadedRecent = Array.isArray(u?.recentTheory) ? u.recentTheory : [];
+      const loadedRead   = Array.isArray(u?.theoryRead)   ? u.theoryRead   : [];
+      setRecentTheory(loadedRecent);
+      setTheoryRead(loadedRead);
+
       setLoading(false);
-      // Если передан initialSkillId — сразу открыть нужный навык
+      // Если передан initialSkillId — сразу открыть нужный навык (meta пишем от
+      // только что загруженных массивов, state ещё не успел обновиться).
       if (initialSkillId) {
         const entry = theories.find(t => t.id === initialSkillId || t.skill_id === initialSkillId);
         if (entry) {
           setSelected(entry);
           setTaskStates((entry.tasks || []).map(() => ({ chosen: null, revealed: false })));
+          recordOpen(entry, loadedRecent, loadedRead);
         }
       }
     }).catch(() => setLoading(false));
   }, []);
 
+  // ── Учёт открытия темы: recentTheory — последние открытые ({id,ts}, max 20),
+  // theoryRead — все когда-либо прочитанные. Один updateDoc на открытие.
+  const recordOpen = (entry, recentArr, readArr) => {
+    const uid = user?.uid;
+    const sid = sidOf(entry);
+    if (!uid || !sid) return;
+    const nextRecent = [{ id: sid, ts: Date.now() }, ...recentArr.filter(r => (r?.id || r) !== sid)].slice(0, 20);
+    const nextRead = readArr.includes(sid) ? readArr : [...readArr, sid];
+    setRecentTheory(nextRecent);
+    setTheoryRead(nextRead);
+    updateDoc(doc(db, 'users', uid), { recentTheory: nextRecent, theoryRead: nextRead })
+      .catch(e => console.warn('[theory] meta update failed:', e?.message || e));
+  };
+
   const openEntry = (entry) => {
     setSelected(entry);
     setTaskStates((entry.tasks || []).map(() => ({ chosen: null, revealed: false })));
+    recordOpen(entry, recentTheory, theoryRead);
   };
 
   const handleChoose = (taskIdx, optIdx) => {
@@ -191,13 +340,89 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
     return <>{text.slice(0,idx)}<mark style={{background:'rgba(212,175,55,0.35)',borderRadius:3,padding:'0 1px'}}>{text.slice(idx,idx+q.length)}</mark>{text.slice(idx+q.length)}</>;
   };
 
+  // ── «Для тебя»: теория к активным/доступным/недавним навыкам ──
+  const theoriesBySid = {};
+  for (const t of skillTheories) theoriesBySid[sidOf(t)] = t;
+  const readSet = new Set(theoryRead);
+
+  const activeEntries = activeSids.map(id => theoriesBySid[id]).filter(Boolean);
+  const availEntries  = availableSids.map(id => theoriesBySid[id]).filter(Boolean);
+  const recentEntries = recentTheory
+    .map(r => theoriesBySid[r?.id || r]).filter(Boolean).slice(0, 6);
+  const noFilters = !q && filterSec === 'all' && filterGrade === 'all';
+
+  // ── Жёсткие секции каталога: ВЕРТИКАЛЬ · КЛАСС ──
+  const groupsMap = new Map(); // key → { vertical, grade, items[] }
+  for (const t of filtered) {
+    const v = t.vertical_line_id || 'прочее';
+    const g = t.grade != null && t.grade !== '' ? String(t.grade) : null;
+    const key = `${v}|${g ?? ''}`;
+    if (!groupsMap.has(key)) groupsMap.set(key, { vertical: v, grade: g, items: [] });
+    groupsMap.get(key).items.push(t);
+  }
+  const groups = [...groupsMap.values()].sort((a, b) =>
+    a.vertical.localeCompare(b.vertical, 'ru') || (Number(a.grade ?? 99) - Number(b.grade ?? 99)));
+
+  // ── Карточка темы (общая для всех секций) ──
+  const renderCard = (t, { planet3d = false } = {}) => {
+    const sid = sidOf(t);
+    const ruName = namesMap[t.id] || namesMap[t.skill_id] || t.skill_id;
+    const life = lifeFor(skillState[sid]);
+    const isRead = readSet.has(sid);
+    const conceptFull = t.theory?.concept || '';
+    const concept = conceptFull.slice(0, 180) + (conceptFull.length > 180 ? '…' : '');
+    const planetSize = planet3d ? 84 : 52;
+    return (
+      <div key={t.id} className="theme-card theory-card" onClick={() => openEntry(t)}
+        style={{ position:'relative', background:THEME.surface, border:`1px solid ${THEME.border}`, borderRadius:14, padding:'16px 18px', cursor:'pointer', transition:'all 0.2s', display:'flex', gap:14, alignItems:'flex-start' }}
+        onMouseEnter={e => { e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)'; e.currentTarget.style.borderColor=THEME.primary; }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow=''; e.currentTarget.style.borderColor=THEME.border; }}>
+        {/* Бейдж «прочитано» */}
+        {isRead && (
+          <span title="Прочитано" style={{ position:'absolute', top:10, right:10, width:20, height:20, borderRadius:'50%', background:'#22c55e', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, boxShadow:'0 1px 4px rgba(34,197,94,0.5)' }}>✓</span>
+        )}
+        {/* Мини-планета: 3D только в секции «Сейчас изучаешь» на десктопе
+            (лимит WebGL-контекстов в браузере не позволяет 3D на всех 289
+            карточках); остальные — статичный градиент того же фолбэка. */}
+        {planet3d && !isMobile
+          ? <LazyMount height={planetSize}>
+              <div style={{ width:planetSize, height:planetSize, flexShrink:0 }}>
+                <SkillPlanet3D fromLife={life} toLife={life} size={planetSize}/>
+              </div>
+            </LazyMount>
+          : <PlanetDot life={life} size={planetSize}/>}
+        <div style={{ minWidth:0, flex:1 }}>
+          <div style={{ fontSize:11, color:THEME.textLight, marginBottom:3 }}>{[t.vertical_line_id, t.grade ? `${t.grade} кл` : ''].filter(Boolean).join(' · ')}</div>
+          <div style={{ fontWeight:700, fontSize:15, color:THEME.primary, marginBottom:6, paddingRight:isRead?20:0 }}>{highlight(ruName)}</div>
+          {/* Превью теории: до 3 строк (раньше — одна) */}
+          <div style={{ fontSize:13, color:THEME.textLight, lineHeight:1.55, display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{highlight(concept)}</div>
+          <div style={{ display:'flex', gap:8, marginTop:10, flexWrap:'wrap' }}>
+            {(t.theory?.micro_hints||[]).length > 0 && <span title={`${t.theory.micro_hints.length} микро-подсказок в теории`} style={{ fontSize:11, background:`${THEME.accent}20`, color:THEME.accent, padding:'2px 10px', borderRadius:99, fontWeight:600 }}>💡 {t.theory.micro_hints.length} подсказ.</span>}
+            {(t.tasks||[]).length > 0 && <span title={`${t.tasks.length} задач для практики`} style={{ fontSize:11, background:'rgba(15,23,42,0.06)', color:THEME.textLight, padding:'2px 10px', borderRadius:99, fontWeight:600 }}>🏋️ {t.tasks.length} задач</span>}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const sectionTitle = (emoji, text, color) => (
+    <div style={{ display:'flex', alignItems:'center', gap:8, margin:'0 0 12px' }}>
+      <span style={{ fontSize:16 }}>{emoji}</span>
+      <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color: color || THEME.primary, letterSpacing:'0.3px' }}>{text}</span>
+    </div>
+  );
+
+  const cardGrid = (children) => (
+    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(290px, 1fr))', gap:14 }}>{children}</div>
+  );
+
   return (
     <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
       <AppTopbar title="📖 Теория" onBack={onBack} />
       <div style={{ maxWidth:1000, margin:'0 auto', padding:'40px 20px' }}>
         <div style={{ marginBottom:24 }}>
           <h1 style={{ fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color:THEME.primary, marginBottom:6 }}>📖 Теория</h1>
-          <p style={{ color:THEME.textLight, fontSize:15 }}>Теоретические материалы для подготовки</p>
+          <p style={{ color:THEME.textLight, fontSize:15 }}>Твой персональный учебник — темы привязаны к навыкам на карте</p>
         </div>
 
         {loading && <div style={{ textAlign:'center', padding:80, color:THEME.textLight }}>Загрузка...</div>}
@@ -239,6 +464,36 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
               )}
             </div>
 
+            {/* ── «ДЛЯ ТЕБЯ» — три персональные секции (скрываются при поиске/фильтрах) ── */}
+            {noFilters && (activeEntries.length > 0 || availEntries.length > 0 || recentEntries.length > 0) && (
+              <div style={{ marginBottom:30 }}>
+                {activeEntries.length > 0 && (
+                  <div style={{ marginBottom:22 }}>
+                    {sectionTitle('⚡', 'Сейчас изучаешь', '#b45309')}
+                    {cardGrid(activeEntries.map(t => renderCard(t, { planet3d: true })))}
+                  </div>
+                )}
+                {availEntries.length > 0 && (
+                  <div style={{ marginBottom:22 }}>
+                    {sectionTitle('▶', 'Готово к старту', '#15803d')}
+                    {cardGrid((showAllAvail ? availEntries : availEntries.slice(0, 6)).map(t => renderCard(t)))}
+                    {availEntries.length > 6 && (
+                      <button onClick={() => setShowAllAvail(v => !v)}
+                        style={{ marginTop:10, padding:'8px 18px', borderRadius:10, border:`1px solid ${THEME.border}`, background:THEME.surface, color:'#15803d', fontWeight:600, fontSize:13, cursor:'pointer' }}>
+                        {showAllAvail ? 'Свернуть' : `Показать все доступные (${availEntries.length})`}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {recentEntries.length > 0 && (
+                  <div style={{ marginBottom:22 }}>
+                    {sectionTitle('🕐', 'Недавно открытые', THEME.textLight)}
+                    {cardGrid(recentEntries.map(t => renderCard(t)))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Счётчик результатов */}
             {q && (
               <div style={{ fontSize:13, color:THEME.textLight, marginBottom:14 }}>
@@ -246,23 +501,25 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
               </div>
             )}
 
+            {/* ── Каталог: жёсткие секции «ВЕРТИКАЛЬ · КЛАСС», sticky, сворачиваемые ── */}
             {filtered.length > 0 ? (
-              <div data-tour="theory-grid" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:14 }}>
-                {filtered.map(t => {
-                  const ruName = namesMap[t.id] || namesMap[t.skill_id] || t.skill_id;
-                  const concept = (t.theory?.concept||'').slice(0,70) + ((t.theory?.concept||'').length>70?'…':'');
+              <div data-tour="theory-grid">
+                {noFilters && (
+                  <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color:THEME.primary, margin:'0 0 4px', letterSpacing:'0.3px' }}>📚 Все темы</div>
+                )}
+                {groups.map(gr => {
+                  const key = `${gr.vertical}|${gr.grade ?? ''}`;
+                  const isCollapsed = !!collapsed[key];
+                  const title = [RU_VERTICALS[gr.vertical] || gr.vertical.toUpperCase(), gr.grade ? `${gr.grade} КЛАСС` : null].filter(Boolean).join(' · ');
                   return (
-                    <div key={t.id} className="theme-card" onClick={() => openEntry(t)}
-                      style={{ background:'#fff', border:`1px solid ${THEME.border}`, borderRadius:14, padding:'20px 22px', cursor:'pointer', transition:'all 0.2s' }}
-                      onMouseEnter={e => { e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'; e.currentTarget.style.borderColor=THEME.primary; }}
-                      onMouseLeave={e => { e.currentTarget.style.boxShadow=''; e.currentTarget.style.borderColor=THEME.border; }}>
-                      <div style={{ fontSize:11, color:THEME.textLight, marginBottom:4 }}>{[t.vertical_line_id, t.grade ? `${t.grade} кл` : ''].filter(Boolean).join(' · ')}</div>
-                      <div style={{ fontWeight:700, fontSize:15, color:THEME.primary, marginBottom:6 }}>{highlight(ruName)}</div>
-                      <div style={{ fontSize:13, color:THEME.textLight, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{highlight(concept)}</div>
-                      <div style={{ display:'flex', gap:8, marginTop:10, flexWrap:'wrap' }}>
-                        {(t.theory?.micro_hints||[]).length > 0 && <span title={`${t.theory.micro_hints.length} микро-подсказок в теории`} style={{ fontSize:11, background:`${THEME.accent}20`, color:THEME.accent, padding:'2px 10px', borderRadius:99, fontWeight:600 }}>💡 {t.theory.micro_hints.length} подсказ.</span>}
-                        {(t.tasks||[]).length > 0 && <span title={`${t.tasks.length} задач для практики`} style={{ fontSize:11, background:'rgba(15,23,42,0.06)', color:THEME.textLight, padding:'2px 10px', borderRadius:99, fontWeight:600 }}>🏋️ {t.tasks.length} задач</span>}
+                    <div key={key} style={{ marginBottom: isCollapsed ? 2 : 18 }}>
+                      <div onClick={() => setCollapsed(p => ({ ...p, [key]: !p[key] }))}
+                        style={{ position:'sticky', top:0, zIndex:5, background:THEME.bg, display:'flex', alignItems:'center', gap:10, padding:'12px 4px 10px', cursor:'pointer', userSelect:'none', borderBottom:`1px solid ${THEME.border}`, marginBottom:isCollapsed?0:14 }}>
+                        <span style={{ fontSize:12, color:THEME.textLight, width:14, display:'inline-block', transition:'transform 0.15s', transform:isCollapsed?'rotate(-90deg)':'none' }}>▼</span>
+                        <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:THEME.primary, letterSpacing:'0.5px' }}>{title}</span>
+                        <span style={{ fontSize:12, color:THEME.textLight, fontWeight:600 }}>({gr.items.length} {ruPlural(gr.items.length, ['тема','темы','тем'])})</span>
                       </div>
+                      {!isCollapsed && cardGrid(gr.items.map(t => renderCard(t)))}
                     </div>
                   );
                 })}
