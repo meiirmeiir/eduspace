@@ -1,19 +1,22 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { doc, getDoc, updateDoc, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
 import { useTheme } from "../ThemeContext.jsx";
 import { getAlmatyDateStr, SRS_INTERVALS } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
 import { addCrystals } from "../lib/crystalsUtils.js";
-import { addXp, XP_REWARDS } from "../lib/levelUtils.js";
+import { addXp, XP_REWARDS, getLevelInfo } from "../lib/levelUtils.js";
 import { updateQuestProgress } from "../lib/questsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
 import Boss3D from "../components/Boss3D.jsx";
 import BattleScene3D from "../components/BattleScene3D.jsx";
+import ProbeScene3D from "../components/ProbeScene3D.jsx";
 import { computePlayerHp } from "../lib/shopItems.js";
 import { useNpc } from "../NpcContext.jsx";
+// DEBUG (временно): мок-состояния экрана через ?dailytasks_debug=…
+import { getDailyTasksMock } from "../lib/mockDailyTasksData.js";
 
 // Детект появления босса: детерминированно по дню (seed = uid + дата), ~30%.
 // Чистая функция, без записи в БД — стабильно в течение дня (повторный вход = тот
@@ -30,11 +33,48 @@ function bossRollFor(uid, dateStr) {
 }
 const BOSS_NAME = { ufo: 'НЛО-Разведчик', robot: 'Боевой Дроид', slime: 'Космо-Слизень', dragon: 'Звёздный Дракон', asteroid: 'Астероид-Голем' };
 
+// ── Геймификация сессии («Ежедневная миссия») ────────────────────────────────
+// Множитель дневного стрика: действует на XP всех ответов сессии.
+function streakMultiplier(days) {
+  if (days >= 30) return 2;
+  if (days >= 14) return 1.5;
+  if (days >= 7)  return 1.2;
+  return 1;
+}
+// Множитель combo — серии верных ответов подряд ВНУТРИ сессии (не дневной стрик).
+const comboMultiplier = (c) => (c >= 5 ? 2 : c >= 3 ? 1.5 : 1);
+// Потенциал наград для экрана старта (если все ответы верные, без speed-бонуса).
+function potentialXp(n, sMult) {
+  let t = 0;
+  for (let i = 1; i <= n; i++) t += Math.round(10 * comboMultiplier(i) * sMult);
+  return t;
+}
+const potentialCrystals = (n) => n * 2 + (n >= 5 ? 5 : 0); // +2💎/ответ, +5💎 за combo ×5
+// Русские плюралы: plural(3, ['задача','задачи','задач'])
+function plural(n, forms) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return forms[2];
+  if (b > 1 && b < 5) return forms[1];
+  if (b === 1) return forms[0];
+  return forms[2];
+}
+// Палитра AAPA для CTA (как на авторизации): тёмный фон + золотой текст.
+const BTN_DARK = { background:'#1a1a2e', color:'#fbbf24', border:'1px solid rgba(251,191,36,0.4)' };
+const BTN_GOLD = { background:'linear-gradient(90deg,#fbbf24,#f59e0b)', color:'#1a1a2e', border:'none' };
+
 export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onViewPlan, onOpenFaq, onRankRefresh }) {
   const { showNpcMessage } = useNpc();
-  const { theme: THEME } = useTheme();
-  const BG = '#f8fafc';
-  const [phase,    setPhase]    = useState('loading'); // loading|playing|done|empty
+  const { theme: THEME, dark, shopTheme } = useTheme();
+  // Тёмный UI = системная dark-тема ИЛИ тёмная shop-тема (galaxy/matrix/fire).
+  const isDarkUi = dark || (shopTheme && shopTheme !== 'sakura');
+  // DEBUG (временно): активный мок (?dailytasks_debug=…) — при нём все записи
+  // в Firestore (награды, SRS, стрик) отключены; интерактив остаётся локальным.
+  const debugMock = useMemo(() => getDailyTasksMock(), []);
+  // Фон экрана: мягкий градиент вместо голого белого (+ тёмный аналог).
+  const BG = isDarkUi
+    ? 'linear-gradient(180deg, #0b1226 0%, #131b36 45%, #0f172a 100%)'
+    : 'linear-gradient(180deg, #f0f4ff 0%, #f7f9ff 40%, #ffffff 100%)';
+  const [phase,    setPhase]    = useState('loading'); // loading|intro|playing|done|empty
   const [emptyReason, setEmptyReason] = useState(null); // 'no-diag'|'no-mastered'|'wait-until'|null
   const [nextReviewDate, setNextReviewDate] = useState(null); // YYYY-MM-DD when wait-until
   const [queue,    setQueue]    = useState([]);  // [{skillId, skillName, reviewStage, task}]
@@ -47,10 +87,51 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const [degraded, setDegraded] = useState(new Set()); // skillIds to degrade
   const [saving,   setSaving]   = useState(false);
   const [lastWrongWasDanger, setLastWrongWasDanger] = useState(false); // lives=0 warning
-  const [streak,   setStreak]   = useState(0); // consecutive correct answers (for NPC encouragement)
+  const [streak,   setStreak]   = useState(0); // combo: серия верных ответов подряд внутри сессии
   const questionStartRef = useRef(0);
   const streak3AwardedRef = useRef(false);
   const sessionAnswersRef = useRef([]); // bool на каждый ответ сессии → recentAnswers батчем
+
+  // ── Геймификация: live-счётчики наград (начисляются batch'ем в конце сессии) ──
+  const [answers,         setAnswers]         = useState([]);   // bool по каждой решённой задаче → сегменты прогресс-бара
+  const [sessionXp,       setSessionXp]       = useState(0);    // накоплено XP за сессию (UI live)
+  const [sessionCrystals, setSessionCrystals] = useState(0);    // накоплено 💎 за сессию (UI live)
+  const [xpFloat,         setXpFloat]         = useState(null); // {text, speed, key} — всплывающий «+N XP»
+  const [perfectFlash,    setPerfectFlash]    = useState(false);// 💎 PERFECT COMBO ×5 — оверлей
+  const [comboFlash,      setComboFlash]      = useState(false);// вспышка золотой рамки на combo ×3
+  const [hadPerfect,      setHadPerfect]      = useState(false);// был ли combo ×5 за сессию (бейдж на итоге)
+
+  // ── Грузовой зонд с лутом (итоговый экран): дрон доставляет капсулу,
+  // тир по доле верных, 💎 начисляются в общем batch'е ──
+  const [probeTier,     setProbeTier]     = useState('standard'); // standard|silver|gold
+  const [probeCrystals, setProbeCrystals] = useState(0);          // выпавшие из зонда 💎
+  const [probeLanded,   setProbeLanded]   = useState(false);      // дрон улетел → можно открывать
+  const [probeOpened,   setProbeOpened]   = useState(false);
+  const [probeAnimDone, setProbeAnimDone] = useState(false);      // 3D-анимация открытия доиграла → «+N 💎»
+  const [probeCount,    setProbeCount]    = useState(0);          // count-up числа после открытия
+  const openProbe = () => {
+    if (probeOpened || !probeLanded) return;
+    setProbeOpened(true); // 3D-сцена сама играет створку/свет/частицы
+  };
+  // Count-up: число кристаллов «досчитывается» вверх — после того как створка
+  // открылась (onOpenComplete). В debug — статично и сразу.
+  useEffect(() => {
+    if (!probeOpened) return;
+    if (debugMock) { setProbeCount(probeCrystals); return; } // статично для скриншотов
+    if (!probeAnimDone) return;
+    let v = 0;
+    const step = Math.max(1, Math.ceil(probeCrystals / 18));
+    const id = setInterval(() => {
+      v = Math.min(probeCrystals, v + step);
+      setProbeCount(v);
+      if (v >= probeCrystals) clearInterval(id);
+    }, 55);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [probeOpened, probeAnimDone]);
+  // Дневной стрик → постоянный множитель XP на сессию (в дебаге можно подменить).
+  const effStreak = debugMock?.streak ?? Number(user?.streak || 0);
+  const sMult = streakMultiplier(effStreak);
 
   // ── Босс (косметический слой поверх сессии; учёбу/SRS/награды НЕ трогает) ──
   const [bossActive, setBossActive] = useState(false);
@@ -76,6 +157,35 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
 
   useEffect(() => {
     const load = async () => {
+      // DEBUG (временно): применяем мок-состояние и не трогаем БД вовсе.
+      if (debugMock) {
+        if (debugMock.queue) setQueue(debugMock.queue);
+        if (debugMock.qIdx != null) setQIdx(debugMock.qIdx);
+        setCorrect(new Set(debugMock.correct || []));
+        setWrong(new Set(debugMock.wrong || []));
+        setDegraded(new Set(debugMock.degraded || []));
+        setSkillLives(debugMock.skillLives || {});
+        if (debugMock.chosen != null) setChosen(debugMock.chosen);
+        if (debugMock.revealed) setRevealed(true);
+        if (debugMock.emptyReason) setEmptyReason(debugMock.emptyReason);
+        if (debugMock.nextReviewDate) setNextReviewDate(debugMock.nextReviewDate);
+        // Геймификация: combo / live-награды / всплывашки
+        if (debugMock.answers) setAnswers(debugMock.answers);
+        if (debugMock.combo != null) setStreak(debugMock.combo);
+        if (debugMock.sessionXp != null) setSessionXp(debugMock.sessionXp);
+        if (debugMock.sessionCrystals != null) setSessionCrystals(debugMock.sessionCrystals);
+        if (debugMock.xpFloat) setXpFloat({ text: debugMock.xpFloat, speed: !!debugMock.xpFloatSpeed, key: 1 });
+        if (debugMock.perfectFlash) setPerfectFlash(true);
+        if (debugMock.hadPerfect) setHadPerfect(true);
+        // Грузовой зонд с лутом (итоговый экран)
+        if (debugMock.probeTier) setProbeTier(debugMock.probeTier);
+        if (debugMock.probeCrystals != null) setProbeCrystals(debugMock.probeCrystals);
+        if (debugMock.probeOpened) { setProbeOpened(true); setProbeCount(debugMock.probeCrystals || 0); }
+        // Кнопка «Открыть зонд» доступна сразу, кроме статичной позы доставки
+        if (debugMock.phase === 'done' && debugMock.probeFreeze !== 'delivery' && !debugMock.liveAnim) setProbeLanded(true);
+        setPhase(debugMock.phase);
+        return;
+      }
       if (!user?.phone) { setPhase('empty'); return; }
       // 1) Диагностика ещё не пройдена — самое начало пути.
       if (!user?.smartDiagDone) { setEmptyReason('no-diag'); setPhase('empty'); return; }
@@ -138,7 +248,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         // Босс — редкое событие-сюрприз: ролл детерминирован по дню (стабилен в течение дня).
         const roll = bossRollFor(user?.uid, getAlmatyDateStr(0));
         if (roll.active) { setBossActive(true); setBossType(roll.type); setBossHp(100); setPlayerHp(maxPlayerHp); setBattleResult(null); setBossIntro(true); }
-        setPhase('playing');
+        setPhase('intro'); // экран старта миссии перед первой задачей
       } catch(e) { console.error(e); setPhase('empty'); }
     };
     load();
@@ -152,6 +262,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     setRevealed(true);
     const isCorrect = current.task.correct === optIdx;
     sessionAnswersRef.current.push(isCorrect); // для recentAnswers (accuracy-достижение)
+    setAnswers(a => [...a, isCorrect]);        // сегмент прогресс-бара: зелёный/красный
     if (isCorrect) {
       setCorrect(p => new Set([...p, current.skillId]));
       setLastWrongWasDanger(false);
@@ -160,19 +271,32 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       if (nextStreak >= 3 && nextStreak % 3 === 0) {
         showNpcMessage('streak', 4000);
       }
-      // ── Points + Crystals ─────────────────────────────────────────────────
+      // ── XP/💎: считаем с combo- и стрик-множителями. Начисление — одним
+      // batch'ем по завершении сессии (handleNext); здесь только live-UI. ──
       const elapsed = questionStartRef.current ? Date.now() - questionStartRef.current : Infinity;
-      addPoints(user.uid, 'daily_correct', user);
-      addCrystals(user.uid, 1, 'daily_correct');
-      addXp(user.uid, XP_REWARDS.correct_answer, 'correct_answer', user);
-      // Квесты: счётчики верных ответов (день/неделя) + «зашёл и решил» (target 1).
-      updateQuestProgress(user.uid, 'daily_correct', 1, user);
-      updateQuestProgress(user.uid, 'weekly_correct', 1, user);
-      updateQuestProgress(user.uid, 'login_answer', 1, user);
-      if (elapsed < 10000) addPoints(user.uid, 'fast_answer', user);
-      if (nextStreak === 3 && !streak3AwardedRef.current) {
-        streak3AwardedRef.current = true;
-        addPoints(user.uid, 'daily_streak_3', user);
+      const speedBonus = elapsed < 10000 ? 3 : 0; // ⚡ ответ быстрее 10 сек
+      const effMult = comboMultiplier(nextStreak) * sMult;
+      const xpGain = Math.round(XP_REWARDS.correct_answer * effMult) + speedBonus;
+      const crystalGain = 2 + (nextStreak === 5 ? 5 : 0); // +5💎 бонус за PERFECT COMBO
+      setSessionXp(x => x + xpGain);
+      setSessionCrystals(c => c + crystalGain);
+      const multLabel = effMult > 1 ? ` (×${parseFloat(effMult.toFixed(2))})` : '';
+      setXpFloat({ text: `+${xpGain} XP${multLabel}`, speed: speedBonus > 0, key: Date.now() });
+      if (nextStreak === 5)      { setHadPerfect(true); setPerfectFlash(true); setTimeout(() => setPerfectFlash(false), 1300); }
+      else if (nextStreak === 3) { setComboFlash(true);   setTimeout(() => setComboFlash(false), 1000); }
+      // ── Points + квесты (как раньше, per-answer; XP/💎 — batch в конце) ──
+      // DEBUG (временно): в мок-режиме награды не начисляем (никаких записей в БД).
+      if (!debugMock) {
+        addPoints(user.uid, 'daily_correct', user);
+        // Квесты: счётчики верных ответов (день/неделя) + «зашёл и решил» (target 1).
+        updateQuestProgress(user.uid, 'daily_correct', 1, user);
+        updateQuestProgress(user.uid, 'weekly_correct', 1, user);
+        updateQuestProgress(user.uid, 'login_answer', 1, user);
+        if (elapsed < 10000) addPoints(user.uid, 'fast_answer', user);
+        if (nextStreak === 3 && !streak3AwardedRef.current) {
+          streak3AwardedRef.current = true;
+          addPoints(user.uid, 'daily_streak_3', user);
+        }
       }
       // ── Бой: урон боссу (косметика поверх; учёбу не трогает) ──
       if (bossActive) {
@@ -186,7 +310,8 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         setTimeout(() => { setDmgMsg(null); }, 700);
       }
     } else {
-      setStreak(0);
+      setStreak(0);      // combo сбрасывается
+      setXpFloat(null);  // убрать всплывашку прошлого ответа
       const curLives = skillLives[current.skillId] ?? 2;
       if (curLives <= 0) {
         // No lives left for this skill — degrade it
@@ -216,8 +341,23 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     } else {
       // Session over — save
       setSaving(true);
+      // ── Зонд с лутом: тир по доле верных ответов, кристаллы суммируются
+      // с ответными в ОДНОМ batch-начислении. Открытие — анимация на итоге.
+      const correctCount = answers.filter(Boolean).length;
+      const ratio = answers.length ? correctCount / answers.length : 0;
+      const tier = ratio === 1 ? 'gold' : ratio >= 0.8 ? 'silver' : 'standard';
+      const lootMult = tier === 'gold' ? 3 : tier === 'silver' ? 2 : 1;
+      const loot = (5 + Math.floor(Math.random() * 11)) * lootMult; // база 5–15 💎 × тир
+      setProbeTier(tier);
+      setProbeCrystals(loot);
+      // ── XP/💎 за сессию: одно batch-начисление вместо записи на каждый ответ.
+      // UI показывал накопление live (sessionXp/sessionCrystals); зонд — сверху.
+      if (!debugMock && user?.uid) {
+        if (sessionXp > 0)           addXp(user.uid, sessionXp, 'daily_session', user);
+        if (sessionCrystals + loot > 0) addCrystals(user.uid, sessionCrystals + loot, 'daily_session');
+      }
       // Бонус за победу над боссом — СВЕРХ учебных наград, один раз. Учёбу/SRS не трогает.
-      if (bossActive && battleResult === 'win' && !bossBonusAwardedRef.current && user?.uid) {
+      if (!debugMock && bossActive && battleResult === 'win' && !bossBonusAwardedRef.current && user?.uid) {
         bossBonusAwardedRef.current = true;
         addCrystals(user.uid, 5, 'boss_win');
         addXp(user.uid, 20, 'boss_win', user);
@@ -230,6 +370,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   };
 
   const saveSession = async () => {
+    if (debugMock) return; // DEBUG (временно): мок-режим — SRS/стрик/активность не пишем
     if (!user?.phone) return;
     const updates = {};
     for (const item of queue) {
@@ -324,9 +465,9 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         onClick={onClick}
         style={{
           marginTop: 28,
-          background: primary ? '#6366f1' : 'transparent',
-          color: primary ? '#fff' : THEME.textLight,
-          border: primary ? 'none' : `1px solid ${THEME.border}`,
+          background: primary ? BTN_DARK.background : 'transparent',
+          color: primary ? BTN_DARK.color : THEME.textLight,
+          border: primary ? BTN_DARK.border : `1px solid ${THEME.border}`,
           borderRadius: 10, padding: '12px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
         }}
       >{label}</button>
@@ -365,7 +506,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
             </p>
             <div style={{ display:'flex', flexDirection:'column', gap:12, textAlign:'left', maxWidth:420, margin:'0 auto' }}>
               {steps.map((s, i) => (
-                <div key={i} style={{ display:'flex', gap:12, alignItems:'flex-start', background:'#fff', border:`1px solid ${THEME.border}`, borderRadius:12, padding:'12px 14px' }}>
+                <div key={i} style={{ display:'flex', gap:12, alignItems:'flex-start', background:THEME.surface, border:`1px solid ${THEME.border}`, borderRadius:12, padding:'12px 14px' }}>
                   <div style={{
                     flexShrink:0, width:26, height:26, borderRadius:'50%',
                     display:'flex', alignItems:'center', justifyContent:'center',
@@ -394,7 +535,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       );
     }
 
-    // 3) Все освоенные навыки повторены — ждём следующую дату
+    // 3) Все освоенные навыки повторены — мотивационный экран со статистикой
     if (emptyReason === 'wait-until') {
       const fmt = (ymd) => {
         try {
@@ -402,16 +543,46 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
           return new Date(y, m-1, d).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
         } catch { return ymd; }
       };
+      // Мини-статистика из профиля (без запросов): стрик, задачи за 7 дней
+      // из activity-карты, очки недели. В дебаге — из мока. Пустые скрываем.
+      const st = debugMock?.stats || (() => {
+        const activity = user?.activity || {};
+        let weekTasks = 0;
+        for (let i = 0; i < 7; i++) weekTasks += Number(activity[getAlmatyDateStr(-i)] || 0);
+        return { streak: Number(user?.streak || 0), weekTasks, weekPoints: Number(user?.weekPoints || 0) };
+      })();
+      const statCards = [
+        st.streak >= 2   && { icon:'🔥', val:st.streak,     label:`${plural(st.streak, ['день','дня','дней'])} подряд` },
+        st.weekTasks > 0 && { icon:'📊', val:st.weekTasks,  label:`${plural(st.weekTasks, ['задача','задачи','задач'])} за неделю` },
+        st.weekPoints > 0 && { icon:'⭐', val:st.weekPoints, label:'очков за неделю' },
+      ].filter(Boolean);
       return (
         <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
           <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
-          <div style={{ maxWidth:520, margin:'80px auto', padding:'0 24px', textAlign:'center' }}>
-            <div style={{ fontSize:56, marginBottom:16 }}>📅</div>
-            <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary, marginBottom:8 }}>Всё повторено!</h2>
-            <p style={{ fontFamily:"'Inter',sans-serif", fontSize:15, color:THEME.textLight, lineHeight:1.7 }}>
-              Следующая разминка — <b style={{ color:THEME.primary }}>{nextReviewDate ? fmt(nextReviewDate) : '—'}</b>. А пока можно освоить ещё пару навыков из плана.
+          <div style={{ maxWidth:560, margin:'64px auto', padding:'0 24px', textAlign:'center' }}>
+            <div style={{ fontSize:60, marginBottom:14 }}>🏆</div>
+            <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:24, color:THEME.primary, marginBottom:10 }}>Всё повторено! Ты молодец 🎉</h2>
+
+            {/* Мини-карточки статистики (если есть данные) */}
+            {statCards.length > 0 && (
+              <div style={{ display:'flex', justifyContent:'center', gap:10, flexWrap:'wrap', margin:'20px 0 6px' }}>
+                {statCards.map(c => (
+                  <div key={c.icon} style={{ background: isDarkUi ? THEME.surface : '#ffffff', border:`1px solid ${THEME.border}`, borderRadius:14, padding:'13px 20px', minWidth:120, boxShadow:'0 4px 14px rgba(10,25,47,0.06)' }}>
+                    <div style={{ fontSize:20, marginBottom:3 }}>{c.icon}</div>
+                    <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:20, color:THEME.text, lineHeight:1.1 }}>{c.val}</div>
+                    <div style={{ fontFamily:"'Inter',sans-serif", fontSize:11.5, color:THEME.textLight, marginTop:2 }}>{c.label}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p style={{ fontFamily:"'Inter',sans-serif", fontSize:15, color:THEME.textLight, lineHeight:1.7, marginTop:18 }}>
+              📅 Следующая разминка — <b style={{ color:THEME.primary }}>{nextReviewDate ? fmt(nextReviewDate) : '—'}</b>
             </p>
-            <Btn onClick={()=>onViewPlan?.()} label="🗺️ Освоить ещё навыки" />
+            <p style={{ fontFamily:"'Inter',sans-serif", fontSize:13.5, color:THEME.textLight, marginTop:4 }}>
+              Пока можно освоить новые навыки из плана.
+            </p>
+            <Btn onClick={()=>onViewPlan?.()} label="🗺️ К плану обучения →" />
           </div>
         </div>
       );
@@ -440,24 +611,130 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     </div>
   );
 
-  // ── DONE ──
-  if (phase === 'done') {
-    const degradedList = queue.filter(q => degraded.has(q.skillId));
-    const correctList  = queue.filter(q => correct.has(q.skillId));
-    const wrongList    = queue.filter(q => wrong.has(q.skillId));
+  // ── INTRO: экран старта «Ежедневной миссии» ──
+  if (phase === 'intro') {
+    const skillCount = new Set(queue.map(q => q.skillId)).size;
+    const potXp = potentialXp(queue.length, sMult);
+    const potCr = potentialCrystals(queue.length);
     return (
-      <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
-        <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
-        <div style={{ maxWidth:540, margin:'48px auto', padding:'0 24px' }}>
-          <div style={{ textAlign:'center', marginBottom:32 }}>
-            <div style={{ fontSize:52, marginBottom:12 }}>{degradedList.length > 0 ? '⚠️' : '🏆'}</div>
-            <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary, marginBottom:8 }}>Разминка завершена!</h2>
-            <p style={{ fontFamily:"'Inter',sans-serif", fontSize:14, color:THEME.textLight }}>{correct.size} из {queue.length} верно</p>
+      <div className="page-themed" style={{ minHeight:'100vh', background:'linear-gradient(160deg, #0c1230 0%, #181a3e 55%, #2b1b52 100%)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+        <style>{`@keyframes missionRise { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }`}</style>
+        <div style={{ textAlign:'center', maxWidth:480, animation:'missionRise 0.5s ease both' }}>
+          <div style={{ fontSize:54, marginBottom:8, filter:'drop-shadow(0 0 16px rgba(251,191,36,0.45))' }}>⚔️</div>
+          <h1 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:32, color:'#fff', textShadow:'0 0 24px rgba(251,191,36,0.35)', margin:'0 0 20px' }}>Ежедневная миссия</h1>
+
+          {/* Что предстоит */}
+          <div style={{ display:'flex', justifyContent:'center', gap:10, flexWrap:'wrap', marginBottom:14 }}>
+            <span style={{ background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.18)', borderRadius:99, padding:'7px 16px', fontFamily:"'Inter',sans-serif", fontSize:14, fontWeight:600, color:'#e2e8f0' }}>
+              📝 {queue.length} {plural(queue.length, ['задача','задачи','задач'])}
+            </span>
+            <span style={{ background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.18)', borderRadius:99, padding:'7px 16px', fontFamily:"'Inter',sans-serif", fontSize:14, fontWeight:600, color:'#e2e8f0' }}>
+              🧠 {skillCount} {plural(skillCount, ['навык','навыка','навыков'])}
+            </span>
           </div>
 
-          {/* Исход боя с боссом — баннер сверху (учебные итоги ниже, без изменений) */}
+          {/* Что можно заработать */}
+          <div style={{ background:'rgba(251,191,36,0.10)', border:'1px solid rgba(251,191,36,0.4)', borderRadius:14, padding:'13px 20px', marginBottom:12 }}>
+            <div style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,0.6)', marginBottom:3 }}>Можно заработать</div>
+            <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:18, color:'#fbbf24' }}>До +{potXp} XP · до +{potCr} 💎</div>
+          </div>
+
+          {/* Стрик и множитель */}
+          <div style={{ fontFamily:"'Inter',sans-serif", fontSize:14, color:'rgba(255,255,255,0.8)', marginBottom:26 }}>
+            {effStreak >= 2
+              ? <>🔥 {effStreak} {plural(effStreak, ['день','дня','дней'])} подряд{sMult > 1 && <b style={{ color:'#fbbf24' }}> · множитель ×{sMult}</b>}</>
+              : <>🔥 Реши сегодня — начни серию дней и получи множитель XP!</>}
+          </div>
+
+          <button onClick={() => setPhase('playing')}
+            style={{ ...BTN_GOLD, borderRadius:14, padding:'16px 52px', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:18, cursor:'pointer', boxShadow:'0 0 26px rgba(251,191,36,0.45)' }}>
+            Начать миссию →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── DONE: полноценный экран награждения ──
+  if (phase === 'done') {
+    // Карточки навыков — queue дедуплицируем по skillId (навык мог дать
+    // несколько задач), статус: деградация > верно > жизнь потрачена.
+    const uniqSkills = [];
+    {
+      const seen = new Set();
+      for (const q of queue) { if (!seen.has(q.skillId)) { seen.add(q.skillId); uniqSkills.push(q); } }
+    }
+    const degradedCount = uniqSkills.filter(q => degraded.has(q.skillId)).length;
+    const correctCount = answers.filter(Boolean).length;
+    const totalCount = answers.length || queue.length;
+    const isPerfect = totalCount > 0 && correctCount === totalCount;
+    const shownCrystals = sessionCrystals + (probeOpened ? probeCrystals : 0);
+    // Стрик: прогресс до следующего порога множителя (7 → 14 → 30)
+    const nextThr  = effStreak >= 30 ? null : effStreak >= 14 ? 30 : effStreak >= 7 ? 14 : 7;
+    const prevThr  = effStreak >= 30 ? 30   : effStreak >= 14 ? 14 : effStreak >= 7 ? 7  : 0;
+    const nextMult = nextThr === 7 ? 1.2 : nextThr === 14 ? 1.5 : 2;
+    const streakPct = nextThr ? Math.max(4, Math.min(100, ((effStreak - prevThr) / (nextThr - prevThr)) * 100)) : 100;
+    // Уровень: XP-бар с учётом только что заработанного
+    const lvl = getLevelInfo((Number(user?.xp) || 0) + sessionXp);
+    const xpLeft = Math.max(0, lvl.nextLevelXp - lvl.currentLevelXp);
+    // Друзья — лёгкий nudge без запросов к Firestore (берём user.friends из профиля)
+    const friendsCount = debugMock?.friendsCount ?? (Array.isArray(user?.friends) ? user.friends.length : 0);
+    // Зонд: подпись и акцент по тиру (визуал — в 3D-сцене)
+    const PROBE = {
+      gold:     { name:'Легендарный зонд', note:'×3 за PERFECT',   accent:'#fbbf24', body:'linear-gradient(180deg,#fcd34d,#b45309)' },
+      silver:   { name:'Усиленный зонд',   note:'×2 за результат', accent:'#7dd3fc', body:'linear-gradient(180deg,#f1f5f9,#94a3b8)' },
+      standard: { name:'Грузовой зонд',    note:null,              accent:'#fb923c', body:'linear-gradient(180deg,#cbd5e1,#8b95a5)' },
+    }[probeTier];
+    const card = { background: isDarkUi ? THEME.surface : '#ffffff', border:`1px solid ${THEME.border}`, borderRadius:14 };
+    return (
+      <div className="page-themed" style={{ minHeight:'100vh', background: isDarkUi
+        ? 'linear-gradient(180deg, #131b36 0%, #1a1d3f 40%, #0f172a 100%)'
+        : 'linear-gradient(180deg, #eef2ff 0%, #fdf6e9 45%, #ffffff 100%)' }}>
+        <style>{`
+          @keyframes lootPop { 0% { transform:scale(0.6); opacity:0; } 60% { transform:scale(1.12); opacity:1; } 100% { transform:scale(1); opacity:1; } }
+          @keyframes confettiFall { 0% { transform:translateY(-50px) rotate(0deg); opacity:1; } 100% { transform:translateY(105vh) rotate(560deg); opacity:0.5; } }
+        `}</style>
+
+        {/* CSS-конфетти при PERFECT (лёгкие частички, один проход) */}
+        {isPerfect && (
+          <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:50, overflow:'hidden' }}>
+            {Array.from({ length: 14 }).map((_, i) => (
+              <span key={i} style={{
+                position:'absolute', top:0, left:`${4 + i * 7}%`,
+                width: i % 3 === 0 ? 10 : 7, height: i % 2 === 0 ? 12 : 8,
+                borderRadius: i % 3 === 0 ? '50%' : 2,
+                background: ['#fbbf24','#22c55e','#818cf8','#f472b6','#f59e0b'][i % 5],
+                animation: `confettiFall ${2.2 + (i % 4) * 0.35}s ease-in ${(i % 5) * 0.18}s both`,
+              }}/>
+            ))}
+          </div>
+        )}
+
+        <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
+        <div style={{ maxWidth:560, margin:'36px auto', padding:'0 24px 60px' }}>
+          {/* a) Заголовок */}
+          <div style={{ textAlign:'center', marginBottom:18 }}>
+            <div style={{ fontSize:52, marginBottom:10 }}>{degradedCount > 0 ? '⚠️' : '🏆'}</div>
+            <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:24, color:THEME.primary, marginBottom:6 }}>Миссия выполнена!</h2>
+            {isPerfect
+              ? <p style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:'#d4a017', textShadow: isDarkUi ? '0 0 14px rgba(251,191,36,0.5)' : 'none' }}>PERFECT! {correctCount} из {totalCount} ✨</p>
+              : <p style={{ fontFamily:"'Inter',sans-serif", fontSize:14, color:THEME.textLight }}>{correctCount} из {totalCount} верно</p>}
+          </div>
+
+          {/* b) Награды — крупные чипы */}
+          <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:18 }}>
+            <span style={{ background:'rgba(251,191,36,0.12)', border:'1px solid rgba(251,191,36,0.5)', borderRadius:99, padding:'9px 20px', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:isDarkUi?'#fbbf24':'#b45309' }}>
+              ⚡ +{sessionXp} XP{sMult > 1 && <span style={{ fontSize:11.5, fontWeight:700, opacity:0.8 }}> · ×{sMult} стрик</span>}
+            </span>
+            <span style={{ background:'rgba(167,139,250,0.12)', border:'1px solid rgba(167,139,250,0.5)', borderRadius:99, padding:'9px 20px', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:'#a78bfa' }}>💎 +{shownCrystals}</span>
+            {hadPerfect && (
+              <span style={{ background:'linear-gradient(90deg,#fbbf24,#f59e0b)', borderRadius:99, padding:'9px 18px', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:'#1a1a2e' }}>🔥 Perfect combo!</span>
+            )}
+          </div>
+
+          {/* Исход боя с боссом (механика не менялась) */}
           {bossActive && battleResult === 'win' && (
-            <div style={{ background:'linear-gradient(135deg, rgba(212,175,55,0.14), rgba(102,178,255,0.10))', border:'1px solid rgba(212,175,55,0.5)', borderRadius:14, padding:'16px 18px', marginBottom:16, display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ background:'linear-gradient(135deg, rgba(212,175,55,0.14), rgba(102,178,255,0.10))', border:'1px solid rgba(212,175,55,0.5)', borderRadius:14, padding:'16px 18px', marginBottom:14, display:'flex', alignItems:'center', gap:14 }}>
               <div style={{ width:120, flexShrink:0 }}><Boss3D type={bossType} hpPct={10} shake={false} height={100} /></div>
               <div>
                 <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:'#b8860b' }}>🏆 Босс повержен!</div>
@@ -466,48 +743,131 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
             </div>
           )}
           {bossActive && battleResult !== 'win' && (
-            <div style={{ background:'rgba(99,102,241,0.06)', border:`1px solid ${THEME.border}`, borderRadius:14, padding:'14px 18px', marginBottom:16, textAlign:'center' }}>
+            <div style={{ background:'rgba(99,102,241,0.06)', border:`1px solid ${THEME.border}`, borderRadius:14, padding:'14px 18px', marginBottom:14, textAlign:'center' }}>
               <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:15, color:THEME.primary }}>Босс ушёл, но ты всё равно прокачался 💪</div>
               <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.textLight, marginTop:3 }}>Все награды за ответы засчитаны. Попробуй снова в другой раз!</div>
             </div>
           )}
 
-          {correctList.length > 0 && (
-            <div style={{ background:'rgba(34,197,94,0.06)', border:'1px solid #86efac', borderRadius:12, padding:'14px 16px', marginBottom:14 }}>
-              <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#15803d', marginBottom:8 }}>✅ Отлично усвоено</div>
-              {correctList.map(q => {
-                const nextStage = Math.min(q.reviewStage + 1, 5);
-                const days = SRS_INTERVALS[nextStage - 1];
-                return (
-                  <div key={q.skillId} style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:'#166534', padding:'4px 0', borderBottom:'1px solid rgba(134,239,172,0.3)' }}>
-                    {q.skillName} <span style={{ color:'#86efac', fontSize:12 }}>→ следующее повторение через {days} дн.</span>
+          {/* c) Стрик: прогресс до следующего порога множителя */}
+          <div style={{ ...card, padding:'14px 18px', marginBottom:14 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:10, flexWrap:'wrap', marginBottom:8 }}>
+              <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:THEME.text }}>
+                🔥 {effStreak >= 2 ? <>{effStreak} {plural(effStreak, ['день','дня','дней'])} подряд!</> : 'Серия дней началась!'}
+              </span>
+              <span style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:THEME.textLight }}>
+                {nextThr
+                  ? <>Ещё {nextThr - effStreak} {plural(nextThr - effStreak, ['день','дня','дней'])} до множителя <b style={{ color:isDarkUi?'#fbbf24':'#b45309' }}>×{nextMult}</b></>
+                  : <b style={{ color:isDarkUi?'#fbbf24':'#b45309' }}>Максимальный множитель ×2.0!</b>}
+              </span>
+            </div>
+            <div style={{ height:8, background:isDarkUi?'rgba(148,163,184,0.2)':'#e2e8f0', borderRadius:99, overflow:'hidden' }}>
+              <div style={{ height:'100%', width:`${streakPct}%`, background:'linear-gradient(90deg,#fbbf24,#f59e0b)', borderRadius:99, transition:'width 0.5s' }}/>
+            </div>
+          </div>
+
+          {/* d) Грузовой зонд с лутом — доставка дроном (3D) */}
+          <div style={{ ...card, padding:'18px 18px 20px', marginBottom:14, textAlign:'center' }}>
+            <div style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:THEME.textLight }}>Твоя награда</div>
+            {/* 3D-сцена: дрон → сброс → отлёт → капсула; CSS-капсула — фолбэк без WebGL */}
+            <ProbeScene3D
+              tier={probeTier}
+              state={probeOpened ? 'open' : 'delivering'}
+              freeze={debugMock && !debugMock.liveAnim ? (debugMock.probeFreeze || (probeOpened ? 'open' : 'landed')) : null}
+              onLanded={() => setProbeLanded(true)}
+              onOpenComplete={() => setProbeAnimDone(true)}
+              width={360}
+              height={280}
+              fallback={
+                <div style={{ position:'relative', width:170, height:80, margin:'34px auto 14px' }}>
+                  {probeOpened && (
+                    <div style={{ position:'absolute', inset:-26, background:`radial-gradient(circle, ${PROBE.accent}55, transparent 68%)`, pointerEvents:'none' }}/>
+                  )}
+                  {/* Капсула: корпус + маркировочные полосы + иллюминатор */}
+                  <div style={{ position:'absolute', inset:0, borderRadius:44, background:PROBE.body, border:'2px solid rgba(0,0,0,0.28)', boxShadow: probeOpened ? `0 0 24px ${PROBE.accent}88` : 'none', transition:'box-shadow 0.5s', overflow:'hidden' }}>
+                    {[26, 130].map(x => <div key={x} style={{ position:'absolute', top:0, bottom:0, left:x, width:9, background:PROBE.accent, opacity:0.85 }}/>)}
+                    <div style={{ position:'absolute', top:26, left:'50%', transform:'translateX(-50%)', width:22, height:22, borderRadius:'50%', background:'#0b1220', border:`2px solid ${PROBE.accent}` }}/>
                   </div>
-                );
-              })}
-            </div>
-          )}
-
-          {wrongList.length > 0 && (
-            <div style={{ background:'rgba(251,191,36,0.06)', border:'1px solid #fde68a', borderRadius:12, padding:'14px 16px', marginBottom:14 }}>
-              <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#92400e', marginBottom:8 }}>🛡️ Жизнь потрачена — повторение завтра</div>
-              {wrongList.map(q => (
-                <div key={q.skillId} style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:'#78350f', padding:'4px 0' }}>{q.skillName}</div>
-              ))}
-            </div>
-          )}
-
-          {degradedList.length > 0 && (
-            <div style={{ background:'rgba(239,68,68,0.06)', border:'1px solid #fca5a5', borderRadius:12, padding:'14px 16px', marginBottom:20 }}>
-              <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#dc2626', marginBottom:8 }}>💀 Деградация — вернись и повтори Этап 3</div>
-              {degradedList.map(q => (
-                <div key={q.skillId} style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:'#b91c1c', padding:'4px 0' }}>
-                  {q.skillName} <span style={{ fontSize:12, color:'#fca5a5' }}>— кристалл потускнел до жёлтого</span>
+                  {probeOpened && [0,1,2].map(i => (
+                    <span key={i} style={{ position:'absolute', top:-18 - (i === 1 ? 8 : 0), left:`${30 + i * 16}%`, fontSize: i === 1 ? 22 : 17 }}>💎</span>
+                  ))}
                 </div>
-              ))}
+              }
+            />
+            {/* Название тира — под капсулой */}
+            <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:THEME.text, marginTop:6 }}>
+              {PROBE.name}{PROBE.note && <span style={{ fontSize:11.5, fontWeight:700, color:isDarkUi?'#fbbf24':'#b45309' }}> · {PROBE.note}</span>}
+            </div>
+            {!probeOpened ? (
+              probeLanded ? (
+                <button onClick={openProbe}
+                  style={{ ...BTN_GOLD, marginTop:12, borderRadius:10, padding:'11px 34px', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, cursor:'pointer', boxShadow:'0 0 16px rgba(251,191,36,0.35)' }}>
+                  Открыть зонд
+                </button>
+              ) : (
+                <div style={{ marginTop:12, fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.textLight }}>📡 Дрон доставляет груз…</div>
+              )
+            ) : (debugMock || probeAnimDone) ? (
+              /* «+N 💎» — после того как створка доиграла открытие */
+              <div style={{ marginTop:6, animation: debugMock ? 'none' : 'lootPop 0.5s ease both' }}>
+                <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:30, color:'#a78bfa', textShadow: isDarkUi ? '0 0 16px rgba(167,139,250,0.5)' : 'none' }}>+{probeCount} 💎</span>
+              </div>
+            ) : (
+              <div style={{ marginTop:6, height:38 }}/>
+            )}
+          </div>
+
+          {/* e) Навыки — карточки результата */}
+          <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:14 }}>
+            {uniqSkills.map(q => {
+              const st = degraded.has(q.skillId) ? 'deg' : correct.has(q.skillId) ? 'ok' : wrong.has(q.skillId) ? 'warn' : null;
+              if (!st) return null;
+              const days = SRS_INTERVALS[Math.min(q.reviewStage + 1, 5) - 1];
+              const S = {
+                ok:   { bg:'rgba(34,197,94,0.08)',  border: isDarkUi?'rgba(74,222,128,0.4)':'#86efac', icon:'✅', color: isDarkUi?'#bbf7d0':'#166534', note:`→ повторение через ${days} дн.`,  noteColor: isDarkUi?'#4ade80':'#15803d' },
+                warn: { bg:'rgba(251,191,36,0.08)', border: isDarkUi?'rgba(252,211,77,0.4)':'#fde68a', icon:'⚠️', color: isDarkUi?'#fde68a':'#78350f', note:'→ повторение завтра',             noteColor: isDarkUi?'#fcd34d':'#92400e' },
+                deg:  { bg:'rgba(239,68,68,0.08)',  border: isDarkUi?'rgba(248,113,113,0.4)':'#fca5a5', icon:'💀', color: isDarkUi?'#fecaca':'#b91c1c', note:'— деградация, повтори Этап 3',    noteColor: isDarkUi?'#f87171':'#dc2626' },
+              }[st];
+              return (
+                <div key={q.skillId} style={{ background:S.bg, border:`1px solid ${S.border}`, borderRadius:12, padding:'11px 14px', display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+                  <span style={{ fontSize:16, flexShrink:0 }}>{S.icon}</span>
+                  <span style={{ flex:'1 1 180px', fontFamily:"'Inter',sans-serif", fontSize:13.5, fontWeight:700, color:S.color }}>{q.skillName}</span>
+                  <span style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:S.noteColor, flexShrink:0 }}>{S.note}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* f) Прогресс до следующего уровня */}
+          <div style={{ ...card, padding:'13px 18px', marginBottom:14 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:10, marginBottom:7 }}>
+              <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:THEME.text }}>Уровень {lvl.level} → {lvl.level + 1}</span>
+              <span style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:THEME.textLight }}>осталось <b style={{ color:isDarkUi?'#a5b4fc':'#4f46e5' }}>{xpLeft} XP</b></span>
+            </div>
+            <div style={{ height:8, background:isDarkUi?'rgba(148,163,184,0.2)':'#e2e8f0', borderRadius:99, overflow:'hidden' }}>
+              <div style={{ height:'100%', width:`${Math.round(lvl.progress * 100)}%`, background:'linear-gradient(90deg,#818cf8,#a78bfa)', borderRadius:99, transition:'width 0.5s' }}/>
+            </div>
+          </div>
+
+          {/* Социальный nudge — без запросов: friends уже в профиле */}
+          {friendsCount > 0 ? (
+            <div style={{ ...card, padding:'12px 16px', marginBottom:18, display:'flex', alignItems:'center', gap:10 }}>
+              <span style={{ fontSize:20 }}>👥</span>
+              <span style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.text }}>
+                У тебя {friendsCount} {plural(friendsCount, ['друг','друга','друзей'])} — загляни в рейтинг: кто сегодня впереди?
+              </span>
+            </div>
+          ) : (
+            <div style={{ ...card, padding:'12px 16px', marginBottom:18, display:'flex', alignItems:'center', gap:10 }}>
+              <span style={{ fontSize:20 }}>🤝</span>
+              <span style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.text }}>
+                Пригласи друзей — соревнуйтесь каждый день!
+              </span>
             </div>
           )}
 
-          <button onClick={onBack} style={{ width:'100%', background:'#6366f1', color:'#fff', border:'none', borderRadius:10, padding:'13px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+          {/* g) CTA */}
+          <button onClick={onBack} style={{ ...BTN_DARK, width:'100%', borderRadius:10, padding:'13px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
             Вернуться на главную
           </button>
         </div>
@@ -535,21 +895,46 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:'rgba(255,255,255,0.6)', marginBottom:22, lineHeight:1.6 }}>
           Отвечай верно — наноси урон. Ошибки навыка тебя не штрафуют.<br/>Победа = бонус сверху, проигрыш ничего не отнимает.
         </div>
-        <button onClick={() => setBossIntro(false)} style={{ background:'linear-gradient(90deg,#f5c518,#66b2ff)', color:'#0f172a', border:'none', borderRadius:12, padding:'14px 40px', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, cursor:'pointer', boxShadow:'0 0 18px rgba(102,178,255,0.4)' }}>В бой! →</button>
+        <button onClick={() => setBossIntro(false)} style={{ ...BTN_GOLD, borderRadius:12, padding:'14px 40px', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, cursor:'pointer', boxShadow:'0 0 18px rgba(251,191,36,0.45)' }}>В бой! →</button>
       </div>
     </div>
   );
 
   return (
     <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
+      {/* Анимации геймификации (combo, XP-флоат, HP-бар) + hover вариантов */}
+      <style>{`
+        @keyframes xpFloatUp { 0% { opacity:0; transform:translateY(8px); } 15% { opacity:1; transform:translateY(0); } 70% { opacity:1; } 100% { opacity:0; transform:translateY(-26px); } }
+        @keyframes perfectPop { 0% { transform:scale(0.55); opacity:0; } 18% { transform:scale(1.1); opacity:1; } 75% { transform:scale(1); opacity:1; } 100% { transform:scale(1); opacity:0; } }
+        @keyframes comboPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.18); } }
+        @keyframes cardFlash {
+          0%,100% { box-shadow:0 0 0 2px rgba(251,191,36,0.45), 0 0 22px rgba(251,191,36,0.25); }
+          50%     { box-shadow:0 0 0 4px rgba(251,191,36,0.9),  0 0 36px rgba(251,191,36,0.55); }
+        }
+        @keyframes hpShake { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-4px); } 50% { transform:translateX(4px); } 75% { transform:translateX(-2px); } }
+        .daily-opt { transition: all 0.15s ease; cursor:pointer; }
+        .daily-opt:not(:disabled):hover { border-color:#fbbf24 !important; background:${isDarkUi ? 'rgba(251,191,36,0.08)' : 'rgba(251,191,36,0.07)'} !important; transform:translateY(-1px); }
+      `}</style>
+
+      {/* 💎 PERFECT COMBO ×5 — оверлей по центру на ~1 сек */}
+      {perfectFlash && (
+        <div style={{ position:'fixed', inset:0, display:'flex', alignItems:'center', justifyContent:'center', zIndex:100, pointerEvents:'none' }}>
+          <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:40, color:'#fbbf24', textShadow:'0 0 30px rgba(251,191,36,0.8)', background:'rgba(10,14,28,0.82)', padding:'20px 42px', borderRadius:20, border:'2px solid rgba(251,191,36,0.6)', animation: debugMock ? 'none' : 'perfectPop 1.25s ease forwards', whiteSpace:'nowrap' }}>
+            💎 PERFECT COMBO ×5
+          </div>
+        </div>
+      )}
+
       <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Logo size={28}/>
-        <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-          {/* Lives */}
-          <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-            {[0,1].map(i => (
-              <span key={i} style={{ fontSize:20, opacity: i < (skillLives[current.skillId] ?? 2) ? 1 : 0.2, transition:'opacity 0.3s' }}>❤️</span>
-            ))}
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+          {/* Заработано за сессию (live; начисление batch'ем в конце) */}
+          <div style={{ display:'flex', alignItems:'center', gap:10, background:'rgba(251,191,36,0.10)', border:'1px solid rgba(251,191,36,0.4)', borderRadius:99, padding:'5px 14px' }}>
+            <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:isDarkUi?'#fbbf24':'#b45309' }}>⚡ {sessionXp} XP</span>
+            <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:'#a78bfa' }}>💎 {sessionCrystals}</span>
+            {sMult > 1 && (
+              <span title={`Множитель дневного стрика ×${sMult}`} style={{ fontSize:11, fontWeight:800, color:'#1a1a2e', background:'linear-gradient(90deg,#fbbf24,#f59e0b)', borderRadius:99, padding:'2px 8px' }}>×{sMult}</span>
+            )}
           </div>
           {/* Progress */}
           <div style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:THEME.textLight }}>
@@ -559,7 +944,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         <button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Выйти</button>
       </nav>
 
-      <div style={{ maxWidth:660, margin:'0 auto', padding:'24px 20px 60px' }}>
+      <div style={{ maxWidth:800, margin:'0 auto', padding:'24px 20px 60px' }}>
         {/* ── Боевая панель босса (косметический слой) ── */}
         {bossActive && (
           <>
@@ -597,23 +982,47 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
             </div>
           </>
         )}
-        {/* Progress bar */}
-        <div style={{ height:5, background:'#e2e8f0', borderRadius:3, overflow:'hidden', marginBottom:20 }}>
-          <div style={{ height:'100%', width:`${((qIdx)/queue.length)*100}%`, background:'#6366f1', transition:'width 0.4s' }}/>
+        {/* Сегментированный прогресс-бар: сегмент = задача (✓ зелёный / ✗ красный /
+            текущая синяя / впереди серая) + combo-бейдж справа */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18 }}>
+          <div style={{ flex:1, display:'flex', gap:4 }}>
+            {queue.map((_, i) => {
+              const answered = i < answers.length;
+              const bg = answered
+                ? (answers[i] ? '#22c55e' : '#ef4444')
+                : i === qIdx
+                  ? '#3b82f6'
+                  : isDarkUi ? 'rgba(148,163,184,0.25)' : '#e2e8f0';
+              return (
+                <span key={i} style={{ flex:1, height:11, borderRadius:6, background:bg, transition:'background 0.3s',
+                  boxShadow: (!answered && i === qIdx) ? '0 0 8px rgba(59,130,246,0.55)' : 'none' }}/>
+              );
+            })}
+          </div>
+          {streak >= 2 && (
+            <span style={{ flexShrink:0, fontFamily:"'Montserrat',sans-serif", fontWeight:800,
+              fontSize: streak >= 5 ? 14 : streak >= 3 ? 13 : 12,
+              color:'#1a1a2e', background:'linear-gradient(90deg,#fbbf24,#f59e0b)', borderRadius:99,
+              padding: streak >= 3 ? '5px 14px' : '4px 11px',
+              boxShadow:'0 0 12px rgba(251,191,36,0.5)',
+              animation: comboFlash && !debugMock ? 'comboPulse 0.45s ease 2' : 'none', whiteSpace:'nowrap' }}>
+              {streak >= 5 ? `💎 PERFECT ×${streak}` : streak >= 3 ? `🔥🔥 ×${streak}!` : `🔥 ×${streak}`}
+            </span>
+          )}
         </div>
 
         {/* Skill chips (mini map) */}
-        <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:20 }}>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:20 }}>
           {queue.map((q, i) => {
             const done = i < qIdx;
             const active = i === qIdx;
             const isCorr = done && correct.has(q.skillId);
             const isDeg = done && degraded.has(q.skillId);
             return (
-              <div key={q.skillId} style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontFamily:"'Inter',sans-serif", fontWeight:600,
-                background: isDeg?'rgba(239,68,68,0.1)':isCorr?'rgba(34,197,94,0.1)':active?'rgba(99,102,241,0.12)':'#f1f5f9',
-                border:`1px solid ${isDeg?'#fca5a5':isCorr?'#86efac':active?'#6366f1':'#e2e8f0'}`,
-                color: isDeg?'#dc2626':isCorr?'#15803d':active?'#6366f1':'#94a3b8' }}>
+              <div key={q.skillId} style={{ padding:'6px 14px', borderRadius:20, fontSize:13, fontFamily:"'Inter',sans-serif", fontWeight:600,
+                background: isDeg?'rgba(239,68,68,0.1)':isCorr?'rgba(34,197,94,0.12)':active?'rgba(99,102,241,0.14)':(isDarkUi?'rgba(148,163,184,0.10)':'#f1f5f9'),
+                border: active ? '2px solid #6366f1' : `1px solid ${isDeg?'#fca5a5':isCorr?'#86efac':(isDarkUi?'rgba(148,163,184,0.25)':'#e2e8f0')}`,
+                color: isDeg?(isDarkUi?'#f87171':'#dc2626'):isCorr?(isDarkUi?'#4ade80':'#15803d'):active?(isDarkUi?'#a5b4fc':'#6366f1'):'#94a3b8' }}>
                 {isDeg?'💀':isCorr?'✓':active?'▶':''} {q.skillName}
               </div>
             );
@@ -622,27 +1031,56 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
 
         {/* Danger alert if lives=0 and last wrong */}
         {lastWrongWasDanger && (
-          <div style={{ background:'rgba(239,68,68,0.08)', border:'1px solid #fca5a5', borderRadius:10, padding:'10px 14px', marginBottom:16, fontFamily:"'Inter',sans-serif", fontSize:13, color:'#dc2626' }}>
+          <div style={{ background:'rgba(239,68,68,0.08)', border:`1px solid ${isDarkUi?'rgba(248,113,113,0.45)':'#fca5a5'}`, borderRadius:10, padding:'10px 14px', marginBottom:16, fontFamily:"'Inter',sans-serif", fontSize:13, color:isDarkUi?'#f87171':'#dc2626' }}>
             💀 Жизней нет! Навык <b>{current.skillName}</b> деградировал — кристалл потускнеет. Чтобы вернуть золото, нужно заново пройти Этап 3.
           </div>
         )}
         {!lastWrongWasDanger && revealed && !isCorrectAnswer && lives > 0 && (
-          <div style={{ background:'rgba(251,191,36,0.08)', border:'1px solid #fde68a', borderRadius:10, padding:'10px 14px', marginBottom:16, fontFamily:"'Inter',sans-serif", fontSize:13, color:'#92400e' }}>
+          <div style={{ background:'rgba(251,191,36,0.08)', border:`1px solid ${isDarkUi?'rgba(252,211,77,0.45)':'#fde68a'}`, borderRadius:10, padding:'10px 14px', marginBottom:16, fontFamily:"'Inter',sans-serif", fontSize:13, color:isDarkUi?'#fcd34d':'#92400e' }}>
             🛡️ Жизнь потрачена! Осталось: {'❤️'.repeat(lives)}{'🖤'.repeat(2-lives)}
           </div>
         )}
 
-        {/* Task card */}
-        <div className="theme-card" style={{ background:THEME.surface, border:`1px solid ${THEME.border}`, borderRadius:16, padding:'22px 24px', boxShadow:'0 4px 20px rgba(0,0,0,0.06)' }}>
-          {/* Skill label */}
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-            <div style={{ background:'rgba(99,102,241,0.08)', borderRadius:20, padding:'4px 12px', fontFamily:"'Inter',sans-serif", fontSize:12, color:'#6366f1', fontWeight:600 }}>
+        {/* Task card: тёплый фон, combo-подсветка, XP-флоат */}
+        <div className="theme-card" style={{
+          position:'relative',
+          background: isDarkUi ? THEME.surface : '#fffdf8',
+          border:`1px solid ${THEME.border}`, borderRadius:16, padding:'24px 28px',
+          boxShadow: streak >= 2
+            ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 22px rgba(251,191,36,0.25), 0 8px 32px rgba(10,25,47,0.08)'
+            : '0 8px 32px rgba(10,25,47,0.08)',
+          animation: comboFlash && !debugMock ? 'cardFlash 0.5s ease 2' : 'none',
+          transition:'box-shadow 0.3s',
+        }}>
+          {/* Всплывающий «+N XP» после верного ответа */}
+          {xpFloat && (
+            <div key={xpFloat.key} style={{ position:'absolute', top:-14, right:20, zIndex:5, pointerEvents:'none', textAlign:'right',
+              animation: debugMock ? 'none' : 'xpFloatUp 1.5s ease forwards' }}>
+              <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:19, color:'#22c55e', textShadow: isDarkUi ? '0 0 12px rgba(34,197,94,0.6)' : '0 1px 3px rgba(255,255,255,0.9)' }}>{xpFloat.text}</div>
+              {xpFloat.speed && <div style={{ fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:12, color:'#f59e0b' }}>⚡ +3 XP Speed bonus</div>}
+            </div>
+          )}
+
+          {/* Лейбл навыка (с цветной полоской, как в плане) + HP-бар жизней */}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:14, flexWrap:'wrap', marginBottom:16 }}>
+            <div style={{ borderLeft:'4px solid #fbbf24', paddingLeft:11, fontFamily:"'Inter',sans-serif", fontSize:14, fontWeight:700, color:THEME.text, lineHeight:1.35, flex:'1 1 200px', minWidth:0 }}>
               {current.skillName}
             </div>
-            <div style={{ fontFamily:"'Inter',sans-serif", fontSize:11, color:THEME.textLight }}>
-              {isDanger ? '💀 Жизней нет' : `${'❤️'.repeat(lives)} ${lives} жизни`}
-            </div>
+            {(() => {
+              const hpColor = lives === 2 ? '#22c55e' : lives === 1 ? '#f59e0b' : '#ef4444';
+              return (
+                <div key={lives} style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0, animation: lives < 2 ? 'hpShake 0.5s ease' : 'none' }}>
+                  <div style={{ width:110, height:10, background: isDarkUi?'rgba(148,163,184,0.2)':'#e2e8f0', borderRadius:99, overflow:'hidden', border:`1px solid ${isDarkUi?'rgba(148,163,184,0.3)':'#cbd5e1'}` }}>
+                    <div style={{ height:'100%', width:`${(lives/2)*100}%`, background:hpColor, borderRadius:99, transition:'width 0.4s ease, background 0.4s' }}/>
+                  </div>
+                  <span style={{ fontFamily:"'Inter',sans-serif", fontSize:11.5, fontWeight:700, color:hpColor, whiteSpace:'nowrap' }}>
+                    {lives === 2 ? '2/2 жизни' : lives === 1 ? '1/2 — осторожно!' : '0/2 — жизней нет'}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
+
           <div style={{ fontFamily:"'Inter',sans-serif", fontSize:16, color:THEME.text, lineHeight:1.75, marginBottom:20 }}>
             <LatexText text={task.text || task.question_text || task.question || ''}/>
           </div>
@@ -650,27 +1088,37 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
             {(task.options || []).map((opt, i) => {
               let bg = THEME.bg, border = THEME.border, color = THEME.text;
               if (revealed) {
-                if (i === task.correct) { bg='#dcfce7'; border='#4ade80'; color='#15803d'; }
-                else if (i === chosen && i !== task.correct) { bg='#fee2e2'; border='#fca5a5'; color='#dc2626'; }
-              } else if (chosen === i) { bg='rgba(99,102,241,0.08)'; border='#6366f1'; }
+                if (i === task.correct) {
+                  bg = isDarkUi ? 'rgba(34,197,94,0.15)' : '#dcfce7';
+                  border = '#4ade80';
+                  color = isDarkUi ? '#4ade80' : '#15803d';
+                } else if (i === chosen && i !== task.correct) {
+                  bg = isDarkUi ? 'rgba(239,68,68,0.15)' : '#fee2e2';
+                  border = isDarkUi ? '#f87171' : '#fca5a5';
+                  color = isDarkUi ? '#f87171' : '#dc2626';
+                }
+              } else if (chosen === i) { bg='rgba(251,191,36,0.08)'; border='#fbbf24'; }
               return (
-                <button key={i} onClick={() => handleChoose(i)} disabled={revealed}
-                  style={{ background:bg, border:`2px solid ${border}`, color, borderRadius:10, padding:'12px 16px', textAlign:'left', cursor:revealed?'default':'pointer', fontFamily:"'Inter',sans-serif", fontSize:14, transition:'all 0.15s' }}>
-                  <span style={{ fontWeight:700, marginRight:8 }}>{['А','Б','В','Г'][i]}.</span>
+                <button key={i} className="daily-opt" onClick={() => handleChoose(i)} disabled={revealed}
+                  style={{ background:bg, border:`2px solid ${border}`, color, borderRadius:12, padding:'14px 18px', textAlign:'left', cursor:revealed?'default':'pointer', fontFamily:"'Inter',sans-serif", fontSize:16 }}>
+                  <span style={{ fontWeight:700, marginRight:10 }}>{['А','Б','В','Г'][i]}.</span>
                   <LatexText text={opt}/>
                 </button>
               );
             })}
           </div>
           {revealed && task.explanation && (
-            <div style={{ marginTop:14, background: isCorrectAnswer?'#f0fdf4':'#fef2f2', border:`1px solid ${isCorrectAnswer?'#bbf7d0':'#fecaca'}`, borderRadius:10, padding:'10px 14px', fontSize:13, color:THEME.text, fontFamily:"'Inter',sans-serif", lineHeight:1.6 }}>
+            <div style={{ marginTop:14,
+              background: isCorrectAnswer ? (isDarkUi?'rgba(34,197,94,0.10)':'#f0fdf4') : (isDarkUi?'rgba(239,68,68,0.10)':'#fef2f2'),
+              border:`1px solid ${isCorrectAnswer ? (isDarkUi?'rgba(74,222,128,0.4)':'#bbf7d0') : (isDarkUi?'rgba(248,113,113,0.4)':'#fecaca')}`,
+              borderRadius:10, padding:'10px 14px', fontSize:13, color:THEME.text, fontFamily:"'Inter',sans-serif", lineHeight:1.6 }}>
               💡 <LatexText text={task.explanation}/>
             </div>
           )}
           {revealed && (
             <button onClick={handleNext} disabled={saving}
-              style={{ marginTop:16, width:'100%', background:'#6366f1', color:'#fff', border:'none', borderRadius:10, padding:'13px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
-              {qIdx < queue.length-1 ? 'Следующая задача →' : saving ? 'Сохраняем...' : 'Завершить разминку'}
+              style={{ ...BTN_DARK, marginTop:16, width:'100%', borderRadius:10, padding:'13px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+              {qIdx < queue.length-1 ? 'Следующая задача →' : saving ? 'Сохраняем...' : 'Завершить миссию'}
             </button>
           )}
         </div>
