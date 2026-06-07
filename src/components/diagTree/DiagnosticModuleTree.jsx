@@ -461,11 +461,14 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
 }
 
 // ── DiagnosticModuleTree ───────────────────────────────────────────────────────
-function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {} }) {
+// focusRequest: { id, n } — внешняя просьба отцентрировать карту на модуле
+// (n — счётчик, чтобы повторный клик по тому же модулю снова срабатывал).
+function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {}, focusRequest = null }) {
   const [rfNodes, setRFNodes, onNodesChange] = useNodesState([]);
   const [rfEdges, setRFEdges, onEdgesChange] = useEdgesState([]);
   const [popup, setPopup] = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
+  const [rfInstance, setRfInstance] = useState(null);
 
   // Прогресс (доля освоенных модулей) — для тёплого подсвета фона.
   const progress = useMemo(() => {
@@ -498,6 +501,19 @@ function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {} }) 
     }));
   }, [hoveredId, setRFEdges]);
 
+  // Внешний фокус: плавно центрируем карту на запрошенном модуле и коротко
+  // подсвечиваем его рёбра (тот же механизм, что hover).
+  useEffect(() => {
+    if (!focusRequest?.id || !rfInstance) return;
+    const node = rfNodes.find(n => n.id === focusRequest.id);
+    if (!node) return;
+    rfInstance.setCenter(node.position.x + DM_NODE_W / 2, node.position.y + DM_NODE_H / 2, { zoom: 0.85, duration: 800 });
+    setHoveredId(focusRequest.id);
+    const t = setTimeout(() => setHoveredId(prev => prev === focusRequest.id ? null : prev), 2200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest, rfInstance]);
+
   return (
     <div className="diag-map-wrap" style={{ position:'relative', width:'100%', height:'76vh', borderRadius:12, overflow:'hidden', border:'1px solid #1a1a2e', boxShadow:'0 2px 16px rgba(0,0,0,0.08)' }}>
       <MapBackground progress={progress} />
@@ -512,6 +528,7 @@ function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {} }) 
           fitView fitViewOptions={{ padding:0.20 }}
           nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
           proOptions={{ hideAttribution:true }}
+          onInit={setRfInstance}
         >
           <Controls style={{ background:'rgba(255,255,255,0.10)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:8, overflow:'hidden', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)' }}/>
         </ReactFlow>

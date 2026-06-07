@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { doc, getDoc, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
 import { useTheme } from "../ThemeContext.jsx";
@@ -16,6 +16,15 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
   const [cgLinks,           setCgLinks]           = useState([]);
   const [skillNamesMap,     setSkillNamesMap]     = useState({});
   const [skillMasteryData,  setSkillMasteryData]  = useState({}); // skillId → { stagesCompleted, currentStage }
+  const [focusReq,          setFocusReq]          = useState(null); // { id, n } → центрирование карты на модуле
+  const mapWrapRef = useRef(null);
+
+  // Клик по модулю в карточках сверху: скроллим страницу к карте и просим
+  // DiagnosticModuleTree отцентрировать узел (счётчик n — для повторных кликов).
+  const focusModule = (id) => {
+    setFocusReq(prev => ({ id, n: (prev?.n || 0) + 1 }));
+    mapWrapRef.current?.scrollIntoView({ behavior:'smooth', block:'center' });
+  };
 
   const load = async () => {
     setLoading(true); setFetchError(false);
@@ -52,10 +61,17 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
     return buildDiagModuleTree(autoPlan, skillProgressData, cgLinks, skillNamesMap, skillMasteryData);
   }, [autoPlan, skillProgressData, cgLinks, skillNamesMap, skillMasteryData]);
 
-  const totalMod    = diagData.modules.length;
-  const masteredMod = diagData.modules.filter(m => m.mastery >= 100).length;
-  const inProgMod   = diagData.modules.filter(m => m.mastery > 0 && m.mastery < 100).length;
-  const lockedMod   = diagData.modules.filter(m => m.isLocked && m.mastery < 100).length;
+  // Категории модулей — ВЗАИМОИСКЛЮЧАЮЩИЕ, чтобы сумма сходилась с totalMod
+  // (раньше «в процессе» пересекалось с «заблокировано», а «доступно» терялось).
+  const totalMod       = diagData.modules.length;
+  const masteredMod    = diagData.modules.filter(m => m.mastery >= 100).length;
+  const lockedMod      = diagData.modules.filter(m => m.isLocked && m.mastery < 100).length;
+  const inProgressMods = diagData.modules.filter(m => !m.isLocked && m.mastery > 0 && m.mastery < 100);
+  const availableMods  = diagData.modules.filter(m => !m.isLocked && m.mastery === 0);
+  // Общий прогресс с учётом частичного освоения: средний mastery по всем модулям.
+  const overallPct = totalMod
+    ? Math.round(diagData.modules.reduce((s, m) => s + Math.min(m.mastery || 0, 100), 0) / totalMod)
+    : 0;
 
   return (
     <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
@@ -83,80 +99,109 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
         )}
 
         {!loading && !fetchError && autoPlan && (() => {
-          const availableMods  = diagData.modules.filter(m => !m.isLocked && m.mastery === 0);
-          const inProgressMods = diagData.modules.filter(m => m.mastery > 0 && m.mastery < 100);
-          const activeSkills   = Object.values(skillMasteryData).filter(s => (s.stagesCompleted||0) > 0 && (s.stagesCompleted||0) < 3).length;
+          const activeSkills = Object.values(skillMasteryData).filter(s => (s.stagesCompleted||0) > 0 && (s.stagesCompleted||0) < 3).length;
+          const slotsFree    = Math.max(0, 3 - activeSkills);
+          const slotsText    = slotsFree === 0 ? 'все слоты заняты'
+            : slotsFree === 1 ? 'ещё 1 свободный слот' : `ещё ${slotsFree} свободных слота`;
+          // Сегменты прогресс-бара (взаимоисключающие категории, сумма = totalMod)
+          const segments = [
+            { label:'Освоено',       val:masteredMod,          color:'#22c55e' },
+            { label:'В работе',      val:inProgressMods.length, color:'#f59e0b' },
+            { label:'Доступно',      val:availableMods.length,  color:'#6366f1' },
+            { label:'Заблокировано', val:lockedMod,            color:'#94a3b8' },
+          ];
           return (
           <>
-            {/* ── Гайд для ученика ── */}
-            <div data-tour="plan-stats" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))', gap:12, marginBottom:20 }}>
-              {/* Сейчас в работе: активные модули + «готовы к старту» одной карточкой */}
+            {/* hover-эффекты строк/плашек модулей */}
+            <style>{`
+              .plan-mod-row { cursor:pointer; border:none; width:100%; text-align:left; transition:background .15s, transform .1s; }
+              .plan-mod-row:hover { background:#fde68a !important; transform:translateX(2px); }
+              .plan-avail-chip { cursor:pointer; border:none; text-align:left; transition:background .15s, transform .1s; }
+              .plan-avail-chip:hover { background:#bbf7d0 !important; transform:translateY(-1px); }
+            `}</style>
+            {/* ── Гайд для ученика: 2 карточки ── */}
+            <div data-tour="plan-stats" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))', gap:12, marginBottom:20 }}>
+
+              {/* КАРТОЧКА 1 — Сейчас в работе (+ мини-индикатор фокуса + готовы к старту) */}
               <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:10, padding:'14px 16px' }}>
-                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#b45309', marginBottom:8 }}>⚡ Сейчас в работе</div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap', marginBottom:10 }}>
+                  <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#b45309' }}>⚡ Сейчас в работе</div>
+                  {/* мини-индикатор фокуса (бывшая карточка «Сейчас в фокусе») */}
+                  <div style={{ fontSize:11, color:'#a16207', fontFamily:"'Inter',sans-serif", background:'#fef9c3', border:'1px solid #fde047', borderRadius:99, padding:'3px 10px', display:'flex', alignItems:'center', gap:6 }}>
+                    🎯 В фокусе {Math.min(activeSkills, 3)} из 3 навыков · {slotsText}
+                    <span style={{ display:'inline-flex', gap:3 }}>
+                      {[0,1,2].map(i => (
+                        <span key={i} style={{ width:12, height:5, borderRadius:99, background: i < activeSkills ? '#eab308' : 'rgba(148,163,184,0.35)' }}/>
+                      ))}
+                    </span>
+                  </div>
+                </div>
+
                 {inProgressMods.length === 0 && availableMods.length === 0 && (
                   <div style={{ fontSize:12, color:'#64748b', fontFamily:"'Inter',sans-serif" }}>Открой первый модуль на карте ниже.</div>
                 )}
                 {inProgressMods.length === 0 && availableMods.length > 0 && (
                   <div style={{ fontSize:12, color:'#92400e', fontFamily:"'Inter',sans-serif", marginBottom:6 }}>Ещё ничего не начато — выбери модуль из готовых к старту 👇</div>
                 )}
-                {inProgressMods.slice(0,3).map(m => (
-                  <div key={m.id} style={{ fontSize:12, color:'#92400e', fontFamily:"'Inter',sans-serif", marginBottom:4, padding:'4px 8px', background:'#fef3c7', borderRadius:6, display:'flex', alignItems:'center', gap:8 }}>
+                {inProgressMods.map(m => (
+                  <button key={m.id} className="plan-mod-row" onClick={() => focusModule(m.id)}
+                    title="Показать на карте"
+                    style={{ fontSize:12, color:'#92400e', fontFamily:"'Inter',sans-serif", marginBottom:4, padding:'5px 8px', background:'#fef3c7', borderRadius:6, display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ flex:1 }}>{m.moduleName}</span>
                     <span style={{ flexShrink:0, width:46, height:5, background:'rgba(180,83,9,0.18)', borderRadius:3, overflow:'hidden' }}>
                       <span style={{ display:'block', height:'100%', width:`${m.mastery}%`, background:'#f59e0b', borderRadius:3 }}/>
                     </span>
                     <span style={{ color:'#f59e0b', fontWeight:700, flexShrink:0 }}>{m.mastery}%</span>
-                  </div>
+                  </button>
                 ))}
-                {inProgressMods.length > 3 && <div style={{ fontSize:11, color:'#d97706', fontFamily:"'Inter',sans-serif", marginTop:4 }}>+{inProgressMods.length-3} ещё</div>}
+
                 {availableMods.length > 0 && (
                   <>
                     <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:11, color:'#15803d', margin:'10px 0 6px', textTransform:'uppercase', letterSpacing:'0.4px' }}>▶ Готовы к старту</div>
-                    {availableMods.slice(0,2).map(m => (
-                      <div key={m.id} style={{ fontSize:12, color:'#166534', fontFamily:"'Inter',sans-serif", marginBottom:4, padding:'4px 8px', background:'#dcfce7', borderRadius:6 }}>
-                        {m.moduleName} <span style={{ color:'#4ade80' }}>· {m.grade}</span>
-                      </div>
-                    ))}
-                    {availableMods.length > 2 && <div style={{ fontSize:11, color:'#16a34a', fontFamily:"'Inter',sans-serif", marginTop:4 }}>+{availableMods.length-2} ещё</div>}
+                    {/* >5 модулей — компактная сетка, иначе список во всю ширину */}
+                    <div style={availableMods.length > 5
+                      ? { display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:4 }
+                      : { display:'flex', flexDirection:'column', gap:4 }}>
+                      {availableMods.map(m => (
+                        <button key={m.id} className="plan-avail-chip" onClick={() => focusModule(m.id)}
+                          title="Показать на карте"
+                          style={{ fontSize:12, color:'#166534', fontFamily:"'Inter',sans-serif", padding:'4px 8px', background:'#dcfce7', borderRadius:6, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {m.moduleName} <span style={{ color:'#4ade80' }}>· {m.grade}</span>
+                        </button>
+                      ))}
+                    </div>
                   </>
                 )}
-              </div>
 
-              {/* Сейчас в фокусе: до 3 активных навыков — фокусировка, не ограничение */}
-              <div style={{ background:'#fefce8', border:'1px solid #fde047', borderRadius:10, padding:'14px 16px' }}>
-                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#a16207', marginBottom:8 }}>
-                  🎯 Сейчас в фокусе
-                </div>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-                  <div style={{ fontSize:28, fontWeight:800, color:'#ca8a04', fontFamily:"'Montserrat',sans-serif" }}>
-                    {activeSkills} <span style={{ fontSize:14, fontWeight:400, color:'#94a3b8' }}>/ 3</span>
-                  </div>
-                  <div style={{ display:'flex', gap:4 }}>
-                    {[0,1,2].map(i => (
-                      <span key={i} style={{ width:18, height:7, borderRadius:99, background: i < activeSkills ? '#eab308' : 'rgba(148,163,184,0.3)' }}/>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ fontSize:11, color:'#854d0e', fontFamily:"'Inter',sans-serif", lineHeight:1.5 }}>
+                <div style={{ fontSize:11, color:'#854d0e', fontFamily:"'Inter',sans-serif", lineHeight:1.5, marginTop:10 }}>
                   Чтобы не распыляться — открываем до 3 навыков одновременно. Заверши один — откроется следующий.
                 </div>
               </div>
 
-              {/* Статистика */}
-              <div className="theme-card" style={{ background:THEME.surface, border:`1px solid ${THEME.border}`, borderRadius:10, padding:'14px 16px' }}>
-                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:THEME.primary, marginBottom:8 }}>📈 Прогресс</div>
-                <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                  {[
-                    { label:'Всего модулей', val:totalMod, color:'#7c3aed' },
-                    { label:'Освоено', val:masteredMod, color:'#22c55e' },
-                    { label:'В процессе', val:inProgMod, color:'#f59e0b' },
-                    { label:'Заблокировано', val:lockedMod, color:'#94a3b8' },
-                  ].map(s => (
-                    <div key={s.label} style={{ display:'flex', justifyContent:'space-between', fontSize:12, fontFamily:"'Inter',sans-serif" }}>
-                      <span style={{ color:THEME.textLight }}>{s.label}</span>
-                      <span style={{ fontWeight:700, color:s.color }}>{s.val}</span>
-                    </div>
+              {/* КАРТОЧКА 2 — Прогресс с визуализацией */}
+              <div className="theme-card" style={{ background:THEME.surface, border:`1px solid ${THEME.border}`, borderRadius:10, padding:'14px 16px', display:'flex', flexDirection:'column' }}>
+                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:THEME.primary, marginBottom:8 }}>📊 Прогресс</div>
+                <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:10 }}>
+                  <span style={{ fontSize:34, fontWeight:800, color:'#22c55e', fontFamily:"'Montserrat',sans-serif", lineHeight:1 }}>{overallPct}%</span>
+                  <span style={{ fontSize:12, color:THEME.textLight, fontFamily:"'Inter',sans-serif" }}>общий прогресс по карте</span>
+                </div>
+                {/* стек-бар: 4 цветных сегмента по долям категорий */}
+                <div style={{ display:'flex', height:14, borderRadius:99, overflow:'hidden', background:'rgba(148,163,184,0.15)', marginBottom:10 }}>
+                  {segments.filter(s => s.val > 0).map(s => (
+                    <span key={s.label} title={`${s.label}: ${s.val}`}
+                      style={{ width:`${(s.val / Math.max(totalMod, 1)) * 100}%`, background:s.color, transition:'width .4s' }}/>
                   ))}
+                </div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:'4px 12px', fontSize:12, fontFamily:"'Inter',sans-serif" }}>
+                  {segments.map(s => (
+                    <span key={s.label} style={{ display:'inline-flex', alignItems:'center', gap:5, color:THEME.textLight }}>
+                      <span style={{ width:8, height:8, borderRadius:99, background:s.color, flexShrink:0 }}/>
+                      {s.label} <b style={{ color:s.color }}>{s.val}</b>
+                    </span>
+                  ))}
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:5, color:THEME.textLight }}>
+                    Всего <b style={{ color:'#7c3aed' }}>{totalMod}</b>
+                  </span>
                 </div>
               </div>
             </div>
@@ -171,7 +216,9 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
             </div>
 
             {diagData.modules.length > 0
-              ? <DiagnosticModuleTree diagData={diagData} onStartTraining={onStartTraining} skillMastery={skillMasteryData}/>
+              ? <div ref={mapWrapRef}>
+                  <DiagnosticModuleTree diagData={diagData} onStartTraining={onStartTraining} skillMastery={skillMasteryData} focusRequest={focusReq}/>
+                </div>
               : <div style={{ textAlign:'center', padding:60, color:THEME.textLight, fontFamily:"'Inter',sans-serif", fontSize:14 }}>
                   В плане нет навыков для отображения.
                 </div>
