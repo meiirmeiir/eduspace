@@ -499,7 +499,7 @@ function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {} }) 
   }, [hoveredId, setRFEdges]);
 
   return (
-    <div style={{ position:'relative', width:'100%', height:'76vh', borderRadius:12, overflow:'hidden', border:'1px solid #1a1a2e', boxShadow:'0 2px 16px rgba(0,0,0,0.08)' }}>
+    <div className="diag-map-wrap" style={{ position:'relative', width:'100%', height:'76vh', borderRadius:12, overflow:'hidden', border:'1px solid #1a1a2e', boxShadow:'0 2px 16px rgba(0,0,0,0.08)' }}>
       <MapBackground progress={progress} />
       <div style={{ position:'absolute', inset:0, zIndex:1 }}>
         <ReactFlow
@@ -513,9 +513,26 @@ function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {} }) 
           nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
           proOptions={{ hideAttribution:true }}
         >
-          <Controls style={{ background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:8 }}/>
+          <Controls style={{ background:'rgba(255,255,255,0.10)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:8, overflow:'hidden', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)' }}/>
         </ReactFlow>
       </div>
+      {/* Контролы карты (зум/fit/замок): карта всегда тёмная (MapBackground),
+          поэтому кнопки — «стекло» light-on-dark в ОБЕИХ темах приложения.
+          Явный color обязателен: дефолт xyflow — color:inherit, и в dark-теме
+          body даёт #e6edf3 → светлые иконки на дефолтной белой кнопке were
+          невидимы. Селектор scoped к .diag-map-wrap, чтобы не задеть другие
+          ReactFlow-инстансы (admin SkillMapCanvas, ModuleTreeModal). */}
+      <style>{`
+        .diag-map-wrap .react-flow__controls { box-shadow:0 2px 12px rgba(0,0,0,0.35); }
+        .diag-map-wrap .react-flow__controls-button {
+          background:rgba(255,255,255,0.10);
+          border-bottom:1px solid rgba(255,255,255,0.18);
+          color:#fff;
+        }
+        .diag-map-wrap .react-flow__controls-button:last-child { border-bottom:none; }
+        .diag-map-wrap .react-flow__controls-button svg { fill:#fff; }
+        .diag-map-wrap .react-flow__controls-button:hover { background:rgba(255,255,255,0.22); }
+      `}</style>
       {popup && <DiagModulePopup module={popup} onClose={() => setPopup(null)} onStartTraining={onStartTraining} skillMastery={skillMastery}/>}
     </div>
   );
