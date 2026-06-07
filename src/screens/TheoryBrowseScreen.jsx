@@ -87,7 +87,15 @@ function PlanetDot({ life, size = 52 }) {
 // сохранена 1-в-1, изменена только подача: один шаг на экран, прогресс-бар,
 // кнопка «дальше» появляется после ответа.
 function TheoryWalkthrough({ entry, ruName, onExit, awardXp }) {
-  const { theme: THEME } = useTheme();
+  const { theme: THEME, dark, shopTheme } = useTheme();
+  // Тёмный UI = системная dark-тема ИЛИ тёмная shop-тема (galaxy/matrix/fire).
+  // THEME.* адаптируется сам (THEME_DARK), но хардкоды вроде #7c2d12 в
+  // примерах на тёмном фоне нечитаемы — для них отдельные dark-значения.
+  const isDarkUi = dark || (shopTheme && shopTheme !== 'sakura');
+  const exampleBox = isDarkUi
+    ? { background:'rgba(251,191,36,0.12)', border:'1px solid rgba(251,191,36,0.35)', color:'#fcd34d' }
+    : { background:'rgba(245,158,11,0.14)', border:'1px solid rgba(245,158,11,0.35)', color:'#7c2d12' };
+  const exampleLabelColor = isDarkUi ? '#fbbf24' : undefined; // light наследует цвет текста
   const tasks = entry.tasks || [];
   const hints = entry.theory?.micro_hints || [];
   const hasTheory = !!entry.theory?.concept;
@@ -218,7 +226,7 @@ function TheoryWalkthrough({ entry, ruName, onExit, awardXp }) {
         <div style={{ fontSize:13, color:THEME.textLight, marginTop:4 }}>правильных ответов</div>
         <div style={{ fontFamily:"'Montserrat',sans-serif", fontSize:19, fontWeight:800, color:accent, margin:'18px 0 6px' }}>{msg}</div>
         {xpEarned > 0 && (
-          <div style={{ display:'inline-block', marginTop:8, padding:'6px 18px', borderRadius:99, background:'rgba(251,191,36,0.14)', border:'1px solid rgba(251,191,36,0.45)', color:'#b45309', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15 }}>
+          <div style={{ display:'inline-block', marginTop:8, padding:'6px 18px', borderRadius:99, background:'rgba(251,191,36,0.14)', border:'1px solid rgba(251,191,36,0.45)', color:isDarkUi?'#fbbf24':'#b45309', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15 }}>
             ⚡ +{xpEarned} XP
           </div>
         )}
@@ -299,8 +307,8 @@ function TheoryWalkthrough({ entry, ruName, onExit, awardXp }) {
                       {hint.skill_name && <div style={{ fontWeight:700, fontSize:14, color:THEME.primary, marginBottom:6 }}>{hint.skill_name}</div>}
                       {hint.rule && <div style={{ fontSize:14, color:THEME.text, lineHeight:1.7, marginBottom:hint.example ? 8 : 0 }}><LatexText text={hint.rule}/></div>}
                       {hint.example && (
-                        <div style={{ background:'rgba(245,158,11,0.14)', border:'1px solid rgba(245,158,11,0.35)', borderRadius:8, padding:'11px 14px', fontSize:14, color:'#7c2d12', fontWeight:500 }}>
-                          <strong style={{ fontWeight:800 }}>Пример: </strong><LatexText text={hint.example}/>
+                        <div style={{ ...exampleBox, borderRadius:8, padding:'11px 14px', fontSize:14, fontWeight:500 }}>
+                          <strong style={{ fontWeight:800, color:exampleLabelColor }}>Пример: </strong><LatexText text={hint.example}/>
                         </div>
                       )}
                     </div>
