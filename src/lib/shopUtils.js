@@ -33,23 +33,25 @@ async function _appCheckHeader() {
  * @param {number} userCrystals — текущий баланс из локального state (для pre-check)
  * @returns {{ success: boolean, error?: string, item?: object, newCrystals?: number }}
  */
-export async function purchaseItem(uid, itemId, userCrystals) {
+export async function purchaseItem(uid, itemId, userCrystals, priceOverride = null) {
   if (!uid || !auth.currentUser) return { success: false, error: 'not_authenticated' };
   const item = getShopItem(itemId);
   if (!item) return { success: false, error: 'unknown_item' };
-  if ((userCrystals | 0) < item.price) return { success: false, error: 'not_enough_crystals' };
+  // priceOverride — скидочная цена (предложение недели); по умолчанию каталожная.
+  const price = priceOverride != null ? priceOverride : item.price;
+  if ((userCrystals | 0) < price) return { success: false, error: 'not_enough_crystals' };
 
   const writes = [{
     transform: {
       document: DOC(`users/${uid}`),
       fieldTransforms: [
-        { fieldPath: 'crystals',  increment: { integerValue: String(-item.price) } },
+        { fieldPath: 'crystals',  increment: { integerValue: String(-price) } },
         { fieldPath: 'inventory', appendMissingElements: { values: [{ stringValue: itemId }] } },
       ],
     },
   }];
 
-  console.log('[shop] purchase attempting', itemId, '-' + item.price + '💎', 'uid=' + uid);
+  console.log('[shop] purchase attempting', itemId, '-' + price + '💎', 'uid=' + uid);
   const url = `https://firestore.googleapis.com/v1/projects/${PROJECT()}/databases/(default)/documents:commit?key=${KEY()}`;
   try {
     const r = await fetch(url, {
@@ -66,10 +68,56 @@ export async function purchaseItem(uid, itemId, userCrystals) {
     return {
       success: true,
       item,
-      newCrystals: userCrystals - item.price,
+      newCrystals: userCrystals - price,
     };
   } catch (e) {
     console.error('[shop] purchase exception', itemId, e?.message || e);
+    return { success: false, error: 'exception' };
+  }
+}
+
+/**
+ * Покупка набора снаряжения одним атомарным :commit:
+ * списываются кристаллы (скидочная цена за недостающие предметы) и все
+ * недостающие itemId добавляются в inventory (arrayUnion дедуплицирует).
+ *
+ * @param {string} uid
+ * @param {string[]} itemIds — недостающие предметы сета
+ * @param {number} price — итоговая скидочная цена
+ * @param {number} userCrystals — баланс для pre-check
+ */
+export async function purchaseSet(uid, itemIds, price, userCrystals) {
+  if (!uid || !auth.currentUser) return { success: false, error: 'not_authenticated' };
+  if (!itemIds?.length) return { success: false, error: 'nothing_to_buy' };
+  if ((userCrystals | 0) < price) return { success: false, error: 'not_enough_crystals' };
+
+  const writes = [{
+    transform: {
+      document: DOC(`users/${uid}`),
+      fieldTransforms: [
+        { fieldPath: 'crystals',  increment: { integerValue: String(-price) } },
+        { fieldPath: 'inventory', appendMissingElements: { values: itemIds.map(id => ({ stringValue: id })) } },
+      ],
+    },
+  }];
+
+  console.log('[shop] set purchase attempting', itemIds.join(','), '-' + price + '💎', 'uid=' + uid);
+  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT()}/databases/(default)/documents:commit?key=${KEY()}`;
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await _authHeader()), ...(await _appCheckHeader()) },
+      body: JSON.stringify({ writes }),
+    });
+    if (!r.ok) {
+      const t = await r.text().catch(() => '<no body>');
+      console.error('[shop] set purchase FAILED', r.status, t.slice(0, 300));
+      return { success: false, error: `commit_failed_${r.status}` };
+    }
+    console.log('[shop] set purchase success', 'uid=' + uid);
+    return { success: true, newCrystals: userCrystals - price };
+  } catch (e) {
+    console.error('[shop] set purchase exception', e?.message || e);
     return { success: false, error: 'exception' };
   }
 }
