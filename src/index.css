@@ -1021,21 +1021,21 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   .profile-info-grid { grid-template-columns: 1fr !important; }
 }
 
-/* LeaderboardScreen — анимированный градиентный фон через ::before
-   pseudo-element с fixed-позиционированием (более надёжная анимация чем
-   background-position на огромном элементе). */
+/* LeaderboardScreen / FriendsScreen — тёмный фон в тон остального приложения
+   (#0a0e1a как dashboard dark). Фиолетовый — больше НЕ заливка всего экрана,
+   а мягкий радиальный акцент сверху (за подиумом) + едва заметный синий снизу. */
 .page-themed.leaderboard-bg {
   position: relative;
-  background: #0f172a !important;
+  background: #0a0e1a !important;
   overflow: hidden;
 }
 .page-themed.leaderboard-bg::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: linear-gradient(135deg, #4c1d95, #1e3a8a, #312e81, #4c1d95);
-  background-size: 400% 400%;
-  animation: gradientShift 5s ease infinite;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -12%, rgba(124,58,237,0.30), transparent 65%),
+    radial-gradient(ellipse 70% 45% at 50% 115%, rgba(30,58,138,0.20), transparent 65%);
   z-index: 0;
   pointer-events: none;
 }
@@ -1064,11 +1064,6 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 .page-themed.has-bg .theme-tab:not(.active) {
   background: rgba(0,0,0,0.4) !important;
   text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
-}
-@keyframes gradientShift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 }
 
 /* default .theme-row — полупрозрачный тёмный фон над gradient ::before. */

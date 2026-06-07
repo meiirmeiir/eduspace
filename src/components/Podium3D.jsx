@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadThree, loadTypeface } from '../lib/loadThree.js';
-import { useTheme } from '../ThemeContext.jsx';
 import { FRAME_STYLES } from '../lib/shopItems.js';
 
 // Гибрид-подиум топ-3: 3D-тумбы (Three.js) + CSS-аватары поверх canvas.
@@ -163,8 +162,9 @@ function makeSparkCanvas() {
   return c;
 }
 
-export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRender }) {
-  const { theme: THEME } = useTheme();
+// captionExtra?: (entry, rank) => ReactNode — доп. строки под подписью
+// (LeaderboardScreen передаёт класс ученика и дельту позиции за неделю).
+export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRender, captionExtra }) {
   const wrapRef = useRef(null);
   const mountRef = useRef(null);
   const avatarRefs = useRef([]);   // DOM-узлы аватаров по индексам top3
@@ -548,12 +548,15 @@ export default function Podium3D({ top3 = [], onOpenPublicProfile, fallbackRende
             {e && (
               <>
                 <div style={{ fontSize: 18 }}>{rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}</div>
-                <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: rank === 1 ? 15 : 13, color: THEME.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {/* Страница рейтинга всегда тёмная → подпись фиксированно светлая
+                    (THEME.text в light-теме был тёмным и терялся). */}
+                <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: rank === 1 ? 15 : 13, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {initialsOf(e)}
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 13, color: ACCENT_HEX[rank - 1] }}>
                   {Number(e.points || 0).toLocaleString('ru-RU')} очк.
                 </div>
+                {captionExtra ? captionExtra(e, rank) : null}
               </>
             )}
           </div>
