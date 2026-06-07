@@ -82,7 +82,8 @@ const LINE_FRAG = `
     else if (uCyc < 0.60) a = 1.0;                                           // держим
     else if (uCyc < 0.78) a = 1.0 - (uCyc - 0.60) / 0.18;                    // гаснет
     else                  a = 0.0;                                           // тёмный промежуток
-    gl_FragColor = vec4(uColor, 0.05 + 0.95 * a); // 0.05 — еле заметный «призрак» линий
+    // Намёк на созвездие, а не wireframe: призрак 0.02, пик вспышки ~0.055.
+    gl_FragColor = vec4(uColor, 0.02 + 0.035 * a);
   }
 `;
 
@@ -140,13 +141,19 @@ export default function MapBackground({ progress = 0 }) {
         pos.push(x, y, z); aSize.push(size); aBright.push(bright); aTw.push(tw); aPhase.push(Math.random() * Math.PI * 2);
       };
 
-      // фоновое поле (~500): разброс по глубине для параллакса, чуть шире кадра
+      // фоновое поле (~500): разброс по глубине для параллакса, чуть шире кадра.
+      // Три класса звёзд: 70% мелкая пыль · 25% обычные · 5% яркие с glow.
       const STAR_COUNT = 500;
       for (let i = 0; i < STAR_COUNT; i++) {
         const z = -(12 + Math.random() * 58);
         const { hH, hW } = frustumAt(z);
+        const r = Math.random();
+        let size, bright;
+        if (r < 0.70)      { size = 1.0 + Math.random() * 0.4; bright = 0.30 + Math.random() * 0.20; }
+        else if (r < 0.95) { size = 1.6 + Math.random() * 0.6; bright = 0.50 + Math.random() * 0.20; }
+        else               { size = 2.6 + Math.random() * 0.8; bright = 0.85 + Math.random() * 0.15; }
         pushStar((Math.random() * 2 - 1) * hW * 1.4, (Math.random() * 2 - 1) * hH * 1.4, z,
-          1.2 + Math.random() * 1.8, 0.4 + Math.random() * 0.5, 0.4 + Math.random() * 0.8);
+          size, bright, 0.4 + Math.random() * 0.8);
       }
 
       // узлы созвездий (мировые координаты) + линии
@@ -264,7 +271,16 @@ export default function MapBackground({ progress = 0 }) {
   return (
     <div aria-hidden="true" style={{
       position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0,
-      background: 'radial-gradient(ellipse at 50% 38%, #14132e 0%, #0a0a1e 46%, #05050f 100%)',
+      // Nebula-пятна (верхние слои) поверх базового тёмного градиента: очень
+      // мягкие цветовые туманности для глубины. CSS-градиенты с плавным spадом
+      // до transparent — работают и при WebGL-фолбэке, ноды рисуются поверх.
+      background: [
+        'radial-gradient(circle 380px at 22% 20%, rgba(124,58,237,0.10), transparent 70%)',  // фиолетовая, верх-лево
+        'radial-gradient(circle 350px at 74% 46%, rgba(59,130,246,0.08), transparent 70%)',  // синяя, центр-право
+        'radial-gradient(circle 260px at 44% 88%, rgba(190,24,93,0.06), transparent 70%)',   // тёмно-розовая, низ
+        'radial-gradient(circle 200px at 10% 60%, rgba(6,182,212,0.05), transparent 70%)',   // бирюзовая, между классами
+        'radial-gradient(ellipse at 50% 38%, #14132e 0%, #0a0a1e 46%, #05050f 100%)',
+      ].join(', '),
     }}>
       {/* WebGL-космос поверх градиента; при сбое — CSS-звёзды */}
       {!failed

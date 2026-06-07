@@ -131,35 +131,37 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 7px 28px;
+  gap: 14px;
+  padding: 9px 32px;
   border-radius: 999px;
+  /* плотная подложка — текст выделяется на фоне звёзд */
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(129,140,248,0.16) 18%,
-    rgba(167,139,250,0.30) 50%,
-    rgba(129,140,248,0.16) 82%,
+    rgba(129,140,248,0.22) 14%,
+    rgba(167,139,250,0.42) 50%,
+    rgba(129,140,248,0.22) 86%,
     transparent 100%
   );
-  /* чёткий светящийся разделитель между этажами */
-  border-top:    1px solid rgba(167,139,250,0.55);
-  border-bottom: 1px solid rgba(99,102,241,0.30);
-  box-shadow: 0 0 18px rgba(129,140,248,0.30), inset 0 1px 0 rgba(255,255,255,0.08);
+  /* чёткий светящийся разделитель между этажами — толще и ярче */
+  border-top:    2px solid rgba(196,181,253,0.75);
+  border-bottom: 2px solid rgba(129,140,248,0.45);
+  box-shadow: 0 0 26px rgba(129,140,248,0.45), inset 0 1px 0 rgba(255,255,255,0.12);
   pointer-events: none;
   white-space: nowrap;
 }
 
-.grade-banner-icon { font-size: 18px; line-height: 1; }
+.grade-banner-icon { font-size: 20px; line-height: 1; }
 
 .grade-banner-text {
   font-family: 'Inter', sans-serif;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
-  color: #a5b4fc;
-  letter-spacing: 0.14em;
+  color: #c7d2fe;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   text-shadow:
-    0 0 14px rgba(99,102,241,0.75),
-    0 0 30px rgba(99,102,241,0.40);
+    0 0 16px rgba(99,102,241,0.9),
+    0 0 34px rgba(99,102,241,0.5),
+    0 1px 4px rgba(0,0,0,0.8);
 }

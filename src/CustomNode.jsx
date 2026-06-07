@@ -42,7 +42,7 @@ const INSET_SHADE = 'inset -6px -8px 14px rgba(0,0,0,0.55), inset 7px 7px 12px r
 const BAR_COLOR = { mastered: '#22c55e', inprogress: '#f59e0b', available: '#3b82f6', locked: '#64748b' };
 
 export default function CustomNode({ data }) {
-  const { title, grade, status = 'active', mastery = 0, appearDelay = 0, prereqsLeft = [] } = data;
+  const { title, status = 'active', mastery = 0, appearDelay = 0, prereqsLeft = [] } = data;
   const [hovered, setHovered] = useState(false);
   const vs = status === 'locked' ? 'locked'
     : mastery >= 100 ? 'mastered'
@@ -73,7 +73,8 @@ export default function CustomNode({ data }) {
             position: 'absolute', inset: 0, borderRadius: '50%',
             background: PLANET_BG[stage],
             boxShadow: INSET_SHADE + (PLANET_GLOW[stage] ? ', ' + PLANET_GLOW[stage] : ''),
-            opacity: preview ? 0 : stage === 'dead' ? 0.92 : 1,
+            // Заблокированная планета заметно пригашена — очевидно, что недоступна
+            opacity: preview ? 0 : stage === 'dead' ? 0.55 : 1,
             transition: 'opacity 0.45s ease',
           }} />
           {/* Превью цветущего мира (кроссфейд на hover по заблокированной) */}
@@ -108,7 +109,13 @@ export default function CustomNode({ data }) {
           </div>
 
           {badge && (
-            <div style={{ position: 'absolute', top: -2, right: -2, fontSize: 16, lineHeight: 1, textShadow: '0 1px 3px rgba(0,0,0,0.7)', opacity: preview ? 0 : 1, transition: 'opacity 0.3s' }}>{badge}</div>
+            <div style={{
+              position: 'absolute', top: -4, right: -4, fontSize: 18, lineHeight: 1,
+              textShadow: '0 1px 3px rgba(0,0,0,0.85)',
+              // мягкое золотое свечение, чтобы замок читался на тёмном космосе
+              filter: locked ? 'drop-shadow(0 0 6px rgba(251,191,36,0.8))' : 'none',
+              opacity: preview ? 0 : 1, transition: 'opacity 0.3s',
+            }}>{badge}</div>
           )}
 
           {/* Тултип пробуждения: что нужно закрыть, чтобы разблокировать */}
@@ -142,22 +149,22 @@ export default function CustomNode({ data }) {
           )}
         </div>
 
-        {/* Подпись + класс + прогресс — на тёмной подложке, читаемо на любом зуме */}
+        {/* Подпись + прогресс — на тёмной подложке, читаемо на любом зуме.
+            Класс под названием убран: его дублирует баннер-разделитель этажа. */}
         <div style={{ textAlign: 'center', marginTop: 14, width: '100%' }}>
           <div style={{
-            display: 'inline-block', maxWidth: 230,
-            background: 'rgba(8,12,26,0.62)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)',
-            border: '1px solid rgba(148,163,184,0.16)', borderRadius: 11, padding: '6px 12px 7px',
+            display: 'inline-block', maxWidth: 240,
+            background: 'rgba(8,12,26,0.68)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)',
+            border: '1px solid rgba(148,163,184,0.16)', borderRadius: 11, padding: '7px 13px 8px',
           }}>
-            <div style={{ fontFamily: "'Inter',sans-serif", fontWeight: 800, fontSize: 15, color: '#ffffff', lineHeight: 1.3, textShadow: '0 1px 5px rgba(0,0,0,0.9)', wordBreak: 'break-word' }}>
+            <div style={{ fontFamily: "'Inter',sans-serif", fontWeight: 800, fontSize: 15, color: '#ffffff', lineHeight: 1.3, textShadow: '0 1px 4px rgba(0,0,0,0.8)', wordBreak: 'break-word' }}>
               {title}
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', marginTop: 2, textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>{grade}</div>
           </div>
-          <div style={{ width: 140, height: 5, margin: '7px auto 0', background: 'rgba(0,0,0,0.4)', borderRadius: 3, overflow: 'hidden', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)' }}>
-            <div style={{ height: '100%', width: `${mastery}%`, background: BAR_COLOR[vs], borderRadius: 3, boxShadow: `0 0 6px ${BAR_COLOR[vs]}`, transition: 'width 0.4s ease' }} />
+          <div style={{ width: 150, height: 8, margin: '8px auto 0', background: 'rgba(0,0,0,0.45)', borderRadius: 99, overflow: 'hidden', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)' }}>
+            <div style={{ height: '100%', width: `${mastery}%`, background: BAR_COLOR[vs], borderRadius: 99, boxShadow: `0 0 7px ${BAR_COLOR[vs]}`, transition: 'width 0.4s ease' }} />
           </div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', marginTop: 3, textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>{mastery}%</div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: '#e2e8f0', marginTop: 4, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>{mastery}%</div>
         </div>
       </div>
 
