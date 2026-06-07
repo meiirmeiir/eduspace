@@ -58,29 +58,38 @@ const FONTS_STYLE = `
   body{background:#f8fafc;-webkit-font-smoothing:antialiased;color:#334155;font-family:'Inter',sans-serif;}
   .split-layout{display:flex;min-height:100vh;}
   .split-left{flex:1.1;background:#0f172a;padding:60px 80px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid #e2e8f0;}
-  .split-right{flex:1;display:flex;align-items:center;justify-content:center;padding:60px;background:#f8fafc;}
-  .hero-title{font-family:'Montserrat',sans-serif;font-size:44px;font-weight:800;line-height:1.15;margin-bottom:24px;color:#fff;letter-spacing:-1.5px;}
-  .hero-subtitle{font-size:17px;line-height:1.7;color:rgba(255,255,255,0.6);margin-bottom:50px;max-width:520px;}
-  .benefits-list{display:flex;flex-direction:column;gap:20px;}
+  /* Правая панель: собственный скролл + лёгкий точечный паттерн, чтобы белая
+     поверхность не выглядела голой. Центрирование карточки — через margin:auto
+     на .form-card: в отличие от align-items:center это НЕ обрезает верх,
+     когда форма (регистрация) выше вьюпорта. */
+  .split-right{flex:1;display:flex;justify-content:center;padding:40px 60px;background:#f8fafc;max-height:100vh;overflow-y:auto;
+    background-image:radial-gradient(circle, #e7e9f2 1.2px, transparent 1.2px);background-size:26px 26px;}
+  .hero-title{font-family:'Montserrat',sans-serif;font-size:44px;font-weight:800;line-height:1.15;margin-bottom:16px;color:#fff;letter-spacing:-1.5px;}
+  .hero-subtitle{font-size:17px;line-height:1.7;color:rgba(255,255,255,0.6);margin-bottom:0;max-width:520px;}
+  /* Тонкий разделитель между текстом и фичами — вместо большого пробела */
+  .hero-divider{width:64px;height:2px;border-radius:2px;background:linear-gradient(90deg,#d4af37,rgba(212,175,55,0.15));margin:26px 0;}
+  .benefits-list{display:flex;flex-direction:column;gap:16px;}
   .benefit-item{display:flex;gap:16px;align-items:flex-start;color:#fff;}
   .benefit-item .icon{font-size:22px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.07);border-radius:12px;flex-shrink:0;}
   .benefit-item strong{font-weight:700;font-size:15px;display:block;margin-bottom:3px;color:#fff;}
   .benefit-item p{font-size:13px;color:rgba(255,255,255,0.55);line-height:1.5;margin:0;}
-  .trust-badge{display:flex;align-items:center;gap:10px;padding:14px 0;border-top:1px solid rgba(255,255,255,0.1);}
-  .form-card{background:#fff;border-radius:20px;border:1px solid #e2e8f0;box-shadow:0 20px 50px -10px rgba(10,25,47,0.08);padding:40px;width:100%;max-width:460px;}
+  .form-card{background:#fff;border-radius:20px;border:1px solid #e2e8f0;box-shadow:0 24px 60px -12px rgba(10,25,47,0.18),0 4px 16px rgba(10,25,47,0.06);padding:40px;width:100%;max-width:460px;margin:auto;}
   .form-row{display:flex;gap:12px;}
   .input-group{margin-bottom:16px;}
   .input-label{display:block;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
   .input-field{width:100%;padding:12px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;font-family:'Inter',sans-serif;color:#0f172a;background:#fff;outline:none;transition:border-color 0.15s;margin-bottom:0;}
   .input-field:focus{border-color:#0f172a;}
   select.input-field{cursor:pointer;}
-  .cta-button{width:100%;padding:14px;border-radius:10px;border:none;font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;cursor:pointer;transition:all 0.2s;background:#e2e8f0;color:#94a3b8;margin-top:8px;}
-  .cta-button.active{background:#0f172a;color:#d4af37;box-shadow:0 8px 20px -5px rgba(10,25,47,0.3);}
-  .cta-button:disabled{cursor:not-allowed;opacity:0.7;}
+  /* CTA всегда тёмная с золотым текстом — самый заметный элемент формы.
+     Прежний неактивный вид (#e2e8f0/#94a3b8) на белом читался как disabled. */
+  .cta-button{width:100%;padding:14px;border-radius:10px;border:none;font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;cursor:pointer;transition:all 0.2s;background:#1a1a2e;color:#fbbf24;margin-top:8px;opacity:0.55;}
+  .cta-button.active{opacity:1;box-shadow:0 8px 20px -5px rgba(10,25,47,0.35);}
+  .cta-button.active:hover{background:#26263f;}
+  .cta-button:disabled{cursor:not-allowed;}
   @media(max-width:768px){
     .split-layout{flex-direction:column;}
     .split-left{padding:40px 24px;}
-    .split-right{padding:32px 20px;}
+    .split-right{padding:32px 20px;max-height:none;overflow-y:visible;}
     .hero-title{font-size:28px;}
     .form-card{padding:28px 20px;}
   }
@@ -241,8 +250,8 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
 
   // ── Модалка восстановления ────────────────────────────────────────────────
   const resetModal = showReset && (
-    <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:20}}>
-      <div style={{background:'#fff',borderRadius:16,padding:32,width:'100%',maxWidth:400,boxShadow:'0 20px 50px -10px rgba(10,25,47,0.2)'}}>
+    <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.55)',backdropFilter:'blur(3px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:20}}>
+      <div style={{background:'#fff',borderRadius:16,padding:32,width:'100%',maxWidth:400,boxShadow:'0 24px 60px -10px rgba(10,25,47,0.3)'}}>
         {resetSent ? (
           <>
             <div style={{fontSize:32,marginBottom:12,textAlign:'center'}}>📬</div>
@@ -256,8 +265,8 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
           </>
         ) : (
           <>
-            <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:18,color:THEME.primary,marginBottom:4}}>Восстановление пароля</div>
-            <p style={{color:THEME.textLight,fontSize:13,marginBottom:20}}>Введите email, указанный при регистрации.</p>
+            <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:21,color:THEME.primary,marginBottom:6}}>Восстановление пароля</div>
+            <p style={{color:THEME.textLight,fontSize:13.5,marginBottom:20}}>Введите email, указанный при регистрации.</p>
             {resetError && <div style={inlineError}>{resetError}</div>}
             <form onSubmit={handleReset}>
               <div className="input-group">
@@ -271,8 +280,9 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
               <button type="submit" className={`cta-button ${resetEmail?'active':''}`} disabled={!resetEmail||resetLoading} style={{width:'100%',marginTop:8}}>
                 {resetLoading ? 'Отправляю...' : 'Отправить ссылку'}
               </button>
+              {/* ghost-кнопка отмены — прозрачная с тонкой обводкой */}
               <button type="button" onClick={()=>{setShowReset(false);setResetError('');setResetEmail('');}}
-                style={backBtn}>
+                style={{...backBtn,border:'1.5px solid #cbd5e1',color:THEME.text,borderRadius:10}}>
                 Отмена
               </button>
             </form>
@@ -300,14 +310,12 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
         <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center'}}>
           <h1 className="hero-title">Построй свой путь к <span style={{color:THEME.accent}}>звездам</span>.</h1>
           <p className="hero-subtitle">Пройди независимую диагностику компетенций. Система <b>AAPA</b> выявит скрытые пробелы и построит точный маршрут подготовки.</p>
+          <div className="hero-divider"/>
           <div className="benefits-list">
             <div className="benefit-item"><span className="icon">🎯</span><div><strong>Когнитивная диагностика</strong><p>Анализируем не только верные ответы, но и вашу уверенность в них.</p></div></div>
             <div className="benefit-item"><span className="icon">🗺️</span><div><strong>Индивидуальный трек</strong><p>Пошаговая Карта Навыков для достижения вашей цели.</p></div></div>
+            <div className="benefit-item"><span className="icon">🎮</span><div><strong>Геймификация</strong><p>Зарабатывай кристаллы, прокачивай героя и соревнуйся с друзьями в рейтинге.</p></div></div>
           </div>
-        </div>
-        <div className="trust-badge">
-          <span style={{color:THEME.accent,letterSpacing:'2px',fontSize:18}}>★★★★★</span>
-          <span style={{fontSize:13,color:THEME.textLight,fontWeight:600}}>Нам доверяют подготовку к будущему</span>
         </div>
       </div>
 
