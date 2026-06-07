@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+﻿import React, { useState, useEffect, useMemo, useRef } from "react";
 import { getContent } from "../lib/contentCache.js";
 import { doc, getDoc, updateDoc, db } from "../firestore-rest.js";
+import { addXp } from "../lib/levelUtils.js";
+import { ruVertical, ruVerticalUpper } from "../lib/verticals.js";
 import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
@@ -25,15 +27,6 @@ function lifeFor(state) {
   if (m > 0)    return 0.4;
   return 0;
 }
-
-// Русские названия вертикалей для заголовков секций каталога
-// (в данных vertical_line_id — английские id). Фолбэк — id как есть.
-const RU_VERTICALS = {
-  ALGEBRA: 'АЛГЕБРА',
-  ARITHMETIC: 'АРИФМЕТИКА',
-  GEOMETRY: 'ГЕОМЕТРИЯ',
-  WORD_PROBLEMS: 'ТЕКСТОВЫЕ ЗАДАЧИ',
-};
 
 const ruPlural = (n, [one, few, many]) => {
   const m10 = n % 10, m100 = n % 100;
@@ -89,6 +82,261 @@ function PlanetDot({ life, size = 52 }) {
   );
 }
 
+// ── Пошаговое прохождение темы: Теория → Подсказки → Задачи (по одной) → Итог ──
+// Логика обратной связи на задачах (зелёная/красная подсветка + объяснение)
+// сохранена 1-в-1, изменена только подача: один шаг на экран, прогресс-бар,
+// кнопка «дальше» появляется после ответа.
+function TheoryWalkthrough({ entry, ruName, onExit, awardXp }) {
+  const { theme: THEME } = useTheme();
+  const tasks = entry.tasks || [];
+  const hints = entry.theory?.micro_hints || [];
+  const hasTheory = !!entry.theory?.concept;
+
+  // Шаги собираются из доступного контента (подсказок может не быть,
+  // задач может быть 0..N — режим адаптируется).
+  const steps = [
+    ...(hasTheory ? ['theory'] : []),
+    ...(hints.length ? ['hints'] : []),
+    ...tasks.map((_, i) => `task:${i}`),
+    ...(tasks.length ? ['result'] : []),
+  ];
+  const [stepIdx, setStepIdx] = useState(0);
+  const [taskStates, setTaskStates] = useState(tasks.map(() => ({ chosen: null, revealed: false })));
+  const [xpEarned, setXpEarned] = useState(null);
+  const awardedRef = useRef(false);
+
+  const cur = steps[stepIdx] || 'theory';
+  const isLast = stepIdx >= steps.length - 1;
+  const score = taskStates.filter((ts, i) => ts.revealed && ts.chosen === tasks[i]?.correct_index).length;
+
+  const goNext = () => { if (isLast) onExit(); else setStepIdx(i => i + 1); };
+  const restart = () => {
+    setStepIdx(0);
+    setTaskStates(tasks.map(() => ({ chosen: null, revealed: false })));
+    // XP за повтор в той же сессии не начисляем (awardedRef уже взведён)
+  };
+  const choose = (taskIdx, optIdx) => {
+    setTaskStates(prev => prev.map((s, i) => i === taskIdx ? { chosen: optIdx, revealed: true } : s));
+  };
+
+  // Начисление XP — один раз, при входе на экран результата.
+  useEffect(() => {
+    if (cur === 'result' && !awardedRef.current) {
+      awardedRef.current = true;
+      Promise.resolve(awardXp?.(score, tasks.length)).then(n => setXpEarned(n || 0)).catch(() => setXpEarned(0));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur]);
+
+  // Подпись CTA текущего шага
+  const nextLabel = (() => {
+    if (cur === 'theory')  return hints.length ? 'Понятно, дальше →' : tasks.length ? 'К тренировке →' : 'Завершить';
+    if (cur === 'hints')   return tasks.length ? 'К тренировке →' : 'Завершить';
+    return null; // у задач и результата свои кнопки
+  })();
+
+  const ctaStyle = {
+    display:'block', margin:'28px auto 0', padding:'13px 34px', borderRadius:12, border:'none',
+    cursor:'pointer', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15,
+    background:'#fbbf24', color:'#0f172a', boxShadow:'0 6px 20px rgba(251,191,36,0.35)',
+    transition:'transform 0.15s, box-shadow 0.15s',
+  };
+  const ghostStyle = {
+    display:'block', margin:'10px auto 0', padding:'10px 24px', borderRadius:10,
+    border:`1px solid ${THEME.border}`, background:'transparent', color:THEME.textLight,
+    fontFamily:"'Montserrat',sans-serif", fontWeight:600, fontSize:13, cursor:'pointer',
+  };
+
+  // ── Рендер одной задачи (логика подсветки — как в старом скролл-режиме) ──
+  const renderTask = (ti) => {
+    const task = tasks[ti];
+    const ts = taskStates[ti] || { chosen: null, revealed: false };
+    const isCorrect = ts.revealed && ts.chosen === task.correct_index;
+    return (
+      <div className="theme-card" style={{ background:THEME.surface, borderRadius:18, border:`1px solid ${THEME.border}`, padding:'30px 34px', boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
+        <div style={{ fontSize:12, fontWeight:700, color:THEME.textLight, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:12 }}>
+          🏋️ Задача {ti + 1} из {tasks.length}
+        </div>
+        <div style={{ fontFamily:"'Montserrat',sans-serif", fontSize:17, fontWeight:700, color:THEME.primary, lineHeight:1.5, marginBottom:18 }}>
+          <LatexText text={task.question_text}/>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {(task.options||[]).map((opt, oi) => {
+            let bg=THEME.surface, border=`1px solid ${THEME.border}`, color=THEME.text;
+            if (ts.revealed) {
+              if (oi===task.correct_index) { bg='rgba(16,185,129,0.1)'; border=`2px solid ${THEME.success}`; color=THEME.success; }
+              else if (oi===ts.chosen) { bg='rgba(239,68,68,0.08)'; border=`2px solid ${THEME.error}`; color=THEME.error; }
+              else { bg=THEME.surface; color=THEME.textLight; }
+            } else if (ts.chosen===oi) { bg=THEME.bg; border=`2px solid ${THEME.primary}`; }
+            return (
+              <div key={oi} onClick={() => !ts.revealed && choose(ti, oi)}
+                className={ts.revealed ? undefined : 'tw-option'}
+                style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderRadius:10, background:bg, border, cursor:ts.revealed?'default':'pointer', transition:'all 0.15s ease' }}>
+                <div style={{ width:28, height:28, borderRadius:6, background:ts.revealed&&oi===task.correct_index?THEME.success:ts.revealed&&oi===ts.chosen?THEME.error:THEME.bg, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:12, color:ts.revealed&&(oi===task.correct_index||oi===ts.chosen)?'#fff':THEME.textLight, flexShrink:0, border:`1px solid ${THEME.border}` }}>
+                  {String.fromCharCode(65+oi)}
+                </div>
+                <span style={{ fontSize:14, fontWeight:500, color }}><LatexText text={opt}/></span>
+                {ts.revealed&&oi===task.correct_index&&<span style={{ marginLeft:'auto', fontSize:16, flexShrink:0 }}>✅</span>}
+                {ts.revealed&&oi===ts.chosen&&oi!==task.correct_index&&<span style={{ marginLeft:'auto', fontSize:16, flexShrink:0 }}>❌</span>}
+              </div>
+            );
+          })}
+        </div>
+        {ts.revealed && (
+          <div style={{ marginTop:14, padding:'12px 16px', borderRadius:10, background:isCorrect?'rgba(16,185,129,0.07)':'rgba(239,68,68,0.05)', border:`1px solid ${isCorrect?'rgba(16,185,129,0.2)':'rgba(239,68,68,0.15)'}` }}>
+            <div style={{ fontWeight:700, fontSize:13, color:isCorrect?THEME.success:THEME.error, marginBottom:isCorrect?0:4 }}>{isCorrect?'✅ Верно!':'❌ Неверно'}</div>
+            {!isCorrect&&task.options&&<div style={{ fontSize:13, color:THEME.textLight }}>Правильный ответ: <b style={{ color:THEME.primary }}><LatexText text={task.options[task.correct_index]}/></b></div>}
+            {task.explanation&&<div style={{ marginTop:6, fontSize:13, color:THEME.text, lineHeight:1.6 }}>💡 <LatexText text={task.explanation}/></div>}
+          </div>
+        )}
+        {/* Кнопка «дальше» появляется только после ответа */}
+        {ts.revealed && (
+          <button onClick={goNext} style={ctaStyle}
+            onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-1px)';}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='';}}>
+            {ti < tasks.length - 1 ? 'Следующая задача →' : 'Завершить →'}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  // ── Экран результата ──
+  const renderResult = () => {
+    const total = tasks.length;
+    const perfect = score === total && total > 0;
+    const weak = score <= total / 3;
+    const msg = perfect ? 'Отлично! Тема освоена 🎉'
+      : score >= total * 2 / 3 ? 'Хороший результат! Почти идеально 👍'
+      : 'Стоит повторить теорию 📖';
+    const accent = perfect ? '#22c55e' : weak ? '#f59e0b' : THEME.primary;
+    return (
+      <div className="theme-card" style={{ background:THEME.surface, borderRadius:18, border:`1px solid ${THEME.border}`, padding:'36px 34px', boxShadow:'0 4px 20px rgba(0,0,0,0.04)', textAlign:'center' }}>
+        <div style={{ fontFamily:"'Montserrat',sans-serif", fontSize:52, fontWeight:800, color:accent, lineHeight:1 }}>
+          {score}<span style={{ fontSize:26, color:THEME.textLight, fontWeight:600 }}> из {total}</span>
+        </div>
+        <div style={{ fontSize:13, color:THEME.textLight, marginTop:4 }}>правильных ответов</div>
+        <div style={{ fontFamily:"'Montserrat',sans-serif", fontSize:19, fontWeight:800, color:accent, margin:'18px 0 6px' }}>{msg}</div>
+        {xpEarned > 0 && (
+          <div style={{ display:'inline-block', marginTop:8, padding:'6px 18px', borderRadius:99, background:'rgba(251,191,36,0.14)', border:'1px solid rgba(251,191,36,0.45)', color:'#b45309', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15 }}>
+            ⚡ +{xpEarned} XP
+          </div>
+        )}
+        {/* Список задач с галочками/крестиками */}
+        <div style={{ display:'flex', flexDirection:'column', gap:8, margin:'22px auto 0', maxWidth:360, textAlign:'left' }}>
+          {tasks.map((task, i) => {
+            const ok = taskStates[i]?.revealed && taskStates[i].chosen === task.correct_index;
+            return (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, background: ok ? 'rgba(16,185,129,0.07)' : 'rgba(239,68,68,0.06)', border:`1px solid ${ok ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.2)'}` }}>
+                <span style={{ fontSize:15 }}>{ok ? '✅' : '❌'}</span>
+                <span style={{ fontSize:13, fontWeight:600, color:THEME.text }}>Задача {i + 1}</span>
+              </div>
+            );
+          })}
+        </div>
+        {weak && (
+          <button onClick={restart} style={ctaStyle}>Пройти заново</button>
+        )}
+        <button onClick={onExit} style={weak ? ghostStyle : { ...ctaStyle, marginTop:28 }}>Вернуться к теории</button>
+      </div>
+    );
+  };
+
+  return (
+    <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
+      <style>{`
+        @keyframes twStepIn { from { opacity:0; transform:translateX(18px); } to { opacity:1; transform:none; } }
+        .tw-step { animation: twStepIn 0.25s ease; }
+        .tw-option:hover { background:${THEME.bg} !important; border-color:#fbbf24 !important; }
+      `}</style>
+      <AppTopbar title="📖 Теория" onBack={onExit} />
+
+      {/* Сегментированный прогресс-бар: пройденные шаги — золотые */}
+      <div style={{ maxWidth:780, margin:'0 auto', padding:'14px 20px 0' }}>
+        <div style={{ display:'flex', gap:6 }}>
+          {steps.map((s, i) => (
+            <span key={s} style={{
+              flex:1, height:6, borderRadius:99,
+              background: i < stepIdx ? '#fbbf24' : i === stepIdx ? 'rgba(251,191,36,0.55)' : 'rgba(148,163,184,0.25)',
+              transition:'background 0.3s',
+            }}/>
+          ))}
+        </div>
+        <div style={{ fontSize:11, fontWeight:700, color:THEME.textLight, marginTop:6, textAlign:'right' }}>
+          Шаг {Math.min(stepIdx + 1, steps.length)} из {steps.length}
+        </div>
+      </div>
+
+      <div className="tw-step" key={stepIdx} style={{ maxWidth:780, margin:'0 auto', padding:'14px 20px 60px' }}>
+        {/* Заголовок темы */}
+        <div style={{ marginBottom:22 }}>
+          <div style={{ fontSize:13, color:THEME.textLight, marginBottom:6 }}>{[ruVerticalUpper(entry.vertical_line_id), entry.grade ? `${entry.grade} класс` : ''].filter(Boolean).join(' · ')}</div>
+          <h1 style={{ fontFamily:"'Montserrat',sans-serif", fontSize:24, fontWeight:800, color:THEME.primary }}>{ruName}</h1>
+        </div>
+
+        {/* ── ШАГ: Теория ── */}
+        {cur === 'theory' && (
+          <div className="theme-card" style={{ background:THEME.surface, borderRadius:18, border:`1px solid ${THEME.border}`, borderLeft:'4px solid #fbbf24', padding:'32px 36px', boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
+            <div style={{ fontSize:12, fontWeight:700, color:THEME.textLight, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:16 }}>📖 Теория</div>
+            <div style={{ fontSize:16, lineHeight:1.85, color:THEME.text, fontFamily:"'Inter',sans-serif" }}>
+              <LatexText text={entry.theory.concept}/>
+            </div>
+            <button onClick={goNext} style={ctaStyle}
+              onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-1px)';}}
+              onMouseLeave={e=>{e.currentTarget.style.transform='';}}>{nextLabel}</button>
+          </div>
+        )}
+
+        {/* ── ШАГ: Микро-подсказки ── */}
+        {cur === 'hints' && (
+          <div className="theme-card" style={{ background:THEME.surface, borderRadius:18, border:`1px solid ${THEME.border}`, padding:'30px 34px', boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
+            <div style={{ fontSize:12, fontWeight:700, color:THEME.textLight, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:16 }}>💡 Микро-подсказки</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              {hints.map((hint, i) => {
+                if (hint && typeof hint === 'object') {
+                  return (
+                    <div key={i} style={{ background:'rgba(99,102,241,0.04)', border:'1px solid rgba(99,102,241,0.15)', borderRadius:12, padding:'16px 20px' }}>
+                      {hint.skill_name && <div style={{ fontWeight:700, fontSize:14, color:THEME.primary, marginBottom:6 }}>{hint.skill_name}</div>}
+                      {hint.rule && <div style={{ fontSize:14, color:THEME.text, lineHeight:1.7, marginBottom:hint.example ? 8 : 0 }}><LatexText text={hint.rule}/></div>}
+                      {hint.example && (
+                        <div style={{ background:'rgba(245,158,11,0.14)', border:'1px solid rgba(245,158,11,0.35)', borderRadius:8, padding:'11px 14px', fontSize:14, color:'#7c2d12', fontWeight:500 }}>
+                          <strong style={{ fontWeight:800 }}>Пример: </strong><LatexText text={hint.example}/>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+                return (
+                  <div key={i} style={{ background:'rgba(99,102,241,0.04)', border:'1px solid rgba(99,102,241,0.15)', borderRadius:12, padding:'14px 18px', fontSize:14, color:THEME.text, lineHeight:1.7 }}>
+                    <LatexText text={String(hint)}/>
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={goNext} style={ctaStyle}
+              onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-1px)';}}
+              onMouseLeave={e=>{e.currentTarget.style.transform='';}}>{nextLabel}</button>
+          </div>
+        )}
+
+        {/* ── ШАГ: одна задача ── */}
+        {cur.startsWith('task:') && renderTask(Number(cur.slice(5)))}
+
+        {/* ── ШАГ: итог ── */}
+        {cur === 'result' && renderResult()}
+
+        {/* Пустая тема (нет ни теории, ни подсказок, ни задач) */}
+        {steps.length === 0 && (
+          <div className="theme-card" style={{ background:THEME.surface, borderRadius:18, border:`1px solid ${THEME.border}`, padding:'30px 34px', textAlign:'center', color:THEME.textLight }}>
+            Материалы темы ещё наполняются.
+            <button onClick={onExit} style={ctaStyle}>Вернуться к теории</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
   const { theme: THEME } = useTheme();
   const isMobile = useIsMobile(880);
@@ -99,14 +347,13 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
   const [filterGrade, setFilterGrade] = useState('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null); // skillTheory entry
-  // Per-task inline practice state: array of {chosen, revealed}
-  const [taskStates, setTaskStates] = useState([]);
   // Персонализация: состояние навыков из плана + skillMastery + meta пользователя
   const [skillState, setSkillState] = useState({});       // sid → { mastery 0..100, locked }
   const [activeSids, setActiveSids] = useState([]);       // навыки в фокусе (0 < stages < 3)
   const [availableSids, setAvailableSids] = useState([]); // mastery=0, prerequisites выполнены
   const [recentTheory, setRecentTheory] = useState([]);   // [{id, ts}] max 20
   const [theoryRead, setTheoryRead] = useState([]);       // [sid] — все прочитанные
+  const [theoryCompleted, setTheoryCompleted] = useState([]); // [sid] — XP начислен (анти-фарм повторов)
   const [showAllAvail, setShowAllAvail] = useState(false);
   const [collapsed, setCollapsed] = useState({});         // sectionKey → bool
 
@@ -164,6 +411,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
       const loadedRead   = Array.isArray(u?.theoryRead)   ? u.theoryRead   : [];
       setRecentTheory(loadedRecent);
       setTheoryRead(loadedRead);
+      setTheoryCompleted(Array.isArray(u?.theoryCompleted) ? u.theoryCompleted : []);
 
       setLoading(false);
       // Если передан initialSkillId — сразу открыть нужный навык (meta пишем от
@@ -172,7 +420,6 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
         const entry = theories.find(t => t.id === initialSkillId || t.skill_id === initialSkillId);
         if (entry) {
           setSelected(entry);
-          setTaskStates((entry.tasks || []).map(() => ({ chosen: null, revealed: false })));
           recordOpen(entry, loadedRecent, loadedRead);
         }
       }
@@ -195,120 +442,37 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
 
   const openEntry = (entry) => {
     setSelected(entry);
-    setTaskStates((entry.tasks || []).map(() => ({ chosen: null, revealed: false })));
     recordOpen(entry, recentTheory, theoryRead);
   };
 
-  const handleChoose = (taskIdx, optIdx) => {
-    setTaskStates(prev => prev.map((s, i) => i === taskIdx ? { chosen: optIdx, revealed: true } : s));
+  // ── XP за прохождение темы: +10 (+5 бонус за все верные). Только при ПЕРВОМ
+  // завершении (sid фиксируется в users/{uid}.theoryCompleted — иначе фарм
+  // перепрохождением). Возвращает начисленную сумму для экрана результата.
+  const awardTheoryXp = async (entry, score, total) => {
+    const uid = user?.uid;
+    const sid = sidOf(entry);
+    if (!uid || !sid || !total) return 0;
+    if (theoryCompleted.includes(sid)) return 0;
+    const amount = 10 + (score === total ? 5 : 0);
+    const next = [...theoryCompleted, sid];
+    setTheoryCompleted(next);
+    try { await updateDoc(doc(db, 'users', uid), { theoryCompleted: next }); }
+    catch (e) { console.warn('[theory] completed update failed:', e?.message || e); }
+    const res = await addXp(uid, amount, 'theory_complete', user);
+    return res ? amount : 0;
   };
 
   // ── Detail view ──
   if (selected) {
-    const e = selected;
-    const tasks = e.tasks || [];
-    const ruName = namesMap[e.id] || namesMap[e.skill_id] || e.skill_id;
-
+    const ruName = namesMap[selected.id] || namesMap[selected.skill_id] || selected.skill_id;
     return (
-      <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
-        <AppTopbar title="📖 Теория" onBack={() => setSelected(null)} />
-        <div style={{ maxWidth:780, margin:'0 auto', padding:'40px 20px 60px' }}>
-
-          {/* Title */}
-          <div style={{ marginBottom:28 }}>
-            <div style={{ fontSize:13, color:THEME.textLight, marginBottom:6 }}>{[e.vertical_line_id, e.grade ? `${e.grade} класс` : ''].filter(Boolean).join(' · ')}</div>
-            <h1 style={{ fontFamily:"'Montserrat',sans-serif", fontSize:26, fontWeight:800, color:THEME.primary }}>{ruName}</h1>
-          </div>
-
-          {/* Theory concept */}
-          {e.theory?.concept && (
-            <div className="theme-card" style={{ background:'#fff', borderRadius:18, border:`1px solid ${THEME.border}`, padding:'28px 32px', marginBottom:20, boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize:12, fontWeight:700, color:THEME.textLight, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:14 }}>Теория</div>
-              <div style={{ fontSize:16, lineHeight:1.85, color:THEME.text, fontFamily:"'Inter',sans-serif" }}>
-                <LatexText text={e.theory.concept}/>
-              </div>
-            </div>
-          )}
-
-          {/* Micro-hints */}
-          {(e.theory?.micro_hints||[]).length > 0 && (
-            <div className="theme-card" style={{ background:'#fff', borderRadius:18, border:`1px solid ${THEME.border}`, padding:'28px 32px', marginBottom:20, boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize:12, fontWeight:700, color:THEME.textLight, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:16 }}>💡 Микро-подсказки</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                {e.theory.micro_hints.map((hint, i) => {
-                  if (hint && typeof hint === 'object') {
-                    return (
-                      <div key={i} style={{ background:'rgba(99,102,241,0.04)', border:'1px solid rgba(99,102,241,0.15)', borderRadius:12, padding:'16px 20px' }}>
-                        {hint.skill_name && <div style={{ fontWeight:700, fontSize:14, color:THEME.primary, marginBottom:6 }}>{hint.skill_name}</div>}
-                        {hint.rule && <div style={{ fontSize:14, color:THEME.text, lineHeight:1.7, marginBottom:hint.example ? 8 : 0 }}><LatexText text={hint.rule}/></div>}
-                        {hint.example && (
-                          <div style={{ background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:8, padding:'10px 14px', fontSize:14, color:'#92400e' }}>
-                            <b>Пример: </b><LatexText text={hint.example}/>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={i} style={{ background:'rgba(99,102,241,0.04)', border:'1px solid rgba(99,102,241,0.15)', borderRadius:12, padding:'14px 18px', fontSize:14, color:THEME.text, lineHeight:1.7 }}>
-                      <LatexText text={String(hint)}/>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Inline practice tasks */}
-          {tasks.length > 0 && (
-            <div className="theme-card" style={{ background:'#fff', borderRadius:18, border:`1px solid ${THEME.border}`, padding:'28px 32px', boxShadow:'0 4px 20px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize:12, fontWeight:700, color:THEME.textLight, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:20 }}>🏋️ Тренировка</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:28 }}>
-                {tasks.map((task, ti) => {
-                  const ts = taskStates[ti] || { chosen: null, revealed: false };
-                  const isCorrect = ts.revealed && ts.chosen === task.correct_index;
-                  return (
-                    <div key={ti} style={{ borderTop: ti > 0 ? `1px solid ${THEME.border}` : 'none', paddingTop: ti > 0 ? 24 : 0 }}>
-                      <div style={{ fontSize:12, fontWeight:700, color:THEME.textLight, marginBottom:10 }}>Задача {ti + 1}</div>
-                      <div style={{ fontFamily:"'Montserrat',sans-serif", fontSize:17, fontWeight:700, color:THEME.primary, lineHeight:1.5, marginBottom:16 }}>
-                        <LatexText text={task.question_text}/>
-                      </div>
-                      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                        {(task.options||[]).map((opt, oi) => {
-                          let bg=THEME.surface, border=`1px solid ${THEME.border}`, color=THEME.text;
-                          if (ts.revealed) {
-                            if (oi===task.correct_index) { bg='rgba(16,185,129,0.1)'; border=`2px solid ${THEME.success}`; color=THEME.success; }
-                            else if (oi===ts.chosen) { bg='rgba(239,68,68,0.08)'; border=`2px solid ${THEME.error}`; color=THEME.error; }
-                            else { bg=THEME.surface; color=THEME.textLight; }
-                          } else if (ts.chosen===oi) { bg=THEME.bg; border=`2px solid ${THEME.primary}`; }
-                          return (
-                            <div key={oi} onClick={() => !ts.revealed && handleChoose(ti, oi)}
-                              style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderRadius:10, background:bg, border, cursor:ts.revealed?'default':'pointer', transition:'all 0.15s' }}>
-                              <div style={{ width:28, height:28, borderRadius:6, background:ts.revealed&&oi===task.correct_index?THEME.success:ts.revealed&&oi===ts.chosen?THEME.error:THEME.bg, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:12, color:ts.revealed&&(oi===task.correct_index||oi===ts.chosen)?'#fff':THEME.textLight, flexShrink:0, border:`1px solid ${THEME.border}` }}>
-                                {String.fromCharCode(65+oi)}
-                              </div>
-                              <span style={{ fontSize:14, fontWeight:500, color }}><LatexText text={opt}/></span>
-                              {ts.revealed&&oi===task.correct_index&&<span style={{ marginLeft:'auto', fontSize:16, flexShrink:0 }}>✅</span>}
-                              {ts.revealed&&oi===ts.chosen&&oi!==task.correct_index&&<span style={{ marginLeft:'auto', fontSize:16, flexShrink:0 }}>❌</span>}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {ts.revealed && (
-                        <div style={{ marginTop:12, padding:'12px 16px', borderRadius:10, background:isCorrect?'rgba(16,185,129,0.07)':'rgba(239,68,68,0.05)', border:`1px solid ${isCorrect?'rgba(16,185,129,0.2)':'rgba(239,68,68,0.15)'}` }}>
-                          <div style={{ fontWeight:700, fontSize:13, color:isCorrect?THEME.success:THEME.error, marginBottom:isCorrect?0:4 }}>{isCorrect?'✅ Верно!':'❌ Неверно'}</div>
-                          {!isCorrect&&task.options&&<div style={{ fontSize:13, color:THEME.textLight }}>Правильный ответ: <b style={{ color:THEME.primary }}><LatexText text={task.options[task.correct_index]}/></b></div>}
-                          {task.explanation&&<div style={{ marginTop:6, fontSize:13, color:THEME.text, lineHeight:1.6 }}>💡 <LatexText text={task.explanation}/></div>}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      <TheoryWalkthrough
+        key={sidOf(selected)}
+        entry={selected}
+        ruName={ruName}
+        onExit={() => setSelected(null)}
+        awardXp={(score, total) => awardTheoryXp(selected, score, total)}
+      />
     );
   }
 
@@ -392,7 +556,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
             </LazyMount>
           : <PlanetDot life={life} size={planetSize}/>}
         <div style={{ minWidth:0, flex:1 }}>
-          <div style={{ fontSize:11, color:THEME.textLight, marginBottom:3 }}>{[t.vertical_line_id, t.grade ? `${t.grade} кл` : ''].filter(Boolean).join(' · ')}</div>
+          <div style={{ fontSize:11, color:THEME.textLight, marginBottom:3 }}>{[ruVertical(t.vertical_line_id), t.grade ? `${t.grade} кл` : ''].filter(Boolean).join(' · ')}</div>
           <div style={{ fontWeight:700, fontSize:15, color:THEME.primary, marginBottom:6, paddingRight:isRead?20:0 }}>{highlight(ruName)}</div>
           {/* Превью теории: до 3 строк (раньше — одна) */}
           <div style={{ fontSize:13, color:THEME.textLight, lineHeight:1.55, display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{highlight(concept)}</div>
@@ -449,7 +613,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
                   <button className={`theme-tab${filterSec==='all'?' active':''}`} onClick={() => setFilterSec('all')} style={{ padding:'6px 16px', borderRadius:20, border:`2px solid ${filterSec==='all'?THEME.primary:THEME.border}`, background:filterSec==='all'?THEME.primary:'transparent', color:filterSec==='all'?THEME.accent:THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>Все разделы</button>
                   {verticals.map(v => (
-                    <button key={v} className={`theme-tab${filterSec===v?' active':''}`} onClick={() => setFilterSec(v)} style={{ padding:'6px 16px', borderRadius:20, border:`2px solid ${filterSec===v?THEME.primary:THEME.border}`, background:filterSec===v?THEME.primary:'transparent', color:filterSec===v?THEME.accent:THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>{v}</button>
+                    <button key={v} className={`theme-tab${filterSec===v?' active':''}`} onClick={() => setFilterSec(v)} style={{ padding:'6px 16px', borderRadius:20, border:`2px solid ${filterSec===v?THEME.primary:THEME.border}`, background:filterSec===v?THEME.primary:'transparent', color:filterSec===v?THEME.accent:THEME.textLight, fontWeight:600, fontSize:13, cursor:'pointer' }}>{ruVertical(v)}</button>
                   ))}
                 </div>
               )}
@@ -510,7 +674,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
                 {groups.map(gr => {
                   const key = `${gr.vertical}|${gr.grade ?? ''}`;
                   const isCollapsed = !!collapsed[key];
-                  const title = [RU_VERTICALS[gr.vertical] || gr.vertical.toUpperCase(), gr.grade ? `${gr.grade} КЛАСС` : null].filter(Boolean).join(' · ');
+                  const title = [ruVerticalUpper(gr.vertical), gr.grade ? `${gr.grade} КЛАСС` : null].filter(Boolean).join(' · ');
                   return (
                     <div key={key} style={{ marginBottom: isCollapsed ? 2 : 18 }}>
                       <div onClick={() => setCollapsed(p => ({ ...p, [key]: !p[key] }))}
