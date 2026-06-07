@@ -8,7 +8,11 @@ import AppTopbar from "../components/AppTopbar.jsx";
 import DiagnosticModuleTree, { buildDiagModuleTree } from "../components/diagTree/DiagnosticModuleTree.jsx";
 
 export default function IndividualPlanScreen({ user, onBack, onStartTraining }) {
-  const { theme: THEME } = useTheme();
+  const { theme: THEME, dark, shopTheme } = useTheme();
+  // Тёмный UI = системная dark-тема ИЛИ тёмная shop-тема (galaxy/matrix/fire).
+  // THEME.* адаптируется сам, но у карточек «Сейчас в работе» / «Готовы к
+  // старту» хардкоды (#fff, #1f2937, #fffbeb…) — для них отдельные dark-значения.
+  const isDarkUi = dark || (shopTheme && shopTheme !== 'sakura');
   const [autoPlan,          setAutoPlan]          = useState(null);
   const [loading,           setLoading]           = useState(true);
   const [fetchError,        setFetchError]        = useState(false);
@@ -146,11 +150,11 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
             </div>
 
             {/* ── Сейчас в работе + готовы к старту — на всю ширину ── */}
-            <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:12, padding:'16px 18px', marginBottom:20 }}>
+            <div style={{ background:isDarkUi?'rgba(245,158,11,0.07)':'#fffbeb', border:`1px solid ${isDarkUi?'rgba(245,158,11,0.35)':'#fcd34d'}`, borderRadius:12, padding:'16px 18px', marginBottom:20 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap', marginBottom:12 }}>
-                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:14, color:'#b45309' }}>⚡ Сейчас в работе</div>
+                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:14, color:isDarkUi?'#fbbf24':'#b45309' }}>⚡ Сейчас в работе</div>
                 {/* мини-индикатор фокуса */}
-                <div style={{ fontSize:11, color:'#a16207', fontFamily:"'Inter',sans-serif", background:'#fef9c3', border:'1px solid #fde047', borderRadius:99, padding:'3px 10px', display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ fontSize:11, color:isDarkUi?'#fcd34d':'#a16207', fontFamily:"'Inter',sans-serif", background:isDarkUi?'rgba(250,204,21,0.12)':'#fef9c3', border:`1px solid ${isDarkUi?'rgba(250,204,21,0.4)':'#fde047'}`, borderRadius:99, padding:'3px 10px', display:'flex', alignItems:'center', gap:6 }}>
                   🎯 В фокусе {Math.min(activeSkills, 3)} из 3 навыков · {slotsText}
                   <span style={{ display:'inline-flex', gap:3 }}>
                     {[0,1,2].map(i => (
@@ -161,10 +165,10 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
               </div>
 
               {inProgressMods.length === 0 && availableMods.length === 0 && (
-                <div style={{ fontSize:13, color:'#64748b', fontFamily:"'Inter',sans-serif" }}>Открой первый модуль на карте ниже.</div>
+                <div style={{ fontSize:13, color:isDarkUi?'#94a3b8':'#64748b', fontFamily:"'Inter',sans-serif" }}>Открой первый модуль на карте ниже.</div>
               )}
               {inProgressMods.length === 0 && availableMods.length > 0 && (
-                <div style={{ fontSize:13, color:'#92400e', fontFamily:"'Inter',sans-serif", marginBottom:8 }}>Ещё ничего не начато — выбери модуль из готовых к старту 👇</div>
+                <div style={{ fontSize:13, color:isDarkUi?'#fcd34d':'#92400e', fontFamily:"'Inter',sans-serif", marginBottom:8 }}>Ещё ничего не начато — выбери модуль из готовых к старту 👇</div>
               )}
 
               {/* Карточки навыков в работе: оранжевый акцент слева + заметный прогресс-бар */}
@@ -173,19 +177,19 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
                   <button key={m.id} className="plan-mod-card" onClick={() => focusModule(m.id)}
                     title="Показать на карте"
                     style={{
-                      background:'#fff', borderRadius:10, borderLeft:'4px solid #f59e0b',
+                      background:isDarkUi?'rgba(255,255,255,0.06)':'#fff', borderRadius:10, borderLeft:'4px solid #f59e0b',
                       boxShadow:'0 2px 8px rgba(10,25,47,0.07)',
                       padding:'11px 14px', display:'flex', alignItems:'center', gap:14, flexWrap:'wrap',
                     }}>
                     <span style={{ flex:'1 1 200px', minWidth:0 }}>
-                      <span style={{ display:'block', fontSize:13.5, fontWeight:700, color:'#1f2937', fontFamily:"'Inter',sans-serif", lineHeight:1.35 }}>{m.moduleName}</span>
+                      <span style={{ display:'block', fontSize:13.5, fontWeight:700, color:isDarkUi?'#e2e8f0':'#1f2937', fontFamily:"'Inter',sans-serif", lineHeight:1.35 }}>{m.moduleName}</span>
                       <span style={{ fontSize:11, color:'#94a3b8', fontFamily:"'Inter',sans-serif" }}>{m.grade}</span>
                     </span>
                     <span style={{ display:'inline-flex', alignItems:'center', gap:10, flexShrink:0 }}>
                       <span style={{ width:130, height:9, background:'rgba(148,163,184,0.25)', borderRadius:99, overflow:'hidden' }}>
                         <span style={{ display:'block', height:'100%', width:`${m.mastery}%`, background:'linear-gradient(90deg,#fbbf24,#f59e0b)', borderRadius:99 }}/>
                       </span>
-                      <span style={{ fontSize:15, fontWeight:800, color:'#d97706', fontFamily:"'Montserrat',sans-serif", minWidth:42, textAlign:'right' }}>{m.mastery}%</span>
+                      <span style={{ fontSize:15, fontWeight:800, color:isDarkUi?'#fbbf24':'#d97706', fontFamily:"'Montserrat',sans-serif", minWidth:42, textAlign:'right' }}>{m.mastery}%</span>
                     </span>
                   </button>
                 ))}
@@ -193,7 +197,7 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
 
               {availableMods.length > 0 && (
                 <>
-                  <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12, color:'#15803d', margin:'14px 0 8px', textTransform:'uppercase', letterSpacing:'0.4px' }}>▶ Готовы к старту</div>
+                  <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12, color:isDarkUi?'#4ade80':'#15803d', margin:'14px 0 8px', textTransform:'uppercase', letterSpacing:'0.4px' }}>▶ Готовы к старту</div>
                   {/* Карточки доступных: зелёный акцент, без прогресса, с кнопкой-чипом */}
                   <div style={availableMods.length > 4
                     ? { display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:8 }
@@ -202,15 +206,15 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
                       <button key={m.id} className="plan-avail-card" onClick={() => focusModule(m.id)}
                         title="Показать на карте"
                         style={{
-                          background:'#fff', borderRadius:10, borderLeft:'4px solid #22c55e',
+                          background:isDarkUi?'rgba(255,255,255,0.06)':'#fff', borderRadius:10, borderLeft:'4px solid #22c55e',
                           boxShadow:'0 2px 8px rgba(10,25,47,0.07)',
                           padding:'10px 14px', display:'flex', alignItems:'center', gap:10,
                         }}>
                         <span style={{ flex:1, minWidth:0 }}>
-                          <span style={{ display:'block', fontSize:13.5, fontWeight:700, color:'#1f2937', fontFamily:"'Inter',sans-serif", lineHeight:1.35, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{m.moduleName}</span>
+                          <span style={{ display:'block', fontSize:13.5, fontWeight:700, color:isDarkUi?'#e2e8f0':'#1f2937', fontFamily:"'Inter',sans-serif", lineHeight:1.35, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{m.moduleName}</span>
                           <span style={{ fontSize:11, color:'#94a3b8', fontFamily:"'Inter',sans-serif" }}>{m.grade}</span>
                         </span>
-                        <span style={{ flexShrink:0, fontSize:11.5, fontWeight:800, color:'#15803d', background:'#dcfce7', border:'1px solid #86efac', borderRadius:99, padding:'4px 11px', fontFamily:"'Inter',sans-serif" }}>▶ Начать</span>
+                        <span style={{ flexShrink:0, fontSize:11.5, fontWeight:800, color:isDarkUi?'#4ade80':'#15803d', background:isDarkUi?'rgba(34,197,94,0.16)':'#dcfce7', border:`1px solid ${isDarkUi?'rgba(74,222,128,0.45)':'#86efac'}`, borderRadius:99, padding:'4px 11px', fontFamily:"'Inter',sans-serif" }}>▶ Начать</span>
                       </button>
                     ))}
                   </div>
@@ -218,7 +222,7 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
               )}
 
               {/* info-блок про фокус */}
-              <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginTop:12, padding:'9px 12px', background:'rgba(245,158,11,0.08)', borderRadius:8, fontSize:12, color:'#854d0e', fontFamily:"'Inter',sans-serif", lineHeight:1.5 }}>
+              <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginTop:12, padding:'9px 12px', background:isDarkUi?'rgba(245,158,11,0.12)':'rgba(245,158,11,0.08)', borderRadius:8, fontSize:12, color:isDarkUi?'#fcd34d':'#854d0e', fontFamily:"'Inter',sans-serif", lineHeight:1.5 }}>
                 <span style={{ fontSize:14, lineHeight:1.3 }}>💡</span>
                 Чтобы не распыляться — открываем до 3 навыков одновременно. Заверши один — откроется следующий.
               </div>
