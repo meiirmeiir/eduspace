@@ -506,14 +506,36 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
 
             {/* Баннер триала — только на полном дашборде (этап active): новичка
                 «осталось 0 дней» сбивает с толку, выглядит как конец доступа. */}
-            {stage==='active'&&isTrial&&!isTeacher&&(
-              <div style={{background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.35)",borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12}}>
-                <span style={{fontSize:22}}>⏳</span>
-                <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:14,color:"#92400e"}}>
-                  Пробный период: осталось {trialDaysLeft??0} {(()=>{ const n=Math.abs(trialDaysLeft??0)%100, b=n%10; if(n>10&&n<20)return 'дней'; if(b>1&&b<5)return 'дня'; if(b===1)return 'день'; return 'дней'; })()}
+            {stage==='active'&&isTrial&&!isTeacher&&(()=>{
+              const d=trialDaysLeft??0;
+              const plural=(()=>{ const n=Math.abs(d)%100, b=n%10; if(n>10&&n<20)return 'дней'; if(b>1&&b<5)return 'дня'; if(b===1)return 'день'; return 'дней'; })();
+              const urgent=d===0, warn=d>0&&d<=3;
+              // d=0 → красный + CTA; 1..3 → оранжевое предупреждение; >3 → нейтральный.
+              if(urgent){
+                return (
+                  <div style={{background:"#ef4444",borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",boxShadow:"0 6px 18px -6px rgba(239,68,68,0.55)"}}>
+                    <span style={{fontSize:22}}>⚠️</span>
+                    <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,color:"#fff",flex:"1 1 auto"}}>
+                      Пробный период закончился — оформи подписку, чтобы продолжить
+                    </div>
+                    <button onClick={()=>onOpenSubscription?.()} style={{background:"#fff",color:"#dc2626",border:"none",borderRadius:10,padding:"9px 18px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
+                      Оформить подписку
+                    </button>
+                  </div>
+                );
+              }
+              const bg=warn?"rgba(249,115,22,0.14)":"rgba(245,158,11,0.12)";
+              const bd=warn?"rgba(249,115,22,0.5)":"rgba(245,158,11,0.35)";
+              const txt=warn?"#9a3412":"#92400e";
+              return (
+                <div style={{background:bg,border:`1px solid ${bd}`,borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12}}>
+                  <span style={{fontSize:22}}>{warn?"⚠️":"⏳"}</span>
+                  <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:14,color:txt}}>
+                    Пробный период: осталось {d} {plural}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ЭТАП 1 (stage==='new'): одна задача — пройти диагностику. Всё
                 остальное (рейтинг/корабль/задания/метрики) скрыто через showFull. */}

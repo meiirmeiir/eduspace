@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useTheme } from "../ThemeContext.jsx";
-import { getWeekId, getLeague, LEAGUES } from "../lib/pointsUtils.js";
+import { getWeekId, getMondayUtcIso, getLeague, LEAGUES } from "../lib/pointsUtils.js";
 import { getToken } from 'firebase/app-check';
 import { auth, app } from "../lib/firebase.js";
 import Logo from "../components/ui/Logo.jsx";
@@ -13,6 +13,17 @@ import { ensureCreatorStyles } from "../components/creatorFx.js";
 
 const PROJECT = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
 const KEY     = () => import.meta.env.VITE_FIREBASE_API_KEY;
+
+// Человекочитаемый диапазон текущей недели (вместо ISO «2026-W24»).
+const RU_MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+function formatCurrentWeekRange() {
+  const monday = new Date(getMondayUtcIso());
+  const sunday = new Date(monday); sunday.setUTCDate(monday.getUTCDate() + 6);
+  const d1 = monday.getUTCDate(), d2 = sunday.getUTCDate();
+  const m1 = RU_MONTHS[monday.getUTCMonth()], m2 = RU_MONTHS[sunday.getUTCMonth()];
+  const year = sunday.getUTCFullYear();
+  return m1 === m2 ? `${d1}–${d2} ${m1} ${year}` : `${d1} ${m1} – ${d2} ${m2} ${year}`;
+}
 
 async function _commonHeaders() {
   const token = await auth.currentUser?.getIdToken().catch(() => null);
@@ -111,7 +122,7 @@ function getTimeUntilReset() {
   return { days, hours, minutes };
 }
 
-export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile, onOpenFriends }) {
+export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile, onOpenFriends, onGoDaily }) {
   const { theme: THEME, shopTheme } = useTheme();
   const [tab, setTab] = useState('all');
   // Свежий список друзей из Firestore — user.friends в localStorage может
@@ -372,7 +383,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile, o
             !equippedBg → тёмный градиент → светлый текст. Итог: светлый всегда. */}
         {(() => null)()}
         <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color: lt, marginBottom:6, display:'inline-flex', alignItems:'center'}}>🏆 Рейтинг<InfoTooltip text="Рейтинг по очкам за неделю — за ежедневные задачи, навыки и диагностику. Сбрасывается в понедельник." /></h1>
-        <p style={{fontSize:13, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : ltd, marginBottom:18}}>Неделя {weekId} · обновляется в реальном времени</p>
+        <p style={{fontSize:13, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : ltd, marginBottom:18}}>Текущая неделя · {formatCurrentWeekRange()} · обновляется в реальном времени</p>
 
         <div style={{display:'flex', gap:6, marginBottom:18, flexWrap:'wrap', alignItems:'center'}}>
           {TABS.map(t => (
@@ -454,9 +465,31 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile, o
 
         {!loading && !err && top.length === 0 && (
           <div style={{textAlign:'center', color:ltd, padding:'40px 16px'}}>
-            {tab==='all'    && 'На этой неделе пока нет участников. Решай задачи — попадёшь в рейтинг!'}
-            {tab==='grade'  && `В рейтинге ${user?.details||'твоего класса'} ещё никого нет.`}
-            {tab==='region' && `В рейтинге ${user?.region||'твоей области'} ещё никого нет.`}
+            {tab!=='friends' && (
+              <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:16, padding:'12px 0 8px'}}>
+                {/* Призовые места — пустой подиум приглашает занять первое место */}
+                <div style={{display:'flex', alignItems:'flex-end', justifyContent:'center', gap:18}}>
+                  <span style={{fontSize:44, opacity:0.85, transform:'translateY(4px)'}}>🥈</span>
+                  <span style={{fontSize:64, filter:'drop-shadow(0 4px 14px rgba(212,175,55,0.45))'}}>🥇</span>
+                  <span style={{fontSize:44, opacity:0.85, transform:'translateY(4px)'}}>🥉</span>
+                </div>
+                <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:20, color:lt}}>
+                  Будь первым!
+                </div>
+                <div style={{fontSize:14, color:ltd, maxWidth:380, lineHeight:1.5}}>
+                  {tab==='all'    && 'На этой неделе пока нет участников — займи первое место.'}
+                  {tab==='grade'  && `В рейтинге ${user?.details||'твоего класса'} ещё никого нет — стань первым.`}
+                  {tab==='region' && `В рейтинге ${user?.region||'твоей области'} ещё никого нет — стань первым.`}
+                </div>
+                {onGoDaily && (
+                  <button onClick={onGoDaily} style={{
+                    marginTop:4, background:'#d4af37', color:'#1a1a2e', border:'none', borderRadius:12,
+                    padding:'13px 28px', fontSize:15, fontWeight:800, cursor:'pointer',
+                    fontFamily:"'Montserrat',sans-serif", boxShadow:'0 8px 22px -6px rgba(212,175,55,0.5)',
+                  }}>Решать задачи →</button>
+                )}
+              </div>
+            )}
             {tab==='friends' && (
               <div>
                 <div style={{fontSize:40, marginBottom:10}}>👥</div>

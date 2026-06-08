@@ -238,7 +238,13 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
             </div>
 
             {diagData.modules.length > 0
-              ? <div ref={mapWrapRef}>
+              ? <div ref={mapWrapRef} style={{ position:'relative' }}>
+                  {/* Плавный переход от светлой секции к тёмной космической карте */}
+                  <div aria-hidden="true" style={{
+                    position:'absolute', top:0, left:0, right:0, height:56, zIndex:5,
+                    pointerEvents:'none', borderRadius:'12px 12px 0 0',
+                    background:`linear-gradient(to bottom, ${THEME.bg} 0%, transparent 100%)`,
+                  }}/>
                   <DiagnosticModuleTree diagData={diagData} onStartTraining={onStartTraining} skillMastery={skillMasteryData} focusRequest={focusReq}/>
                 </div>
               : <div style={{ textAlign:'center', padding:60, color:THEME.textLight, fontFamily:"'Inter',sans-serif", fontSize:14 }}>

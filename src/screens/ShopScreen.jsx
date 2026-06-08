@@ -440,7 +440,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
                 position:'relative', padding:16, display:'flex', flexDirection:'column', gap:10,
                 ...rarityFrame('epic'),
               }}>
-                <div style={{position:'absolute', top:10, right:10, fontSize:11, fontWeight:800, color:'#fff', background:'#dc2626', padding:'3px 10px', borderRadius:99}}>СКИДКА -{discountPct}%</div>
+                {discountPct > 0 && <div style={{position:'absolute', top:10, right:10, fontSize:11, fontWeight:800, color:'#fff', background:'#dc2626', padding:'3px 10px', borderRadius:99}}>СКИДКА -{discountPct}%</div>}
                 <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:17, color:THEME.primary}}>
                   {set.icon} Полный сет «{set.name}»
                 </div>
@@ -469,7 +469,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
                 <div style={{fontSize:14, fontWeight:700, color:THEME.text}}>
                   {allOwned
                     ? <span style={{color:'#4ade80'}}>Сет полностью собран ✓</span>
-                    : <><s style={{opacity:0.55}}>{full} 💎</s> <b style={{color:'#4ade80', fontSize:17}}>{price} 💎</b>
+                    : <>{full > price && <s style={{opacity:0.55}}>{full} 💎</s>} <b style={{color:'#4ade80', fontSize:17}}>{price} 💎</b>
                        {missing.length < 4 && <span style={{fontSize:11, color:THEME.textLight, fontWeight:600}}> · за {missing.length} недостающих</span>}</>}
                 </div>
                 {!allOwned && (crystals >= price
@@ -633,7 +633,12 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
           <div className="shop-loadout">
             {/* ЛЕВАЯ КОЛОНКА (~45%): герой во весь рост + HP под ним */}
             <div className="shop-loadout-hero" style={{display:'flex', flexDirection:'column', gap:12}}>
-              <div className="dashboard-section" style={{padding:0, overflow:'hidden', borderRadius:16}}>
+              <div className="dashboard-section" style={{
+                padding:0, overflow:'hidden', borderRadius:16,
+                // Тёмный фон + подиум-свечение НЕЗАВИСИМО от темы (в light mode
+                // прозрачный 3D-герой на белом выглядел бледно).
+                background:'radial-gradient(ellipse at bottom center, rgba(212,175,55,0.10) 0%, transparent 60%), #0f1520',
+              }}>
                 <Character3D
                   gender={user?.gender || 'male'}
                   equipped={{ helmet: equipped.helmet, top: equipped.top, bottom: equipped.bottom, boots: equipped.boots }}
@@ -713,7 +718,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
                             src={`/previews/outfits/${setId}_preview.png`}
                             alt={set.name}
                             loading="lazy"
-                            style={{width:'100%', height:200, objectFit:'contain', padding:8}}
+                            style={{width:'100%', height:200, objectFit:'contain', objectPosition:'center bottom', padding:8}}
                             onError={(e) => {
                               // Превью не загрузилось — откатываемся на эмодзи-иконку сета.
                               e.currentTarget.style.display = 'none';

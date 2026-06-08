@@ -144,11 +144,10 @@ export function completedSet(equipped) {
   return null;
 }
 
-// HP персонажа для боя: база 3 + сумма hp надетых предметов + сет-бонус.
+// HP персонажа — ЕДИНАЯ формула для всех экранов (профиль, магазин, бои):
+// база 3 + бонус ТЕКУЩЕГО экипированного сета. Per-item hp больше не суммируем
+// (наряды надеваются только целыми сетами → давало завышение, напр. 8 вместо 5).
 export function computePlayerHp(equipped) {
-  let hp = 3;
-  EQ_SLOTS.forEach((s) => { const it = getShopItem(equipped?.[s]); if (it?.hp) hp += it.hp; });
   const set = completedSet(equipped);
-  if (set) hp += EQUIPMENT_SETS[set].bonus;
-  return hp;
+  return 3 + (set ? (EQUIPMENT_SETS[set].bonus || 0) : 0);
 }

@@ -1325,7 +1325,7 @@ function AppInner() {
       {screen==="faq"&&<FaqScreen initialQuestion={faqInitial} onBack={()=>goBack()}/>}
       {screen==="intermediate_tests"&&<IntermediateTestsScreen user={user} onStartBoss={sec=>{setBossSection(sec);navigate("boss_fight");}} onBack={()=>goBack()}/>}
       {screen==="boss_fight"&&bossSection&&<BossFightScreen section={bossSection} user={user} onBack={()=>goBack("intermediate_tests")}/>}
-      {screen==="leaderboard"&&<LeaderboardScreen user={user} onBack={()=>goBack()} onOpenPublicProfile={openPublicProfile} onOpenFriends={()=>navigate("friends")}/>}
+      {screen==="leaderboard"&&<LeaderboardScreen user={user} onBack={()=>goBack()} onOpenPublicProfile={openPublicProfile} onOpenFriends={()=>navigate("friends")} onGoDaily={()=>navigate("daily")}/>}
       {screen==="friends"&&<FriendsScreen user={user} onBack={()=>goBack()} onOpenPublicProfile={openPublicProfile}/>}
       {screen==="public_profile"&&publicProfileUid&&<PublicProfileScreen uid={publicProfileUid} onBack={closePublicProfile}/>}
       {screen==="shop"&&<ShopScreen user={user} onBack={()=>goBack()} onUpdateUser={handleUpdateUser} onGoDaily={()=>navigate("daily")}/>}

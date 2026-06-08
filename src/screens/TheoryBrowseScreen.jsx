@@ -225,11 +225,23 @@ function TheoryWalkthrough({ entry, ruName, onExit, awardXp }) {
         </div>
         <div style={{ fontSize:13, color:THEME.textLight, marginTop:4 }}>правильных ответов</div>
         <div style={{ fontFamily:"'Montserrat',sans-serif", fontSize:19, fontWeight:800, color:accent, margin:'18px 0 6px' }}>{msg}</div>
-        {xpEarned > 0 && (
-          <div style={{ display:'inline-block', marginTop:8, padding:'6px 18px', borderRadius:99, background:'rgba(251,191,36,0.14)', border:'1px solid rgba(251,191,36,0.45)', color:isDarkUi?'#fbbf24':'#b45309', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15 }}>
-            ⚡ +{xpEarned} XP
+        {/* Награды за прохождение: +10 XP базово, +5 XP бонус за идеальный результат */}
+        {xpEarned > 0 ? (
+          <div style={{ display:'flex', justifyContent:'center', flexWrap:'wrap', gap:8, marginTop:10 }}>
+            <span style={{ padding:'6px 16px', borderRadius:99, background:'rgba(251,191,36,0.14)', border:'1px solid rgba(251,191,36,0.45)', color:isDarkUi?'#fbbf24':'#b45309', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14 }}>
+              ⚡ +10 XP за прохождение
+            </span>
+            {perfect && (
+              <span style={{ padding:'6px 16px', borderRadius:99, background:'rgba(212,175,55,0.18)', border:'1px solid rgba(212,175,55,0.6)', color:isDarkUi?'#fcd34d':'#a16207', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14 }}>
+                ⭐ +5 XP бонус за {total}/{total}
+              </span>
+            )}
           </div>
-        )}
+        ) : xpEarned === 0 ? (
+          <div style={{ marginTop:8, fontSize:13, fontWeight:600, color:THEME.textLight }}>
+            ✓ Тема уже освоена — опыт начислен ранее
+          </div>
+        ) : null}
         {/* Список задач с галочками/крестиками */}
         <div style={{ display:'flex', flexDirection:'column', gap:8, margin:'22px auto 0', maxWidth:360, textAlign:'left' }}>
           {tasks.map((task, i) => {

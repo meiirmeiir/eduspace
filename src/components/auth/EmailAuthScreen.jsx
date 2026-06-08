@@ -80,10 +80,10 @@ const FONTS_STYLE = `
   .input-field{width:100%;padding:12px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;font-family:'Inter',sans-serif;color:#0f172a;background:#fff;outline:none;transition:border-color 0.15s;margin-bottom:0;}
   .input-field:focus{border-color:#0f172a;}
   select.input-field{cursor:pointer;}
-  /* CTA всегда тёмная с золотым текстом — самый заметный элемент формы.
-     Прежний неактивный вид (#e2e8f0/#94a3b8) на белом читался как disabled. */
-  .cta-button{width:100%;padding:14px;border-radius:10px;border:none;font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;cursor:pointer;transition:all 0.2s;background:#1a1a2e;color:#fbbf24;margin-top:8px;opacity:0.55;}
-  .cta-button.active{opacity:1;box-shadow:0 8px 20px -5px rgba(10,25,47,0.35);}
+  /* CTA — палитра AAPA: тёмный фон + золотой текст, заметный CTA в любом
+     состоянии (раньше opacity:0.55 на белом читался как тусклый серый). */
+  .cta-button{width:100%;padding:14px;border-radius:10px;border:none;font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;cursor:pointer;transition:all 0.2s;background:#1a1a2e;color:#d4af37;margin-top:8px;opacity:0.85;box-shadow:0 6px 16px -6px rgba(10,25,47,0.3);}
+  .cta-button.active{opacity:1;box-shadow:0 8px 22px -5px rgba(212,175,55,0.35);}
   .cta-button.active:hover{background:#26263f;}
   .cta-button:disabled{cursor:not-allowed;}
   @media(max-width:768px){
