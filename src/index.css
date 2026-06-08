@@ -1026,15 +1026,20 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 
 /* ── Профиль: двухколоночный лейаут (страница скроллится целиком, без отдельного
    скролла внутри колонок) ── */
-.profile-layout { display: grid; grid-template-columns: 2fr 3fr; gap: 20px; align-items: start; }
+.profile-layout { display: grid; grid-template-columns: 2fr 3fr; gap: 20px; align-items: stretch; }
 .profile-col-left { display: flex; flex-direction: column; gap: 16px; }
 .profile-col-right { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+/* Низ колонок выравнивается: последний блок короткой колонки растягивается */
+.profile-col-left > :last-child,
+.profile-col-right > :last-child { flex: 1 1 auto; }
 /* Компактные стат-карточки в левой колонке: 3×2 */
 .profile-col-left .profile-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 0; }
 .profile-col-left .profile-stats-grid .stat-card { padding: 13px 10px; }
 @media (max-width: 768px) {
   .profile-layout { grid-template-columns: 1fr; }
   .profile-col-left .profile-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .profile-col-left > :last-child,
+  .profile-col-right > :last-child { flex: 0 1 auto; }
 }
 
 /* ── AppTopbar варианты — поздно в файле + высокая специфичность, чтобы перебить

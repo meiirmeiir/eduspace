@@ -119,7 +119,7 @@ export function enableShadows(sceneRoot) {
 // Зум камеры: [мин (крупный план лица), макс (вся фигура с запасом), дефолт]
 const ZOOM_MIN = 2.5, ZOOM_MAX = 6.0, ZOOM_DEF = 4.35;
 
-export default function Character3D({ gender = 'male', equipped = {}, tryOn = {}, height = 380, autoSpin = 0.15, animation = 'idle', zoomable = false, shirtColor, pantsColor }) {
+export default function Character3D({ gender = 'male', equipped = {}, tryOn = {}, height = 380, autoSpin = 0.15, animation = 'idle', zoomable = false, zoomBottom = 10, shirtColor, pantsColor }) {
   const mountRef = useRef(null);
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -384,7 +384,7 @@ export default function Character3D({ gender = 'male', equipped = {}, tryOn = {}
       )}
       {/* Кнопки зума [+]/[−] — полупрозрачные, в углу (только zoomable) */}
       {zoomable && !loading && (
-        <div style={{ position: 'absolute', right: 10, bottom: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ position: 'absolute', right: 10, bottom: zoomBottom, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {[['+', -0.5], ['−', 0.5]].map(([label, d]) => (
             <button key={label} onClick={() => zoomApiRef.current?.(d)} aria-label={label === '+' ? 'Приблизить' : 'Отдалить'}
               style={{

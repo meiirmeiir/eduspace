@@ -19,100 +19,6 @@ import XpBar from "./XpBar.jsx";
 import AchievementsGrid from "./AchievementsGrid.jsx";
 import InfoTooltip from "./InfoTooltip.jsx";
 
-// ── График активности (GitHub-style): user.activity = { 'YYYY-MM-DD': count } ──
-const ACT_WEEKS = 16; // колонок-недель в сетке
-function activityLast(map, days) {
-  // последние N дней: [{ key, count, date }]
-  const out = [];
-  const now = new Date();
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 86400000);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    out.push({ key, count: Number(map?.[key]) || 0, date: d });
-  }
-  return out;
-}
-function longestRun(map) {
-  // самый длинный стрик по истории activity (дни с count>0 подряд)
-  const days = activityLast(map, 120);
-  let best = 0, cur = 0;
-  for (const d of days) { cur = d.count > 0 ? cur + 1 : 0; if (cur > best) best = cur; }
-  return best;
-}
-
-// ISO-номер недели — для подписей баров («Нед. 21»).
-function isoWeekNum(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const day = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-}
-
-function ActivityGraph({ activity, streak, THEME }) {
-  const days = activityLast(activity, ACT_WEEKS * 7);
-  // выравнивание на понедельник, затем агрегация по неделям
-  const firstDow = (days[0].date.getDay() + 6) % 7; // 0=пн
-  const cells = [...Array(firstDow).fill(null), ...days];
-  const rawWeeks = [];
-  for (let i = 0; i < cells.length; i += 7) rawWeeks.push(cells.slice(i, i + 7));
-  const weeks = rawWeeks.map(week => {
-    const real = week.filter(Boolean);
-    const total = real.reduce((s, d) => s + d.count, 0);
-    const repDate = (real[real.length - 1] || real[0])?.date || new Date();
-    return { total, weekNo: isoWeekNum(repDate) };
-  });
-  const total = weeks.reduce((s, w) => s + w.total, 0);
-  const maxVal = Math.max(1, ...weeks.map(w => w.total));
-  const longest = Math.max(longestRun(activity), Number(streak) || 0);
-  const lastIdx = weeks.length - 1;
-  // цвет столбика: приглушённый #2a3a4a → яркий зелёный #4ade80 по доле
-  const lerp = (a, b, t) => Math.round(a + (b - a) * t);
-  const barColor = (ratio) => {
-    const t = Math.min(1, Math.max(0, ratio));
-    return `rgb(${lerp(42, 74, t)},${lerp(58, 222, t)},${lerp(74, 128, t)})`;
-  };
-  return (
-    <div className="dashboard-section" style={{ marginBottom: 0 }}>
-      <h2 className="section-title" style={{ marginBottom: 4 }}>📊 Твоя активность</h2>
-      <div style={{ fontSize: 12, color: THEME.textLight, marginBottom: 16 }}>
-        {total > 0 ? `${total} задач за последние ${ACT_WEEKS} недель` : 'Решай ежедневные задачи — здесь появится твоя активность'}
-      </div>
-      {/* Недельный бар-чарт: высота столбика ∝ числу задач за неделю */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, overflowX: 'auto', paddingBottom: 2 }}>
-        {weeks.map((w, i) => {
-          const ratio = w.total / maxVal;
-          const isCurrent = i === lastIdx;
-          const h = w.total === 0 ? (isCurrent ? 6 : 2) : Math.max(4, Math.round(ratio * 80));
-          const showLabel = (lastIdx - i) % 4 === 0;
-          return (
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 0', minWidth: 16 }}>
-              <div style={{ height: 80, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                <div
-                  title={`Неделя ${w.weekNo} · ${w.total} задач`}
-                  style={{
-                    width: '72%', maxWidth: 22, height: h, borderRadius: '4px 4px 2px 2px',
-                    background: barColor(ratio),
-                    ...(isCurrent ? { boxShadow: '0 0 0 2px #fbbf24' } : {}),
-                    cursor: 'default', transition: 'height 0.3s ease',
-                  }}
-                />
-              </div>
-              <div style={{ height: 13, fontSize: 9, fontWeight: 600, color: THEME.textLight, marginTop: 4, whiteSpace: 'nowrap' }}>
-                {showLabel ? `Нед. ${w.weekNo}` : ''}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 12, fontSize: 12, color: THEME.textLight, flexWrap: 'wrap' }}>
-        <span>🔥 Стрик: <b style={{ color: '#f59e0b' }}>{Number(streak) || 0} дн</b></span>
-        <span>🏆 Самый длинный стрик: <b style={{ color: THEME.text }}>{longest} дн</b></span>
-      </div>
-    </div>
-  );
-}
-
 export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onViewPlan, onUpdateUser, onOpenShop }) {
   const { firebaseUser } = useAuth();
   const { theme: THEME, dark, shopTheme } = useTheme();
@@ -400,39 +306,37 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
         </div>
       </div>
 
-      {/* Мой герой — 3D-персонаж слева + сводка снаряжения справа (компактно) */}
-      <div className="dashboard-section" style={{marginBottom:0, padding:'14px 18px 12px'}}>
-        <h2 className="section-title" style={{marginBottom:4}}>🦸 Мой герой</h2>
-        <div style={{display:'flex', gap:12, flexWrap:'wrap', alignItems:'center'}}>
-          <div style={{flex:'1 1 200px', minWidth:200}}>
-            <Character3D
-              gender={user?.gender || 'male'}
-              equipped={{ helmet: user?.equipped?.helmet, top: user?.equipped?.top, bottom: user?.equipped?.bottom, boots: user?.equipped?.boots }}
-              autoSpin={0.4} height={350} zoomable
-            />
-          </div>
-          <div style={{flex:'1 1 150px', minWidth:150, display:'flex', flexDirection:'column', justifyContent:'center', gap:10}}>
-            <div style={{display:'flex', alignItems:'baseline', gap:8}}>
-              <span style={{fontSize:30, fontWeight:800, fontFamily:"'Montserrat',sans-serif", color:'#ef4444'}}>❤️ {heroHp}</span>
-              <span style={{fontSize:13, color:THEME.textLight}}>HP в боях с боссами</span>
-            </div>
-            <div style={{fontSize:13, color:THEME.text, lineHeight:1.6}}>
-              <span style={{color:THEME.textLight}}>🎽 Надет: </span>
-              {heroSetId
-                ? <b style={{color:'#f5c518'}}>Сет «{EQUIPMENT_SETS[heroSetId].name}» (+{EQUIPMENT_SETS[heroSetId].bonus} ❤️)</b>
-                : equippedItems.length > 0
-                  ? equippedItems.map(it => it.name).join(' · ')
-                  : <span style={{color:THEME.textLight}}>ничего — загляни в магазин</span>}
-            </div>
-            <div style={{fontSize:13, color:THEME.text}}>
-              <span style={{color:THEME.textLight}}>🎁 Собрано сетов: </span>
-              <b>{ownedSets.length}</b> из {Object.keys(EQUIPMENT_SETS).length}
-              {ownedSets.length > 0 && <span style={{color:THEME.textLight}}> ({ownedSets.map(([,s]) => s.name).join(', ')})</span>}
+      {/* Мой герой — крупный 3D-персонаж + HUD-оверлей со снаряжением поверх канваса */}
+      <div className="dashboard-section" style={{marginBottom:0, padding:'14px 18px'}}>
+        <h2 className="section-title" style={{marginBottom:8}}>🦸 Мой герой</h2>
+        <div style={{position:'relative', borderRadius:14, overflow:'hidden'}}>
+          <Character3D
+            gender={user?.gender || 'male'}
+            equipped={{ helmet: user?.equipped?.helmet, top: user?.equipped?.top, bottom: user?.equipped?.bottom, boots: user?.equipped?.boots }}
+            autoSpin={0.4} height={450} zoomable zoomBottom={96}
+          />
+          {/* HUD-оверлей: прозрачный сверху → тёмный снизу; pointer-events сквозные,
+              кликабельна только кнопка (чтобы вращение/зум канваса работали) */}
+          <div style={{
+            position:'absolute', left:0, right:0, bottom:0, padding:'16px 20px',
+            background:'linear-gradient(transparent, rgba(0,0,0,0.7))',
+            pointerEvents:'none', display:'flex', flexDirection:'column', gap:10,
+          }}>
+            <div style={{display:'flex', flexWrap:'wrap', gap:'4px 14px', fontSize:13.5, fontWeight:600, color:'#fff', textShadow:'0 1px 4px rgba(0,0,0,0.7)'}}>
+              <span>❤️ {heroHp} HP</span>
+              <span>
+                {heroSetId
+                  ? `🛡 Сет «${EQUIPMENT_SETS[heroSetId].name}» (+${EQUIPMENT_SETS[heroSetId].bonus} ❤️)`
+                  : equippedItems.length > 0
+                    ? `🛡 ${equippedItems.map(it => it.name).join(' · ')}`
+                    : '🛡 без снаряжения'}
+              </span>
+              <span>🎁 {ownedSets.length} из {Object.keys(EQUIPMENT_SETS).length} сетов</span>
             </div>
             {onOpenShop && (
               <button onClick={onOpenShop} style={{
-                alignSelf:'flex-start', padding:'10px 20px', borderRadius:10, border:'none', cursor:'pointer',
-                fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13,
+                pointerEvents:'auto', alignSelf:'flex-start', padding:'8px 16px', borderRadius:9, border:'none', cursor:'pointer',
+                fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12.5,
                 background:THEME.accent, color:THEME.onAccent ?? '#0f172a',
               }}>Изменить снаряжение →</button>
             )}
@@ -453,9 +357,6 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
 
       {/* ═══ ПРАВАЯ КОЛОНКА (scroll): что я сделал ═══ */}
       <div className="profile-col-right">
-
-      {/* ── График активности (GitHub-style) ── */}
-      <ActivityGraph activity={activity} streak={user?.streak} THEME={THEME}/>
 
       {/* Достижения — свой профиль, с живым прогрессом X/Y */}
       <div>
