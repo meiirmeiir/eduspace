@@ -198,9 +198,12 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         // 2) Нет ни одного освоенного навыка (3-й этап ни у кого не пройден).
         if (masteredEntries.length === 0) { setEmptyReason('no-mastered'); setPhase('empty'); return; }
 
-        // Skills due for review today (all due skills, no hard cap)
-        const dueEntries = masteredEntries
-          .filter(([, ms]) => ms.next_review_date && ms.next_review_date <= today);
+        // Skills due for review today (all due skills, no hard cap).
+        // ТЕСТ: игнорируем SRS-дату → все освоенные навыки всегда «к повторению»
+        // (старые next_review_date в будущем больше не блокируют ежедневки).
+        const dueEntries = isTestUser(user?.uid)
+          ? masteredEntries
+          : masteredEntries.filter(([, ms]) => ms.next_review_date && ms.next_review_date <= today);
         if (dueEntries.length === 0) {
           // 3) Есть освоенные, но все next_review_date > today → ждём ближайшую дату.
           const upcoming = masteredEntries
