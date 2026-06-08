@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadThree } from '../lib/loadThree.js';
-import { EQUIPMENT_MODELS } from '../lib/shopItems.js';
 
 // 3D Lego-минифигурка (Three.js r128) из примитивов (боксы/цилиндры со
 // скруглением). Idle-дыхание + моргание + авто-вращение/drag. Пластиковый глянец
@@ -132,12 +131,13 @@ export function buildLego(THREE, env, { shirtColor = '#3b82f6', pantsColor = '#3
     m.castShadow = true;
     equipGroup.add(m); equipGeos.push(geo); equipMats.push(mat);
   };
-  const rebuildEquip = (res) => {
+  const rebuildEquip = () => {
+    // Примитивный каталог EQUIPMENT_MODELS удалён (экипировка — GLTF-наряды в
+    // Character3D); Lego-фолбэк показывает базовую фигурку без снаряжения.
     equipGeos.forEach((g) => g.dispose && g.dispose());
     equipMats.forEach((mm) => mm.dispose && mm.dispose());
     equipGeos = []; equipMats = [];
     while (equipGroup.children.length) equipGroup.remove(equipGroup.children[0]);
-    SLOTS.forEach((slot) => { const id = res && res[slot]; const model = id && EQUIPMENT_MODELS[id]; if (model) model.parts.forEach(buildPiece); });
   };
   const dispose = () => { equipGeos.forEach((g) => g.dispose && g.dispose()); equipMats.forEach((mm) => mm.dispose && mm.dispose()); };
 

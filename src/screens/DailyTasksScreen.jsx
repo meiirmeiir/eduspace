@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { doc, getDoc, updateDoc, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
 import { useTheme } from "../ThemeContext.jsx";
@@ -13,10 +13,9 @@ import AppTopbar from "../components/AppTopbar.jsx";
 import Boss3D from "../components/Boss3D.jsx";
 import BattleScene3D from "../components/BattleScene3D.jsx";
 import ProbeScene3D from "../components/ProbeScene3D.jsx";
+import Character3D from "../components/Character3D.jsx";
 import { computePlayerHp } from "../lib/shopItems.js";
 import { useNpc } from "../NpcContext.jsx";
-// DEBUG (временно): мок-состояния экрана через ?dailytasks_debug=…
-import { getDailyTasksMock } from "../lib/mockDailyTasksData.js";
 
 // Детект появления босса: детерминированно по дню (seed = uid + дата), ~30%.
 // Чистая функция, без записи в БД — стабильно в течение дня (повторный вход = тот
@@ -67,9 +66,6 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const { theme: THEME, dark, shopTheme } = useTheme();
   // Тёмный UI = системная dark-тема ИЛИ тёмная shop-тема (galaxy/matrix/fire).
   const isDarkUi = dark || (shopTheme && shopTheme !== 'sakura');
-  // DEBUG (временно): активный мок (?dailytasks_debug=…) — при нём все записи
-  // в Firestore (награды, SRS, стрик) отключены; интерактив остаётся локальным.
-  const debugMock = useMemo(() => getDailyTasksMock(), []);
   // Фон экрана: мягкий градиент вместо голого белого (+ тёмный аналог).
   const BG = isDarkUi
     ? 'linear-gradient(180deg, #0b1226 0%, #131b36 45%, #0f172a 100%)'
@@ -114,10 +110,9 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     setProbeOpened(true); // 3D-сцена сама играет створку/свет/частицы
   };
   // Count-up: число кристаллов «досчитывается» вверх — после того как створка
-  // открылась (onOpenComplete). В debug — статично и сразу.
+  // открылась (onOpenComplete).
   useEffect(() => {
     if (!probeOpened) return;
-    if (debugMock) { setProbeCount(probeCrystals); return; } // статично для скриншотов
     if (!probeAnimDone) return;
     let v = 0;
     const step = Math.max(1, Math.ceil(probeCrystals / 18));
@@ -129,8 +124,8 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [probeOpened, probeAnimDone]);
-  // Дневной стрик → постоянный множитель XP на сессию (в дебаге можно подменить).
-  const effStreak = debugMock?.streak ?? Number(user?.streak || 0);
+  // Дневной стрик → постоянный множитель XP на сессию.
+  const effStreak = Number(user?.streak || 0);
   const sMult = streakMultiplier(effStreak);
 
   // ── Босс (косметический слой поверх сессии; учёбу/SRS/награды НЕ трогает) ──
@@ -144,6 +139,16 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const [bossIntro,  setBossIntro]  = useState(false);
   const [attackSeq,  setAttackSeq]  = useState(0); // ++ при верном ответе → лазер персонажа
   const [hitSeq,     setHitSeq]     = useState(0); // ++ при настоящей ошибке → вздрагивание
+
+  // ── Герой-компаньон у карточки задачи: idle / реакция на ответ ──
+  const [companionAnim, setCompanionAnim] = useState('idle');
+  const companionTimerRef = useRef(null);
+  const reactCompanion = (anim, ms = 1400) => {
+    if (companionTimerRef.current) clearTimeout(companionTimerRef.current);
+    setCompanionAnim(anim);
+    companionTimerRef.current = setTimeout(() => setCompanionAnim('idle'), ms);
+  };
+  useEffect(() => () => { if (companionTimerRef.current) clearTimeout(companionTimerRef.current); }, []);
   const bossBonusAwardedRef = useRef(false);
   // HP героя в бою = база 3 + бонусы надетого снаряжения (Этап 2C).
   const maxPlayerHp = computePlayerHp(user?.equipped);
@@ -157,35 +162,6 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
 
   useEffect(() => {
     const load = async () => {
-      // DEBUG (временно): применяем мок-состояние и не трогаем БД вовсе.
-      if (debugMock) {
-        if (debugMock.queue) setQueue(debugMock.queue);
-        if (debugMock.qIdx != null) setQIdx(debugMock.qIdx);
-        setCorrect(new Set(debugMock.correct || []));
-        setWrong(new Set(debugMock.wrong || []));
-        setDegraded(new Set(debugMock.degraded || []));
-        setSkillLives(debugMock.skillLives || {});
-        if (debugMock.chosen != null) setChosen(debugMock.chosen);
-        if (debugMock.revealed) setRevealed(true);
-        if (debugMock.emptyReason) setEmptyReason(debugMock.emptyReason);
-        if (debugMock.nextReviewDate) setNextReviewDate(debugMock.nextReviewDate);
-        // Геймификация: combo / live-награды / всплывашки
-        if (debugMock.answers) setAnswers(debugMock.answers);
-        if (debugMock.combo != null) setStreak(debugMock.combo);
-        if (debugMock.sessionXp != null) setSessionXp(debugMock.sessionXp);
-        if (debugMock.sessionCrystals != null) setSessionCrystals(debugMock.sessionCrystals);
-        if (debugMock.xpFloat) setXpFloat({ text: debugMock.xpFloat, speed: !!debugMock.xpFloatSpeed, key: 1 });
-        if (debugMock.perfectFlash) setPerfectFlash(true);
-        if (debugMock.hadPerfect) setHadPerfect(true);
-        // Грузовой зонд с лутом (итоговый экран)
-        if (debugMock.probeTier) setProbeTier(debugMock.probeTier);
-        if (debugMock.probeCrystals != null) setProbeCrystals(debugMock.probeCrystals);
-        if (debugMock.probeOpened) { setProbeOpened(true); setProbeCount(debugMock.probeCrystals || 0); }
-        // Кнопка «Открыть зонд» доступна сразу, кроме статичной позы доставки
-        if (debugMock.phase === 'done' && debugMock.probeFreeze !== 'delivery' && !debugMock.liveAnim) setProbeLanded(true);
-        setPhase(debugMock.phase);
-        return;
-      }
       if (!user?.phone) { setPhase('empty'); return; }
       // 1) Диагностика ещё не пройдена — самое начало пути.
       if (!user?.smartDiagDone) { setEmptyReason('no-diag'); setPhase('empty'); return; }
@@ -263,6 +239,9 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     const isCorrect = current.task.correct === optIdx;
     sessionAnswersRef.current.push(isCorrect); // для recentAnswers (accuracy-достижение)
     setAnswers(a => [...a, isCorrect]);        // сегмент прогресс-бара: зелёный/красный
+    // Герой-компаньон: прыжок/взмах радости либо вздрагивание (короткая
+    // реакция → idle). Паттерны по приоритету: база Jump/Death, наряд Wave/HitRecieve.
+    reactCompanion(isCorrect ? 'jump|wave' : 'hitrecieve|death', isCorrect ? 2000 : 1300);
     if (isCorrect) {
       setCorrect(p => new Set([...p, current.skillId]));
       setLastWrongWasDanger(false);
@@ -285,18 +264,15 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       if (nextStreak === 5)      { setHadPerfect(true); setPerfectFlash(true); setTimeout(() => setPerfectFlash(false), 1300); }
       else if (nextStreak === 3) { setComboFlash(true);   setTimeout(() => setComboFlash(false), 1000); }
       // ── Points + квесты (как раньше, per-answer; XP/💎 — batch в конце) ──
-      // DEBUG (временно): в мок-режиме награды не начисляем (никаких записей в БД).
-      if (!debugMock) {
-        addPoints(user.uid, 'daily_correct', user);
-        // Квесты: счётчики верных ответов (день/неделя) + «зашёл и решил» (target 1).
-        updateQuestProgress(user.uid, 'daily_correct', 1, user);
-        updateQuestProgress(user.uid, 'weekly_correct', 1, user);
-        updateQuestProgress(user.uid, 'login_answer', 1, user);
-        if (elapsed < 10000) addPoints(user.uid, 'fast_answer', user);
-        if (nextStreak === 3 && !streak3AwardedRef.current) {
-          streak3AwardedRef.current = true;
-          addPoints(user.uid, 'daily_streak_3', user);
-        }
+      addPoints(user.uid, 'daily_correct', user);
+      // Квесты: счётчики верных ответов (день/неделя) + «зашёл и решил» (target 1).
+      updateQuestProgress(user.uid, 'daily_correct', 1, user);
+      updateQuestProgress(user.uid, 'weekly_correct', 1, user);
+      updateQuestProgress(user.uid, 'login_answer', 1, user);
+      if (elapsed < 10000) addPoints(user.uid, 'fast_answer', user);
+      if (nextStreak === 3 && !streak3AwardedRef.current) {
+        streak3AwardedRef.current = true;
+        addPoints(user.uid, 'daily_streak_3', user);
       }
       // ── Бой: урон боссу (косметика поверх; учёбу не трогает) ──
       if (bossActive) {
@@ -352,12 +328,12 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       setProbeCrystals(loot);
       // ── XP/💎 за сессию: одно batch-начисление вместо записи на каждый ответ.
       // UI показывал накопление live (sessionXp/sessionCrystals); зонд — сверху.
-      if (!debugMock && user?.uid) {
+      if (user?.uid) {
         if (sessionXp > 0)           addXp(user.uid, sessionXp, 'daily_session', user);
         if (sessionCrystals + loot > 0) addCrystals(user.uid, sessionCrystals + loot, 'daily_session');
       }
       // Бонус за победу над боссом — СВЕРХ учебных наград, один раз. Учёбу/SRS не трогает.
-      if (!debugMock && bossActive && battleResult === 'win' && !bossBonusAwardedRef.current && user?.uid) {
+      if (bossActive && battleResult === 'win' && !bossBonusAwardedRef.current && user?.uid) {
         bossBonusAwardedRef.current = true;
         addCrystals(user.uid, 5, 'boss_win');
         addXp(user.uid, 20, 'boss_win', user);
@@ -370,7 +346,6 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   };
 
   const saveSession = async () => {
-    if (debugMock) return; // DEBUG (временно): мок-режим — SRS/стрик/активность не пишем
     if (!user?.phone) return;
     const updates = {};
     for (const item of queue) {
@@ -544,8 +519,8 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         } catch { return ymd; }
       };
       // Мини-статистика из профиля (без запросов): стрик, задачи за 7 дней
-      // из activity-карты, очки недели. В дебаге — из мока. Пустые скрываем.
-      const st = debugMock?.stats || (() => {
+      // из activity-карты, очки недели. Пустые скрываем.
+      const st = (() => {
         const activity = user?.activity || {};
         let weekTasks = 0;
         for (let i = 0; i < 7; i++) weekTasks += Number(activity[getAlmatyDateStr(-i)] || 0);
@@ -678,7 +653,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     const lvl = getLevelInfo((Number(user?.xp) || 0) + sessionXp);
     const xpLeft = Math.max(0, lvl.nextLevelXp - lvl.currentLevelXp);
     // Друзья — лёгкий nudge без запросов к Firestore (берём user.friends из профиля)
-    const friendsCount = debugMock?.friendsCount ?? (Array.isArray(user?.friends) ? user.friends.length : 0);
+    const friendsCount = Array.isArray(user?.friends) ? user.friends.length : 0;
     // Зонд: подпись и акцент по тиру (визуал — в 3D-сцене)
     const PROBE = {
       gold:     { name:'Легендарный зонд', note:'×3 за PERFECT',   accent:'#fbbf24', body:'linear-gradient(180deg,#fcd34d,#b45309)' },
@@ -773,7 +748,6 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
             <ProbeScene3D
               tier={probeTier}
               state={probeOpened ? 'open' : 'delivering'}
-              freeze={debugMock && !debugMock.liveAnim ? (debugMock.probeFreeze || (probeOpened ? 'open' : 'landed')) : null}
               onLanded={() => setProbeLanded(true)}
               onOpenComplete={() => setProbeAnimDone(true)}
               width={360}
@@ -807,9 +781,9 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
               ) : (
                 <div style={{ marginTop:12, fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.textLight }}>📡 Дрон доставляет груз…</div>
               )
-            ) : (debugMock || probeAnimDone) ? (
+            ) : probeAnimDone ? (
               /* «+N 💎» — после того как створка доиграла открытие */
-              <div style={{ marginTop:6, animation: debugMock ? 'none' : 'lootPop 0.5s ease both' }}>
+              <div style={{ marginTop:6, animation: 'lootPop 0.5s ease both' }}>
                 <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:30, color:'#a78bfa', textShadow: isDarkUi ? '0 0 16px rgba(167,139,250,0.5)' : 'none' }}>+{probeCount} 💎</span>
               </div>
             ) : (
@@ -914,12 +888,14 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         @keyframes hpShake { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-4px); } 50% { transform:translateX(4px); } 75% { transform:translateX(-2px); } }
         .daily-opt { transition: all 0.15s ease; cursor:pointer; }
         .daily-opt:not(:disabled):hover { border-color:#fbbf24 !important; background:${isDarkUi ? 'rgba(251,191,36,0.08)' : 'rgba(251,191,36,0.07)'} !important; transform:translateY(-1px); }
+        .daily-companion { flex:0 0 188px; align-self:flex-end; pointer-events:none; }
+        @media (max-width: 760px) { .daily-companion { display:none; } }
       `}</style>
 
       {/* 💎 PERFECT COMBO ×5 — оверлей по центру на ~1 сек */}
       {perfectFlash && (
         <div style={{ position:'fixed', inset:0, display:'flex', alignItems:'center', justifyContent:'center', zIndex:100, pointerEvents:'none' }}>
-          <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:40, color:'#fbbf24', textShadow:'0 0 30px rgba(251,191,36,0.8)', background:'rgba(10,14,28,0.82)', padding:'20px 42px', borderRadius:20, border:'2px solid rgba(251,191,36,0.6)', animation: debugMock ? 'none' : 'perfectPop 1.25s ease forwards', whiteSpace:'nowrap' }}>
+          <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:40, color:'#fbbf24', textShadow:'0 0 30px rgba(251,191,36,0.8)', background:'rgba(10,14,28,0.82)', padding:'20px 42px', borderRadius:20, border:'2px solid rgba(251,191,36,0.6)', animation: 'perfectPop 1.25s ease forwards', whiteSpace:'nowrap' }}>
             💎 PERFECT COMBO ×5
           </div>
         </div>
@@ -976,7 +952,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
               </div>
               {/* Боевая сцена: персонаж (слева) + босс (справа) — один WebGL-контекст */}
               <div style={{ position:'relative', marginTop:8 }}>
-                <BattleScene3D equipped={user?.equipped} bossType={bossType} bossHp={bossHp} attackSeq={attackSeq} hitSeq={hitSeq} height={190} />
+                <BattleScene3D equipped={user?.equipped} gender={user?.gender || 'male'} bossType={bossType} bossHp={bossHp} attackSeq={attackSeq} hitSeq={hitSeq} height={190} />
                 {dmgMsg && <div style={{ position:'absolute', top:14, right:'20%', color:'#ef4444', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:17, whiteSpace:'nowrap', animation:'boss-dmg 0.7s ease forwards', pointerEvents:'none' }}>{dmgMsg}</div>}
               </div>
             </div>
@@ -1005,7 +981,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
               color:'#1a1a2e', background:'linear-gradient(90deg,#fbbf24,#f59e0b)', borderRadius:99,
               padding: streak >= 3 ? '5px 14px' : '4px 11px',
               boxShadow:'0 0 12px rgba(251,191,36,0.5)',
-              animation: comboFlash && !debugMock ? 'comboPulse 0.45s ease 2' : 'none', whiteSpace:'nowrap' }}>
+              animation: comboFlash ? 'comboPulse 0.45s ease 2' : 'none', whiteSpace:'nowrap' }}>
               {streak >= 5 ? `💎 PERFECT ×${streak}` : streak >= 3 ? `🔥🔥 ×${streak}!` : `🔥 ×${streak}`}
             </span>
           )}
@@ -1041,21 +1017,22 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
           </div>
         )}
 
-        {/* Task card: тёплый фон, combo-подсветка, XP-флоат */}
+        {/* Карточка задачи + герой-компаньон справа (реагирует на ответы) */}
+        <div style={{ display:'flex', gap:14, alignItems:'flex-end' }}>
         <div className="theme-card" style={{
-          position:'relative',
+          position:'relative', flex:'1 1 auto', minWidth:0,
           background: isDarkUi ? THEME.surface : '#fffdf8',
           border:`1px solid ${THEME.border}`, borderRadius:16, padding:'24px 28px',
           boxShadow: streak >= 2
             ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 22px rgba(251,191,36,0.25), 0 8px 32px rgba(10,25,47,0.08)'
             : '0 8px 32px rgba(10,25,47,0.08)',
-          animation: comboFlash && !debugMock ? 'cardFlash 0.5s ease 2' : 'none',
+          animation: comboFlash ? 'cardFlash 0.5s ease 2' : 'none',
           transition:'box-shadow 0.3s',
         }}>
           {/* Всплывающий «+N XP» после верного ответа */}
           {xpFloat && (
             <div key={xpFloat.key} style={{ position:'absolute', top:-14, right:20, zIndex:5, pointerEvents:'none', textAlign:'right',
-              animation: debugMock ? 'none' : 'xpFloatUp 1.5s ease forwards' }}>
+              animation: 'xpFloatUp 1.5s ease forwards' }}>
               <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:19, color:'#22c55e', textShadow: isDarkUi ? '0 0 12px rgba(34,197,94,0.6)' : '0 1px 3px rgba(255,255,255,0.9)' }}>{xpFloat.text}</div>
               {xpFloat.speed && <div style={{ fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:12, color:'#f59e0b' }}>⚡ +3 XP Speed bonus</div>}
             </div>
@@ -1121,6 +1098,20 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
               {qIdx < queue.length-1 ? 'Следующая задача →' : saving ? 'Сохраняем...' : 'Завершить миссию'}
             </button>
           )}
+        </div>
+
+        {/* Герой-компаньон: idle; верный ответ → прыжок, ошибка → вздрагивание.
+            Скрыт на мобиле (≤760px), клики не перехватывает. */}
+        <div className="daily-companion">
+          <Character3D
+            gender={user?.gender || 'male'}
+            equipped={user?.equipped || {}}
+            height={230}
+            autoSpin={0}
+            zoomable={false}
+            animation={companionAnim}
+          />
+        </div>
         </div>
       </div>
     </div>

@@ -22,8 +22,7 @@ const fmtWeekly = (ms) => {
 
 // starterGate: онбординг-этап «starter» — задания недели скрыты, пока не
 // выполнено хотя бы одно задание дня (новичка не грузим длинным списком).
-// mockQuests: DEBUG-режим дашборда ({daily, weekly}) — без Firestore-фетча.
-export default function QuestsWidget({ user, onUpdateUser, starterGate = false, mockQuests = null }) {
+export default function QuestsWidget({ user, onUpdateUser, starterGate = false }) {
   const { theme: THEME } = useTheme();
   const uid = user?.uid || user?.id;
   const [daily, setDaily] = useState(null);   // users/{uid}.dailyQuests
@@ -32,7 +31,6 @@ export default function QuestsWidget({ user, onUpdateUser, starterGate = false, 
 
   // ── Загрузка прогресса + проверка квеста «топ 50%» ──────────────────────────
   useEffect(() => {
-    if (mockQuests) { setDaily(mockQuests.daily || {}); setWeekly(mockQuests.weekly || {}); return; } // DEBUG-мок
     if (!uid) return;
     let cancelled = false;
     const load = async () => {

@@ -8,15 +8,7 @@ import { purchaseItem, equipItem, purchaseSet } from "../lib/shopUtils.js";
 import { getLeague, getWeekId } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import InfoTooltip from "../components/InfoTooltip.jsx";
-import LegoCharacter3D from "../components/LegoCharacter3D.jsx";
-
-// Слоты снаряжения (Этап 2A — каркас; варианты наполняются в 2B).
-const EQUIP_SLOTS = [
-  { id: 'helmet', icon: '🪖', label: 'Головной убор' },
-  { id: 'top',    icon: '👕', label: 'Верх' },
-  { id: 'bottom', icon: '👖', label: 'Низ' },
-  { id: 'boots',  icon: '👟', label: 'Обувь' },
-];
+import Character3D from "../components/Character3D.jsx";
 
 const THEME_SWATCHES = {
   galaxy: ['#1e1b4b', '#312e81', '#a78bfa'],
@@ -149,8 +141,6 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
   const [errMsg, setErrMsg]       = useState(null);
   const [previewItem, setPreviewItem] = useState(null);  // item для модалки «Примерить»
   const [previewSet, setPreviewSet]   = useState(null);  // setId для модалки примерки сета
-  const [activeSlot, setActiveSlot]   = useState('helmet'); // активный слот снаряжения
-  const [tryOn, setTryOn]             = useState({}); // временная примерка { [slot]: itemId }
   const [resetIn, setResetIn]         = useState(() => getTimeUntilMonday());
 
   const uid       = user?.uid || user?.id;
@@ -210,6 +200,24 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
     setPendingId(null);
   };
 
+  // Надеть полный сет: экипируем все предметы (одежда рисуется только полным
+  // сетом — подмена модели наряда в Character3D).
+  const handleEquipSet = async (setId) => {
+    if (pendingId) return;
+    const set = EQUIPMENT_SETS[setId];
+    if (!set) return;
+    setErrMsg(null); setPendingId(`equip-set-${setId}`);
+    const newEquipped = { ...equipped };
+    for (const id of set.items) {
+      const it = getShopItem(id);
+      if (!it) continue;
+      const res = await equipItem(uid, id, it.type);
+      if (res.success) newEquipped[it.type] = id;
+    }
+    onUpdateUser?.({ ...user, equipped: newEquipped });
+    setPendingId(null);
+  };
+
   const handleEquip = async (item) => {
     if (pendingId) return;
     setErrMsg(null); setPendingId(item.id);
@@ -223,8 +231,6 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
       // палитра подменится только после того, как Firestore onSnapshot
       // прокатится через AuthContext → outer App → ThemeProvider prop.
       if (item.type === 'theme') setShopTheme(item.value);
-      // Надетое теперь = equipped → снимаем временную примерку этого слота.
-      setTryOn(t => { const n = { ...t }; delete n[item.type]; return n; });
     } else {
       setErrMsg(`Не удалось надеть: ${res.error}`);
     }
@@ -244,7 +250,6 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
         equipped: { ...equipped, [item.type]: null },
       });
       if (item.type === 'theme') setShopTheme(null);
-      setTryOn(t => { const n = { ...t }; delete n[item.type]; return n; });
     } else {
       setErrMsg(`Не удалось снять: ${res.error}`);
     }
@@ -424,7 +429,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
         {/* ── Наборы со скидкой (achievementOnly-сеты живут в «Эксклюзивах») ── */}
         {sectionTitle('📦', 'Наборы со скидкой')}
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:14}}>
-          {Object.entries(EQUIPMENT_SETS).filter(([, set]) => !set.achievementOnly).map(([setId, set]) => {
+          {Object.entries(EQUIPMENT_SETS).filter(([, set]) => !set.achievementOnly && (!set.gender || set.gender === (user?.gender || 'male'))).map(([setId, set]) => {
             const full = setFullPrice(setId);
             const { missing, price } = setPurchasePrice(setId, inventory);
             const allOwned = missing.length === 0;
@@ -512,15 +517,6 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
                 <div style={{fontSize:12, color:THEME.textLight, lineHeight:1.5}}>
                   {owned ? <span style={{color:'#4ade80', fontWeight:700}}>Получено ✓</span> : <>🎯 {ex._req}</>}
                 </div>
-                {/* Сет короля можно примерить на 3D-герое даже до получения */}
-                {ex.id === 'set-king' && (
-                  <button onClick={() => setPreviewSet('king')} style={{
-                    width:'100%', padding:'8px 14px', borderRadius:10,
-                    fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12,
-                    border:`1px solid ${THEME.border}`, background:'transparent',
-                    color:THEME.text, cursor:'pointer',
-                  }}>👁 Примерить на герое</button>
-                )}
               </div>
             );
           })}
@@ -610,79 +606,79 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
         </div>
 
         {activeType === 'showcase' ? renderShowcase() : activeType === 'equipment' ? (
-          /* ── Раздел «Снаряжение»: слоты слева + Lego-персонаж на подиуме справа ── */
-          <div style={{display:'flex', gap:16, flexWrap:'wrap', alignItems:'flex-start'}}>
-            {/* Боковое меню слотов */}
-            <div style={{flex:'0 0 180px', display:'flex', flexDirection:'column', gap:8, minWidth:160}}>
-              {EQUIP_SLOTS.map(s => {
-                const on = activeSlot === s.id;
-                return (
-                  <button key={s.id} onClick={() => setActiveSlot(s.id)} style={{
-                    display:'flex', alignItems:'center', gap:10, textAlign:'left',
-                    padding:'12px 14px', borderRadius:12, cursor:'pointer',
-                    fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:14,
-                    background: on ? THEME.primary : THEME.surface,
-                    color:      on ? (THEME.onPrimary ?? '#fff') : THEME.text,
-                    border: `1px solid ${on ? THEME.primary : THEME.border}`,
-                    transition:'all 0.15s',
-                  }}>
-                    <span style={{fontSize:18}}>{s.icon}</span>{s.label}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Персонаж + варианты слота */}
-            <div style={{flex:'1 1 280px', minWidth:280, display:'flex', flexDirection:'column', gap:14}}>
-              <div className="dashboard-section" style={{padding:0, overflow:'hidden', borderRadius:14}}>
-                <LegoCharacter3D
+          /* ── Раздел «Снаряжение»: герой + НАРЯДЫ ЦЕЛЫМИ СЕТАМИ (один сет =
+             один товар; визуал — подмена модели на GLB наряда) ── */
+          <div style={{display:'flex', flexDirection:'column', gap:16}}>
+            <div style={{display:'flex', gap:16, flexWrap:'wrap', alignItems:'flex-start'}}>
+              <div className="dashboard-section" style={{flex:'1 1 300px', minWidth:280, padding:0, overflow:'hidden', borderRadius:14}}>
+                <Character3D
+                  gender={user?.gender || 'male'}
                   equipped={{ helmet: equipped.helmet, top: equipped.top, bottom: equipped.bottom, boots: equipped.boots }}
-                  tryOn={tryOn}
+                  zoomable
                 />
               </div>
-              {/* Суммарный HP героя + статус сета */}
-              {(() => {
-                const setId = completedSet(equipped);
-                return (
-                  <div className="dashboard-section" style={{padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap'}}>
-                    <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color:THEME.primary}}>
-                      Твой герой: <span style={{color:'#ef4444'}}>❤️ {computePlayerHp(equipped)}</span>
-                    </div>
-                    {setId
-                      ? <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:'#f5c518', textShadow:'0 0 10px rgba(245,197,24,0.5)'}}>
-                          ⭐ Сет «{EQUIPMENT_SETS[setId].name}» собран! +{EQUIPMENT_SETS[setId].bonus} ❤️
-                        </div>
-                      : <div style={{fontFamily:"'Inter',sans-serif", fontSize:12, color:THEME.textLight}}>Собери полный сет для бонуса ❤️</div>}
-                  </div>
-                );
-              })()}
-              <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color:THEME.primary}}>
-                {EQUIP_SLOTS.find(s => s.id === activeSlot)?.label}
-              </div>
-              <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))', gap:12}}>
-                {SHOP_ITEMS.filter(i => i.type === activeSlot).map(item => {
-                  const trying = tryOn[activeSlot] === item.id;
+              <div style={{flex:'1 1 280px', minWidth:260, display:'flex', flexDirection:'column', gap:12}}>
+                {(() => {
+                  const setId = completedSet(equipped);
                   return (
-                    <div key={item.id} className={`dashboard-section shop-card shop-rarity-${item.rarity || 'common'}`} style={{position:'relative', padding:12, display:'flex', flexDirection:'column', gap:8, ...rarityFrame(item.rarity)}}>
-                      {renderBadges(item)}
-                      <div style={{aspectRatio:'1/1', borderRadius:10, background:'linear-gradient(135deg, #1e293b, #0f172a)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:40}}>
-                        {item.icon || '⚙️'}
+                    <div className="dashboard-section" style={{padding:'14px 16px'}}>
+                      <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color:THEME.primary, marginBottom:6}}>
+                        Твой герой: <span style={{color:'#ef4444'}}>❤️ {computePlayerHp(equipped)}</span>
+                      </div>
+                      {setId
+                        ? <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:'#f5c518', textShadow:'0 0 10px rgba(245,197,24,0.4)'}}>
+                            ⭐ Наряд «{EQUIPMENT_SETS[setId].name}» надет! +{EQUIPMENT_SETS[setId].bonus} ❤️
+                          </div>
+                        : <div style={{fontFamily:"'Inter',sans-serif", fontSize:12.5, color:THEME.textLight, lineHeight:1.55}}>
+                            Наряд надевается целиком и полностью преображает героя. Выбери и примерь 👇
+                          </div>}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Карточки нарядов (фильтр по полу героя) */}
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:12}}>
+              {Object.entries(EQUIPMENT_SETS)
+                .filter(([, set]) => !set.gender || set.gender === (user?.gender || 'male'))
+                .map(([setId, set]) => {
+                  const { missing, price } = setPurchasePrice(setId, inventory);
+                  const ownedAll = missing.length === 0;
+                  const isWorn = completedSet(equipped) === setId;
+                  const busy = pendingId === `set-${setId}` || pendingId === `equip-set-${setId}`;
+                  return (
+                    <div key={setId} className={`dashboard-section shop-card shop-rarity-${set.rarity || 'common'}`} style={{position:'relative', padding:12, display:'flex', flexDirection:'column', gap:8, ...rarityFrame(set.rarity)}}>
+                      <div style={{aspectRatio:'4/3', borderRadius:10, background:'linear-gradient(135deg, #1e293b, #0f172a)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:46}}>
+                        {set.icon || '🧰'}
                       </div>
                       <div>
-                        <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:THEME.primary, lineHeight:1.2}}>{item.name}</div>
-                        <div style={{fontSize:12, color:THEME.textLight, fontWeight:600, marginTop:2}}>{item.price} 💎{item.hp ? <span style={{color:'#ef4444'}}> · +{item.hp} ❤️</span> : null}</div>
+                        <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:THEME.primary, lineHeight:1.2}}>Наряд «{set.name}»</div>
+                        <div style={{fontSize:12, color:THEME.textLight, fontWeight:600, marginTop:2}}>
+                          {ownedAll ? <span style={{color:'#4ade80'}}>Куплен ✓</span> : <>{price} 💎</>} · <span style={{color:'#ef4444'}}>+{set.bonus} ❤️</span>
+                        </div>
                       </div>
-                      {renderButton(item)}
-                      <button onClick={() => setTryOn(t => ({ ...t, [activeSlot]: item.id }))} style={{
+                      {isWorn ? (
+                        <div style={{textAlign:'center', padding:'8px 0', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12, color:'#10b981'}}>Надет ✓</div>
+                      ) : ownedAll ? (
+                        <button onClick={() => handleEquipSet(setId)} disabled={busy} style={{width:'100%', padding:'9px 12px', borderRadius:10, border:'none', cursor:'pointer', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12, background:THEME.accent, color:THEME.onAccent ?? '#0f172a', opacity:busy?0.6:1}}>
+                          {busy ? '...' : 'Надеть'}
+                        </button>
+                      ) : crystals >= price ? (
+                        <button onClick={() => handleBuySet(setId)} disabled={busy} style={{width:'100%', padding:'9px 12px', borderRadius:10, border:'none', cursor:'pointer', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12, background:'#22c55e', color:'#052e16', opacity:busy?0.6:1}}>
+                          {busy ? '...' : `Купить за ${price} 💎`}
+                        </button>
+                      ) : (
+                        <div style={{textAlign:'center', padding:'8px 0', fontSize:12, color:THEME.textLight}}>Нужно ещё {price - crystals} 💎</div>
+                      )}
+                      <button onClick={() => setPreviewSet(setId)} style={{
                         width:'100%', padding:'7px 12px', borderRadius:10,
-                        fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12, cursor:'pointer', transition:'all 0.15s',
-                        background: trying ? 'rgba(99,102,241,0.15)' : 'transparent',
-                        border:`1px solid ${trying ? THEME.primary : THEME.border}`,
-                        color: trying ? THEME.primary : THEME.text,
-                      }}>{trying ? '👁 Примеряется' : '👁 Примерить'}</button>
+                        fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12, cursor:'pointer',
+                        background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.text,
+                      }}>👁 Примерить</button>
                     </div>
                   );
                 })}
-              </div>
             </div>
           </div>
         ) : (
@@ -706,9 +702,9 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
                 <span style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:'#f0f6fc'}}>{set.icon} Сет «{set.name}» на твоём герое</span>
                 <button onClick={() => setPreviewSet(null)} style={{background:'none', border:'none', color:'#94a3b8', fontSize:20, cursor:'pointer', lineHeight:1}}>×</button>
               </div>
-              <LegoCharacter3D equipped={{}} tryOn={setTry}/>
+              <Character3D gender={user?.gender || 'male'} equipped={{}} tryOn={setTry}/>
               <div style={{padding:'14px 18px', display:'flex', flexDirection:'column', gap:10}}>
-                <div style={{fontSize:13, color:'#94a3b8'}}>Бонус сета: <b style={{color:'#ef4444'}}>+{set.bonus} ❤️</b> · 4 предмета</div>
+                <div style={{fontSize:13, color:'#94a3b8'}}>Бонус наряда: <b style={{color:'#ef4444'}}>+{set.bonus} ❤️</b> · {set.items.length} {set.items.length === 3 ? 'предмета' : 'предмета'} · надевается целиком</div>
                 {set.achievementOnly
                   ? <div style={{fontSize:13, fontWeight:700, color:'#d4af37', textAlign:'center'}}>
                       {missing.length === 0 ? 'Сет получен ✓' : '🔒 Откроется за освоение всех 307 навыков'}

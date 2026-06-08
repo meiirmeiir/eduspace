@@ -108,6 +108,7 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
   // Поля регистрации
   const [regFirstName,  setRegFirstName]  = useState('');
   const [regLastName,   setRegLastName]   = useState('');
+  const [regGender,     setRegGender]     = useState(''); // 'male' | 'female' — пол для 3D-героя
   const [regPhone,      setRegPhone]      = useState('+7 ');
   const [regGoal,       setRegGoal]       = useState('');
   const [regDetails,    setRegDetails]    = useState('');
@@ -155,6 +156,7 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
 
     if (!regFirstName.trim())          { setError('Введите имя.');                return; }
     if (!regLastName.trim())           { setError('Введите фамилию.');            return; }
+    if (!regGender)                    { setError('Выберите, кто будет твоим героем.'); return; }
     if (!phoneOk)                      { setError('Введите корректный номер телефона.'); return; }
     if (!regGoal)                      { setError('Выберите цель обучения.');     return; }
     if (!regDetails)                   { setError('Выберите класс или экзамен.'); return; }
@@ -179,6 +181,7 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
           phone:       phoneNorm(regPhone),
           firstName:   regFirstName.trim(),
           lastName:    regLastName.trim(),
+          gender:      regGender,          // 'male' | 'female' — пол 3D-героя
           goalKey:     regGoal,
           goal:        REG_GOALS[regGoal],
           details:     regDetails,
@@ -382,6 +385,26 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
                   <input type="text" className="input-field"
                     value={regLastName} onChange={e=>setRegLastName(e.target.value)}
                     autoComplete="family-name" required/>
+                </div>
+              </div>
+              {/* Пол — определяет 3D-героя (карточки, не radio) */}
+              <div className="input-group" style={{marginTop:16, marginBottom:0}}>
+                <label className="input-label">Твой герой</label>
+                <div style={{display:'flex', gap:10}}>
+                  {[['male','👦','Ученик'], ['female','👧','Ученица']].map(([val, emoji, label]) => (
+                    <button key={val} type="button" onClick={()=>setRegGender(val)}
+                      style={{
+                        flex:1, padding:'12px 10px', borderRadius:12, cursor:'pointer',
+                        display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                        fontFamily:"'Inter',sans-serif", fontSize:14.5, fontWeight:700,
+                        background: regGender===val ? 'rgba(251,191,36,0.12)' : 'transparent',
+                        border: regGender===val ? '2px solid #fbbf24' : `2px solid ${THEME.border}`,
+                        color: regGender===val ? '#92400e' : THEME.text,
+                        transition:'all 0.15s',
+                      }}>
+                      <span style={{fontSize:20}}>{emoji}</span> {label}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div className="input-group" style={{marginTop:16}}>

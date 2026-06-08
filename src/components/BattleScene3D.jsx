@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadThree } from '../lib/loadThree.js';
 import { buildLego } from './LegoCharacter3D.jsx';
+import { loadCharacterModel, cloneCharacterScene, pickClip, normalizeCharacter } from './Character3D.jsx';
 import { buildBoss, makeEnvCube, applyBossDamageDim } from './Boss3D.jsx';
 import PixelBoss from './PixelBoss.jsx';
 
-// Общая 3D-сцена боя (ОДИН WebGL-контекст): Lego-персонаж ученика (слева, в своём
-// снаряжении) против босса (справа). При правильном ответе персонаж делает выпад
-// и стреляет лазером вправо → попадание трясёт босса. При настоящей ошибке —
-// персонаж вздрагивает (встречный выстрел босса). Билдеры buildLego/buildBoss
-// переиспользуются (единый источник правды). Полный cleanup. Фолбэк — PixelBoss.
+// Общая 3D-сцена боя (ОДИН WebGL-контекст): персонаж ученика (слева, GLTF-модель
+// по полу; фолбэк — Lego-минифигурка) против босса (справа). При правильном
+// ответе персонаж делает выпад и стреляет лазером вправо → попадание трясёт
+// босса. При настоящей ошибке — персонаж вздрагивает (встречный выстрел босса).
+// Полный cleanup. Фолбэк всей сцены — PixelBoss.
 
 const SLOTS = ['helmet', 'top', 'bottom', 'boots'];
 const BOSS_BASE_Y = 1.1;                       // поднимаем босса — ноги на уровне персонажа
@@ -24,7 +25,7 @@ function makeGlowCanvas(rgb) {
   ctx.fillStyle = g; ctx.fillRect(0, 0, S, S); return c;
 }
 
-export default function BattleScene3D({ equipped = {}, bossType = 'ufo', bossHp = 100, attackSeq = 0, hitSeq = 0, height = 190 }) {
+export default function BattleScene3D({ equipped = {}, gender = 'male', bossType = 'ufo', bossHp = 100, attackSeq = 0, hitSeq = 0, height = 190 }) {
   const mountRef = useRef(null);
   const [failed, setFailed] = useState(false);
   const hpRef = useRef(bossHp); hpRef.current = bossHp;
@@ -38,7 +39,7 @@ export default function BattleScene3D({ equipped = {}, bossType = 'ufo', bossHp 
   useEffect(() => { apiRef.current?.rebuild(resolvedRef.current); }, [resolvedKey]);
 
   useEffect(() => {
-    let renderer, scene, camera, frameId, clock, ro;
+    let renderer, scene, camera, frameId, clock, ro, mixer;
     let cancelled = false;
     const mount = mountRef.current;
     if (!mount) return;
@@ -63,12 +64,33 @@ export default function BattleScene3D({ equipped = {}, bossType = 'ufo', bossHp 
       const keyL = new THREE.DirectionalLight(0xffffff, 1.0); keyL.position.set(3, 6, 6); scene.add(keyL);
       const fill = new THREE.DirectionalLight(0x9bd0ff, 0.4); fill.position.set(-4, 2, 3); scene.add(fill);
 
-      // Персонаж (слева, лицом к боссу)
-      const lego = buildLego(THREE, env, {});
-      lego.group.position.set(-1.9, 0, 0); lego.group.scale.setScalar(1.0); lego.group.rotation.y = 0.55; // лицом вправо (к боссу)
-      scene.add(lego.group); geos.push(...lego.geos); mats.push(...lego.mats); texs.push(...lego.texs);
+      // Персонаж (слева, лицом к боссу): GLTF-модель по полу; пока грузится /
+      // при ошибке — Lego-минифигурка (общая группа hero, лазер/выпады едины).
+      const hero = new THREE.Group();
+      hero.position.set(-1.9, 0, 0); hero.rotation.y = 0.55; // лицом вправо (к боссу)
+      scene.add(hero);
+      let lego = buildLego(THREE, env, {});
+      hero.add(lego.group);
+      geos.push(...lego.geos); mats.push(...lego.mats); texs.push(...lego.texs);
       apiRef.current = { rebuild: lego.rebuildEquip, dispose: lego.dispose };
       lego.rebuildEquip(resolvedRef.current);
+      let heroKind = 'lego';
+      loadCharacterModel(gender).then(({ gltf }) => {
+        if (cancelled || !scene) return;
+        const model = cloneCharacterScene(THREE, gltf);
+        normalizeCharacter(THREE, model);
+        hero.remove(lego.group);          // Lego-плейсхолдер убираем (его ресурсы почистит общий cleanup)
+        hero.add(model);
+        heroKind = 'gltf';
+        if (gltf.animations && gltf.animations.length) {
+          mixer = new THREE.AnimationMixer(model);
+          const clip = pickClip(gltf.animations, 'idle');
+          if (clip) mixer.clipAction(clip).play();
+        }
+        // Экипировка в бою для GLTF — фаза 2 (привязка к костям); сейчас бой
+        // показывает чистую модель.
+        apiRef.current = { rebuild: () => {}, dispose: lego.dispose };
+      }).catch((e) => { console.warn('[battle3d] GLTF hero failed, keep Lego:', e?.message || e); });
 
       // Босс (справа)
       const boss = buildBoss(THREE, env, bossType);
@@ -107,17 +129,19 @@ export default function BattleScene3D({ equipped = {}, bossType = 'ufo', bossHp 
         frameId = requestAnimationFrame(animate);
         const t = clock.getElapsedTime(); const dt = Math.min(t - last, 0.05); last = t;
 
-        // idle персонажа: «боевая стойка» — пружинящие подскоки, дыхание, лёгкий
-        // разворот к боссу, моргание (выпад/вздрагивание перебивают ниже).
-        lego.group.position.y = Math.abs(Math.sin(t * 1.9)) * 0.06;
-        lego.group.rotation.y = 0.55 + Math.sin(t * 0.8) * 0.07;
-        lego.torso.scale.y = 1 + Math.sin(t * 1.2) * 0.03;
-        // махи руками (противофаза)
-        const swing = Math.sin(t * 1.7) * 0.2;
-        if (lego.arms[0]) lego.arms[0].rotation.x = swing;
-        if (lego.arms[1]) lego.arms[1].rotation.x = -swing;
-        const blink = (t % 4) > 3.88;
-        if (blink !== lastBlink) { lego.faceMat.map = blink ? lego.faceBlinkTex : lego.faceOpenTex; lego.faceMat.needsUpdate = true; lastBlink = blink; }
+        // idle персонажа: GLTF — скелетная анимация через mixer; Lego-фолбэк —
+        // прежняя «боевая стойка» (подскоки/дыхание/махи/моргание).
+        if (mixer) mixer.update(dt);
+        hero.rotation.y = 0.55 + Math.sin(t * 0.8) * 0.07; // лёгкий разворот к боссу
+        if (heroKind === 'lego') {
+          hero.position.y = Math.abs(Math.sin(t * 1.9)) * 0.06;
+          lego.torso.scale.y = 1 + Math.sin(t * 1.2) * 0.03;
+          const swing = Math.sin(t * 1.7) * 0.2;
+          if (lego.arms[0]) lego.arms[0].rotation.x = swing;
+          if (lego.arms[1]) lego.arms[1].rotation.x = -swing;
+          const blink = (t % 4) > 3.88;
+          if (blink !== lastBlink) { lego.faceMat.map = blink ? lego.faceBlinkTex : lego.faceOpenTex; lego.faceMat.needsUpdate = true; lastBlink = blink; }
+        }
 
         // боссы: idle tick + bob + затемнение по HP
         boss.tick(t, dt);
@@ -148,8 +172,8 @@ export default function BattleScene3D({ equipped = {}, bossType = 'ufo', bossHp 
             lunge = 0.45 * (1 - f);
           } else { beamMat.opacity = 0; muzzleMat.opacity = 0; hitMat.opacity = 0; shotStart = null; }
         }
-        lego.group.position.x = -1.9 + lunge; // выпад вперёд (к боссу)
-        if (shotStart != null && lego.arms[1]) lego.arms[1].rotation.x += (-1.15 - lego.arms[1].rotation.x) * 0.4; // поднять стреляющую руку к боссу
+        hero.position.x = -1.9 + lunge; // выпад вперёд (к боссу)
+        if (heroKind === 'lego' && shotStart != null && lego.arms[1]) lego.arms[1].rotation.x += (-1.15 - lego.arms[1].rotation.x) * 0.4; // поднять стреляющую руку к боссу
 
         // ── boss shake (по попаданию) ──
         if (t < bossShakeUntil) { boss.group.position.x = 1.9 + Math.sin(t * 60) * 0.1; boss.group.rotation.z = Math.sin(t * 55) * 0.06; }
@@ -159,9 +183,9 @@ export default function BattleScene3D({ equipped = {}, bossType = 'ufo', bossHp 
         if (flinchStart != null) {
           const e = t - flinchStart;
           if (e < 0.2) { const L = fullLen * Math.min(1, e / 0.2); counter.scale.set(1, L, 1); counter.position.copy(target).addScaledVector(dir, -L / 2); cMat.opacity = 0.85; }
-          else if (e < 0.5) { cMat.opacity = 0.85 * (1 - (e - 0.2) / 0.3); lego.group.position.x = -1.9 + Math.sin(t * 50) * 0.08; lego.group.rotation.z = Math.sin(t * 45) * 0.05; }
-          else { cMat.opacity = 0; lego.group.rotation.z += (0 - lego.group.rotation.z) * 0.3; flinchStart = null; }
-        } else if (shotStart == null) { lego.group.rotation.z += (Math.sin(t * 1.1) * 0.035 - lego.group.rotation.z) * 0.2; }
+          else if (e < 0.5) { cMat.opacity = 0.85 * (1 - (e - 0.2) / 0.3); hero.position.x = -1.9 + Math.sin(t * 50) * 0.08; hero.rotation.z = Math.sin(t * 45) * 0.05; }
+          else { cMat.opacity = 0; hero.rotation.z += (0 - hero.rotation.z) * 0.3; flinchStart = null; }
+        } else if (shotStart == null) { hero.rotation.z += (Math.sin(t * 1.1) * 0.035 - hero.rotation.z) * 0.2; }
 
         renderer.render(scene, camera);
       };
@@ -172,6 +196,7 @@ export default function BattleScene3D({ equipped = {}, bossType = 'ufo', bossHp 
       cancelled = true;
       if (frameId) cancelAnimationFrame(frameId);
       if (ro) ro.disconnect();
+      if (mixer) { mixer.stopAllAction(); mixer.uncacheRoot(mixer.getRoot()); }
       if (apiRef.current) { apiRef.current.dispose && apiRef.current.dispose(); apiRef.current = null; }
       geos.forEach((g) => g.dispose && g.dispose());
       mats.forEach((m) => m.dispose && m.dispose());
@@ -183,7 +208,7 @@ export default function BattleScene3D({ equipped = {}, bossType = 'ufo', bossHp 
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bossType, height]);
+  }, [bossType, height, gender]);
 
   if (failed) {
     const legacy = (bossType === 'slime' || bossType === 'ufo') ? 'topic' : 'chapter';

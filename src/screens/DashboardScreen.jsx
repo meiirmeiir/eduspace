@@ -19,7 +19,6 @@ import NewUserDashboard from "../components/dashboard/NewUserDashboard.jsx";
 import ProfileSection from "../components/ProfileSection.jsx";
 import LessonModal from "../components/LessonModal.jsx";
 import RecordingModal from "../components/RecordingModal.jsx";
-import { getDashboardMock } from "../lib/mockDashboardData.js";
 
 // Простая русская плюрализация: pluralize(2, ['день','дня','дней']) → 'дня'
 function pluralize(n, [one, few, many]) {
@@ -32,13 +31,8 @@ function pluralize(n, [one, few, many]) {
 }
 
 export default function DashboardScreen({ user: userProp, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onOpenFriends, onOpenShop, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus: masteryStatusProp = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
-  // ── DEBUG: ?dashboard_debug=new|beginner|active|advanced → мок-данные ──
-  // ВРЕМЕННЫЙ инструмент (см. lib/mockDashboardData.js). Единственная точка
-  // подмены: user и masteryStatus здесь; rankInfo/planSkills/progressData —
-  // ранние return-ы в их загрузчиках ниже; квесты — prop mockQuests.
-  const debugMock = useMemo(() => getDashboardMock(), []);
-  const user = debugMock ? { ...userProp, ...debugMock.user } : userProp;
-  const masteryStatus = debugMock ? debugMock.masteryStatus : masteryStatusProp;
+  const user = userProp;
+  const masteryStatus = masteryStatusProp;
   const { startTourIfNew, showNpcMessage } = useNpc();
   const { profile } = useAuth();
   const { theme: THEME } = useTheme();
@@ -79,7 +73,6 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
 
   useEffect(()=>{
     let cancelled=false;
-    if(debugMock){ setRankInfo(debugMock.rankInfo); return; } // DEBUG-мок
     const uid=user?.uid||user?.id;
     if(!uid){ setRankInfo(null); return; }
     getMyWeeklyRank(uid, user?.details, user?.region).then(r=>{ if(!cancelled) setRankInfo(r); }).catch(()=>{});
@@ -133,13 +126,6 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
   const [newLessonError,setNewLessonError]=useState('');
 
   const loadDashData = async ()=>{
-    if (debugMock) { // DEBUG-мок: без походов в Firestore
-      setPlanSkills(debugMock.planSkills);
-      setProgressData(debugMock.progressData);
-      setSchedule([]); setHomework([]); setZoomLessons([]); setHwSubmissions([]);
-      setLoadingData(false);
-      return;
-    }
     if (!firebaseUser) return;
     // Use firebaseUser.uid — always reliable (user.uid may be absent if Firestore doc lacks uid field)
     const uid = firebaseUser.uid;
@@ -774,7 +760,7 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
             <div className="pg-col">
 
             {/* Задания дня/недели (на этапе 2 недельные скрыты до 1-го дневного) */}
-            <QuestsWidget user={user} onUpdateUser={onUpdateUser} starterGate={stage==='starter'} mockQuests={debugMock?.quests} />
+            <QuestsWidget user={user} onUpdateUser={onUpdateUser} starterGate={stage==='starter'} />
 
             {/* ЭТАП 2: виральность — пригласи друга, пока втягиваешься */}
             {stage==='starter' && (

@@ -13,7 +13,7 @@ import { getLevelInfo, LEVEL_TIERS } from "../lib/levelUtils.js";
 import LevelRing from "./LevelRing.jsx";
 import TierRing3D from "./TierRing3D.jsx";
 import CreatorRing from "./CreatorRing.jsx";
-import LegoCharacter3D from "./LegoCharacter3D.jsx";
+import Character3D from "./Character3D.jsx";
 import { isCreator } from "../lib/creator.js";
 import XpBar from "./XpBar.jsx";
 import AchievementsGrid from "./AchievementsGrid.jsx";
@@ -110,6 +110,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   const [editForm,setEditForm]=useState({
     firstName:user?.firstName||"",
     lastName:user?.lastName||"",
+    gender:user?.gender||"male", // пол 3D-героя (male|female)
     goalKey:user?.goalKey||"",
     details:user?.details||"",
     region:user?.region||"",
@@ -146,6 +147,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
       const updates={
         firstName:editForm.firstName.trim(),
         lastName:editForm.lastName.trim(),
+        gender:editForm.gender||"male",
         goalKey:editForm.goalKey,
         goal:REG_GOALS[editForm.goalKey],
         details:editForm.details,
@@ -283,6 +285,22 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                     <input className="input-field" style={{marginBottom:0,padding:"8px 12px",background:THEME.surface,color:THEME.text,border:`1px solid ${THEME.border}`,colorScheme:isDarkUi?'dark':'light'}} value={editForm.lastName} onChange={e=>setEditForm(p=>({...p,lastName:e.target.value}))} placeholder="Фамилия"/>
                   </div>
                 </div>
+                {/* Пол 3D-героя — модель в «Мой герой»/магазине обновится после сохранения */}
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:4}}>Герой</div>
+                  <div style={{display:"flex",gap:8}}>
+                    {[["male","👦","Ученик"],["female","👧","Ученица"]].map(([val,emoji,label])=>(
+                      <button key={val} type="button" onClick={()=>setEditForm(p=>({...p,gender:val}))}
+                        style={{flex:1,padding:"9px 8px",borderRadius:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+                          fontFamily:"'Inter',sans-serif",fontSize:13,fontWeight:700,
+                          background:editForm.gender===val?"rgba(251,191,36,0.12)":"transparent",
+                          border:editForm.gender===val?"2px solid #fbbf24":`2px solid ${THEME.border}`,
+                          color:editForm.gender===val?(isDarkUi?"#fbbf24":"#92400e"):THEME.text,transition:"all 0.15s"}}>
+                        <span style={{fontSize:17}}>{emoji}</span> {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:THEME.textLight,marginBottom:4}}>Цель</div>
                   <select className="input-field" style={{marginBottom:0,padding:"8px 12px",background:THEME.surface,color:THEME.text,border:`1px solid ${THEME.border}`,colorScheme:isDarkUi?'dark':'light'}} value={editForm.goalKey}
@@ -313,7 +331,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
                 </div>
                 <div style={{display:"flex",gap:8,marginTop:4}}>
                   <button onClick={saveProfile} disabled={editSaving} style={{background:THEME.accent,color:THEME.onAccent ?? '#0f172a',border:"none",borderRadius:8,padding:"8px 20px",fontWeight:700,fontSize:13,cursor:editSaving?"not-allowed":"pointer",opacity:editSaving?0.7:1}}>{editSaving?"Сохраняю...":"Сохранить"}</button>
-                  <button onClick={()=>{setIsEditing(false);setEditForm({firstName:user?.firstName||"",lastName:user?.lastName||"",goalKey:user?.goalKey||"",details:user?.details||"",region:user?.region||"",avatarUrl:user?.avatarUrl||""});}} style={{background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"8px 16px",fontWeight:600,fontSize:13,cursor:"pointer"}}>Отмена</button>
+                  <button onClick={()=>{setIsEditing(false);setEditForm({firstName:user?.firstName||"",lastName:user?.lastName||"",gender:user?.gender||"male",goalKey:user?.goalKey||"",details:user?.details||"",region:user?.region||"",avatarUrl:user?.avatarUrl||""});}} style={{background:"transparent",border:`1px solid ${THEME.border}`,color:THEME.textLight,borderRadius:8,padding:"8px 16px",fontWeight:600,fontSize:13,cursor:"pointer"}}>Отмена</button>
                 </div>
               </div>
             ):(() => {
@@ -373,17 +391,19 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
         </div>
       </div>
 
-      {/* Мой герой — 3D-персонаж слева + сводка снаряжения справа */}
-      <div className="dashboard-section" style={{marginBottom:24}}>
-        <h2 className="section-title" style={{marginBottom:8}}>🦸 Мой герой</h2>
-        <div style={{display:'flex', gap:20, flexWrap:'wrap', alignItems:'stretch'}}>
-          <div style={{flex:'1 1 280px', minWidth:260}}>
-            <LegoCharacter3D
+      {/* Мой герой — 3D-персонаж слева + сводка снаряжения справа (компактно,
+          без лишнего воздуха: канвас 300px, инфо по центру высоты) */}
+      <div className="dashboard-section" style={{marginBottom:24, padding:'14px 18px 12px'}}>
+        <h2 className="section-title" style={{marginBottom:4}}>🦸 Мой герой</h2>
+        <div style={{display:'flex', gap:14, flexWrap:'wrap', alignItems:'center'}}>
+          <div style={{flex:'1 1 260px', minWidth:240}}>
+            <Character3D
+              gender={user?.gender || 'male'}
               equipped={{ helmet: user?.equipped?.helmet, top: user?.equipped?.top, bottom: user?.equipped?.bottom, boots: user?.equipped?.boots }}
-              autoSpin={0.4} height={320}
+              autoSpin={0.4} height={300} zoomable
             />
           </div>
-          <div style={{flex:'1 1 240px', minWidth:220, display:'flex', flexDirection:'column', justifyContent:'center', gap:12}}>
+          <div style={{flex:'1 1 240px', minWidth:220, display:'flex', flexDirection:'column', justifyContent:'center', gap:10}}>
             <div style={{display:'flex', alignItems:'baseline', gap:8}}>
               <span style={{fontSize:30, fontWeight:800, fontFamily:"'Montserrat',sans-serif", color:'#ef4444'}}>❤️ {heroHp}</span>
               <span style={{fontSize:13, color:THEME.textLight}}>HP в боях с боссами</span>

@@ -55,6 +55,30 @@ function injectScript(src, marker) {
   });
 }
 
+// ── GLTF: загрузчик моделей + SkeletonUtils (клонирование скиннед-мешей) ──
+// r128 UMD: GLTFLoader/SkeletonUtils лежат в examples/js и цепляются к
+// глобальному THREE классическими скриптами (тот же паттерн, что FontLoader).
+const GLTF_LOADER_SRC = 'https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js';
+const SKELETON_UTILS_SRC = 'https://unpkg.com/three@0.128.0/examples/js/utils/SkeletonUtils.js';
+let _gltfPromise = null;
+
+// Гарантирует THREE + THREE.GLTFLoader (+ THREE.SkeletonUtils, если доступен —
+// без него клонируем через scene.clone(true)). Промис кэшируется; при ошибке
+// сбрасывается для повторной попытки.
+export function loadThreeGLTF() {
+  if (_gltfPromise) return _gltfPromise;
+  _gltfPromise = loadThree().then(async (THREE) => {
+    if (!THREE.GLTFLoader) await injectScript(GLTF_LOADER_SRC, 'data-three-gltfloader');
+    if (!THREE.SkeletonUtils) {
+      try { await injectScript(SKELETON_UTILS_SRC, 'data-three-skeletonutils'); }
+      catch { /* не критично — будет clone(true) */ }
+    }
+    if (!THREE.GLTFLoader) throw new Error('THREE.GLTFLoader missing after load');
+    return THREE;
+  }).catch((e) => { _gltfPromise = null; throw e; });
+  return _gltfPromise;
+}
+
 // Гарантирует наличие THREE + THREE.FontLoader + THREE.TextGeometry. Промис
 // кэшируется; при ошибке сбрасывается для повторной попытки.
 export function loadThreeText() {
