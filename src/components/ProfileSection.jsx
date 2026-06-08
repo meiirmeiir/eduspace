@@ -54,7 +54,7 @@ function ActivityGraph({ activity, streak, THEME }) {
   const longest = Math.max(longestRun(activity), Number(streak) || 0);
   const total = days.reduce((s, d) => s + d.count, 0);
   return (
-    <div className="dashboard-section" style={{ marginBottom: 24 }}>
+    <div className="dashboard-section" style={{ marginBottom: 0 }}>
       <h2 className="section-title" style={{ marginBottom: 4 }}>📊 Твоя активность</h2>
       <div style={{ fontSize: 12, color: THEME.textLight, marginBottom: 14 }}>
         {total > 0 ? `${total} задач за последние ${ACT_WEEKS} недель` : 'Решай ежедневные задачи — здесь появится твоя карта активности'}
@@ -244,17 +244,21 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
         }}/>
       )}
       <div className="dashboard-header"><h1>Личный кабинет</h1></div>
-      {/* Profile card */}
-      <div className="dashboard-section">
-        <div className="profile-card">
+
+      <div className="profile-layout">
+      {/* ═══ ЛЕВАЯ КОЛОНКА (sticky): кто я ═══ */}
+      <div className="profile-col-left">
+      {/* Avatar card — вертикальная компоновка для узкой колонки */}
+      <div className="dashboard-section" style={{marginBottom:0}}>
+        <div style={{display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center', gap:12}}>
           {/* Avatar (CSS-frame применяется inline, перекрывая дефолтный gold-border) */}
           <div style={{position:"relative",flexShrink:0}}>
             {!isEditing
               ? (isCreator(user?.uid)
-                  ? <CreatorRing size={200} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
+                  ? <CreatorRing size={150} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
                       label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} />
                   : <TierRing3D xp={user?.xp ?? 0} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
-                      size={200} label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} />)
+                      size={150} label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} />)
               : (editForm.avatarUrl
                   ? <img src={editForm.avatarUrl} alt="avatar"
                       style={{ width:120, height:120, borderRadius:"50%", objectFit:"cover", border:`3px solid ${THEME.accent}`, ...(frameStyle || {}) }}/>
@@ -272,7 +276,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
               </>
             )}
           </div>
-          <div className="profile-info">
+          <div className="profile-info" style={{width:'100%'}}>
             {isEditing?(
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 <div style={{display:"flex",gap:8}}>
@@ -337,73 +341,48 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
             ):(() => {
               const titleItem = user?.equipped?.title ? getShopItem(user.equipped.title) : null;
               return (
-              <>
-                <div className="profile-info-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 12px', width:'100%'}}>
-                  {/* Левый столбец: имя, титул, статус, цель — с отступом от аватара */}
-                  <div style={{paddingLeft:32}}>
-                    <div className={`profile-name${isCreator(user?.uid) ? ' creator-name' : ''}`} style={{marginBottom:6, fontSize:22}}>{user?.firstName} {user?.lastName}</div>
-                    {isCreator(user?.uid) && (
-                      <div style={{marginBottom:8}}><span className="creator-badge">⚡ Основатель AAPA</span></div>
-                    )}
-                    {titleItem && (
-                      <div style={{
-                        display:'inline-block', marginBottom:8,
-                        background:'linear-gradient(135deg, #1e1b4b, #312e81)',
-                        color:'#d4af37', fontFamily:"'Montserrat',sans-serif", fontWeight:700,
-                        fontSize:12, padding:'4px 12px', borderRadius:99,
-                        border:'1px solid rgba(212,175,55,0.3)',
-                      }}>🏆 {titleItem.value}</div>
-                    )}
-                    <div className="profile-phone" style={{marginBottom:8}}>{user?.phone}</div>
-                    <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
-                      <span style={{display:'inline-block', background:statusObj.color, color:'#fff', fontWeight:700, fontSize:12, padding:'4px 14px', borderRadius:99, border:`1px solid ${statusObj.color}`}}>{statusObj.label}</span>
-                      {user?.goal && <span style={{display:'inline-block', background:'transparent', color:THEME.textLight, fontWeight:600, fontSize:12, padding:'4px 12px', borderRadius:6, border:`1px solid ${THEME.border}`}}>{user.goal}</span>}
-                    </div>
-                    <div style={{marginTop:14, maxWidth:300}}><XpBar xp={user?.xp ?? 0} help={<InfoTooltip text="Твой уровень и тир. Растёт за опыт (XP) и не сбрасывается." />} /></div>
-                    {/* Долгосрочная цель: следующий тир уровней */}
-                    {nextTier && (
-                      <div style={{marginTop:8, fontSize:12, color:THEME.textLight}}>
-                        Следующий ранг: <b style={{color:nextTier.color}}>{nextTier.name}</b> — с {nextTier.min} уровня
-                      </div>
-                    )}
-                  </div>
-                  {/* Правый столбец: класс, область, дата */}
-                  <div>
-                    {user?.details && <div className="profile-detail" style={{marginBottom:6}}>📚 {user.details}</div>}
-                    {user?.region && <div className="profile-detail" style={{marginBottom:6}}>📍 {user.region}</div>}
-                    <div className="profile-date" style={{marginBottom:10}}>📅 Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
-                  </div>
+              <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:8}}>
+                <div className={`profile-name${isCreator(user?.uid) ? ' creator-name' : ''}`} style={{fontSize:22, textAlign:'center'}}>{user?.firstName} {user?.lastName}</div>
+                {isCreator(user?.uid) && (<span className="creator-badge">⚡ Основатель AAPA</span>)}
+                {titleItem && (
+                  <div style={{display:'inline-block', background:'linear-gradient(135deg, #1e1b4b, #312e81)', color:'#d4af37', fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12, padding:'4px 12px', borderRadius:99, border:'1px solid rgba(212,175,55,0.3)'}}>🏆 {titleItem.value}</div>
+                )}
+                <div className="profile-phone">{user?.phone}</div>
+                <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:8, flexWrap:'wrap'}}>
+                  <span style={{display:'inline-block', background:statusObj.color, color:'#fff', fontWeight:700, fontSize:12, padding:'4px 14px', borderRadius:99, border:`1px solid ${statusObj.color}`}}>{statusObj.label}</span>
+                  {user?.goal && <span style={{display:'inline-block', background:'transparent', color:THEME.textLight, fontWeight:600, fontSize:12, padding:'4px 12px', borderRadius:6, border:`1px solid ${THEME.border}`}}>{user.goal}</span>}
                 </div>
-                {/* Кнопки под обоими столбцами, смещены влево для визуального
-                    баланса с большой аватаркой слева (minWidth:160 каждая). */}
-                <div style={{display:'flex', gap:12, marginTop:16, marginLeft:'-80px', justifyContent:'center', flexWrap:'wrap', alignItems:'center'}}>
-                  <button onClick={()=>setIsEditing(true)} style={{
-                    padding:'10px 20px', fontSize:13, fontWeight:600,
-                    borderRadius:10, border:`1px solid ${THEME.border}`,
-                    background:'transparent', color:THEME.text,
-                    cursor:'pointer', whiteSpace:'nowrap', minWidth:160,
-                  }}>✏️ Редактировать профиль</button>
+                <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:4, marginTop:2}}>
+                  {user?.details && <div className="profile-detail">📚 {user.details}</div>}
+                  {user?.region && <div className="profile-detail">📍 {user.region}</div>}
+                  <div className="profile-date">📅 Зарегистрирован: {user?.registeredAt?new Date(user.registeredAt).toLocaleDateString("ru-RU"):"—"}</div>
                 </div>
-              </>
+                <div style={{width:'100%', maxWidth:300, marginTop:8}}><XpBar xp={user?.xp ?? 0} help={<InfoTooltip text="Твой уровень и тир. Растёт за опыт (XP) и не сбрасывается." />} /></div>
+                {nextTier && (
+                  <div style={{fontSize:12, color:THEME.textLight, textAlign:'center'}}>
+                    Следующий ранг: <b style={{color:nextTier.color}}>{nextTier.name}</b> — с {nextTier.min} уровня
+                  </div>
+                )}
+                <button onClick={()=>setIsEditing(true)} style={{marginTop:8, padding:'10px 20px', fontSize:13, fontWeight:600, borderRadius:10, border:`1px solid ${THEME.border}`, background:'transparent', color:THEME.text, cursor:'pointer', whiteSpace:'nowrap'}}>✏️ Редактировать профиль</button>
+              </div>
               );
             })()}
           </div>
         </div>
       </div>
 
-      {/* Мой герой — 3D-персонаж слева + сводка снаряжения справа (компактно,
-          без лишнего воздуха: канвас 300px, инфо по центру высоты) */}
-      <div className="dashboard-section" style={{marginBottom:24, padding:'14px 18px 12px'}}>
+      {/* Мой герой — 3D-персонаж слева + сводка снаряжения справа (компактно) */}
+      <div className="dashboard-section" style={{marginBottom:0, padding:'14px 18px 12px'}}>
         <h2 className="section-title" style={{marginBottom:4}}>🦸 Мой герой</h2>
-        <div style={{display:'flex', gap:14, flexWrap:'wrap', alignItems:'center'}}>
-          <div style={{flex:'1 1 260px', minWidth:240}}>
+        <div style={{display:'flex', gap:12, flexWrap:'wrap', alignItems:'center'}}>
+          <div style={{flex:'1 1 200px', minWidth:200}}>
             <Character3D
               gender={user?.gender || 'male'}
               equipped={{ helmet: user?.equipped?.helmet, top: user?.equipped?.top, bottom: user?.equipped?.bottom, boots: user?.equipped?.boots }}
-              autoSpin={0.4} height={300} zoomable
+              autoSpin={0.4} height={350} zoomable
             />
           </div>
-          <div style={{flex:'1 1 240px', minWidth:220, display:'flex', flexDirection:'column', justifyContent:'center', gap:10}}>
+          <div style={{flex:'1 1 150px', minWidth:150, display:'flex', flexDirection:'column', justifyContent:'center', gap:10}}>
             <div style={{display:'flex', alignItems:'baseline', gap:8}}>
               <span style={{fontSize:30, fontWeight:800, fontFamily:"'Montserrat',sans-serif", color:'#ef4444'}}>❤️ {heroHp}</span>
               <span style={{fontSize:13, color:THEME.textLight}}>HP в боях с боссами</span>
@@ -432,8 +411,8 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
         </div>
       </div>
 
-      {/* ── 6 мотивирующих стат-карточек ── */}
-      <div className="profile-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(150px, 1fr))",gap:14,marginBottom:24}}>
+      {/* ── 6 мотивирующих стат-карточек (3×2 компактно, см. .profile-col-left CSS) ── */}
+      <div className="profile-stats-grid" style={{display:"grid",gap:10}}>
         <div className="stat-card"><div className="stat-icon">🎯</div><div style={{minWidth:0}}><div className="stat-value">{tasksTotal.toLocaleString('ru-RU')}</div><div className="stat-label">решено задач</div></div></div>
         <div className="stat-card"><div className="stat-icon">🔥</div><div style={{minWidth:0}}><div className="stat-value" style={{color:'#f59e0b'}}>{Number(user?.streak||0)}</div><div className="stat-label">дней подряд</div></div></div>
         <div className="stat-card"><div className="stat-icon">🪐</div><div style={{minWidth:0}}><div className="stat-value">{masteredCount}<span style={{fontSize:13, fontWeight:600, color:THEME.textLight}}> / 307</span></div><div className="stat-label">освоено навыков</div></div></div>
@@ -441,12 +420,16 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
         <div className="stat-card"><div className="stat-icon">📈</div><div style={{minWidth:0}}><div className="stat-value" style={{color: accuracy==null?THEME.textLight:accuracy>=80?'#22c55e':accuracy>=60?'#f59e0b':'#ef4444'}}>{accuracy==null?'—':`${accuracy}%`}</div><div className="stat-label">средняя точность</div></div></div>
         <div className="stat-card"><div className="stat-icon">🏆</div><div style={{minWidth:0}}><div className="stat-value" style={{fontSize: bestDay?18:22}}>{bestDay?`${bestDay.day} · ${bestDay.count}`:'—'}</div><div className="stat-label">лучший день</div></div></div>
       </div>
+      </div>{/* ═══ /ЛЕВАЯ КОЛОНКА ═══ */}
+
+      {/* ═══ ПРАВАЯ КОЛОНКА (scroll): что я сделал ═══ */}
+      <div className="profile-col-right">
 
       {/* ── График активности (GitHub-style) ── */}
       <ActivityGraph activity={activity} streak={user?.streak} THEME={THEME}/>
 
       {/* Достижения — свой профиль, с живым прогрессом X/Y */}
-      <div style={{marginBottom:24}}>
+      <div>
         <AchievementsGrid uid={uid} progress={{
           scholar:  masteredCount,
           streak:   Number(user?.streak || 0),
@@ -459,11 +442,11 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
 
       {/* Medals */}
       {medals.length>0&&(
-        <div className="dashboard-section" style={{marginBottom:24}}>
+        <div className="dashboard-section" style={{marginBottom:0}}>
           <h2 className="section-title" style={{marginBottom:16}}>🏅 Мои медали</h2>
-          <div style={{display:"flex",flexWrap:"wrap",gap:16}}>
+          <div style={{display:"flex",flexWrap:"nowrap",gap:16,overflowX:"auto",paddingBottom:6}}>
             {medals.map(m=>(
-              <div key={m.id} style={{background:"linear-gradient(135deg,#1e1b4b,#312e81)",borderRadius:14,padding:"16px 20px",minWidth:160,textAlign:"center",border:"1px solid rgba(212,175,55,0.3)",boxShadow:"0 4px 20px rgba(0,0,0,0.12)"}}>
+              <div key={m.id} style={{flexShrink:0,background:"linear-gradient(135deg,#1e1b4b,#312e81)",borderRadius:14,padding:"16px 20px",minWidth:160,textAlign:"center",border:"1px solid rgba(212,175,55,0.3)",boxShadow:"0 4px 20px rgba(0,0,0,0.12)"}}>
                 <div style={{fontSize:36,marginBottom:6}}>🏅</div>
                 <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,color:THEME.accent,marginBottom:4}}>{m.sectionName}</div>
                 <div style={{fontSize:11,color:"rgba(255,255,255,0.45)"}}>{m.earnedAt?new Date(m.earnedAt).toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"}):"—"}</div>
@@ -476,24 +459,35 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
       {/* Медали недельного рейтинга — секция видна только когда медали есть
           (пустая секция с замочком демотивирует) */}
       {rankMedals.length>0 && (
-        <div className="dashboard-section" style={{marginBottom:24}}>
+        <div className="dashboard-section" style={{marginBottom:0}}>
           <h2 className="section-title" style={{marginBottom:16, display:'inline-flex', alignItems:'center'}}>🏅 Медали рейтинга<InfoTooltip text="Награды за топ-10 в недельном рейтинге." /></h2>
-          <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:16}}>
+          <div style={{display:"flex", flexWrap:"nowrap", gap:14, overflowX:"auto", paddingBottom:6}}>
             {rankMedals.map(m=>(
-              <div key={m.id} style={{display:"flex", justifyContent:"center"}}>
-                <Medal type={m.type} category={m.category} weekId={m.weekId} size={72} position={m.position}/>
+              <div key={m.id} style={{flexShrink:0, display:"flex", justifyContent:"center"}}>
+                <Medal type={m.type} category={m.category} weekId={m.weekId} size={56} position={m.position}/>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* History — full width */}
-      <div data-tour="diag-history" className="dashboard-section" style={{marginBottom:24}}>
+      {/* History */}
+      <div data-tour="diag-history" className="dashboard-section" style={{marginBottom:0}}>
         <h2 className="section-title" style={{marginBottom:20}}>📊 История диагностик</h2>
         {loading&&<div className="empty-state" style={{padding:"24px 0"}}>Загрузка...</div>}
         {!loading&&fetchError&&<ErrorCard onRetry={load}/>}
-        {!loading&&!fetchError&&results.length===0&&<div className="empty-state" style={{padding:"24px 0"}}>Диагностик ещё не пройдено</div>}
+        {!loading&&!fetchError&&results.length===0&&(
+          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:12,padding:"8px 0 4px"}}>
+            <div style={{fontSize:13,color:THEME.textLight}}>Диагностика ещё не пройдена — узнай свои сильные и слабые темы.</div>
+            {onOpenDiagnostics && (
+              <button onClick={onOpenDiagnostics} style={{
+                padding:"11px 22px", borderRadius:10, border:"none", cursor:"pointer",
+                fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13,
+                background:THEME.accent, color:THEME.onAccent ?? '#0f172a',
+              }}>Пройти диагностику →</button>
+            )}
+          </div>
+        )}
         {!loading&&!fetchError&&results.length>0&&(
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {results.map((r,i)=>{
@@ -535,7 +529,7 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
       </div>
 
       {/* ── Настройки ── */}
-      <div className="dashboard-section" style={{marginBottom:24}}>
+      <div className="dashboard-section" style={{marginBottom:0}}>
         <h2 className="section-title" style={{marginBottom:16}}>⚙️ Настройки</h2>
         <div style={{display:'flex', flexDirection:'column', gap:14}}>
           <label style={{display:'flex', alignItems:'center', gap:10, fontSize:14, color:THEME.text, cursor:'pointer'}}>
@@ -558,6 +552,9 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
           </button>
         </div>
       </div>
+
+      </div>{/* ═══ /ПРАВАЯ КОЛОНКА ═══ */}
+      </div>{/* ═══ /profile-layout ═══ */}
     </div>
   );
 }

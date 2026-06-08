@@ -37,10 +37,13 @@ export default function AchievementsGrid({ uid, progress }) {
   const exclusive = ACHIEVEMENTS.filter(a => a.exclusive);
   const earnedCount = ACHIEVEMENTS.filter(a => (earned[a.id] || 0) > 0).length;
 
+  // Одна строка с горизонтальным скроллом (раньше — wrap в несколько строк).
   const renderRow = (list) => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'flex-start' }}>
+    <div className="ach-row" style={{ display: 'flex', flexWrap: 'nowrap', gap: 14, overflowX: 'auto', paddingBottom: 8 }}>
       {list.map(a => (
-        <AchievementBadge key={a.id} ach={a} earnedLevel={earned[a.id] || 0} progress={progress?.[a.id]} />
+        <div key={a.id} style={{ flexShrink: 0 }}>
+          <AchievementBadge ach={a} earnedLevel={earned[a.id] || 0} progress={progress?.[a.id]} />
+        </div>
       ))}
     </div>
   );
