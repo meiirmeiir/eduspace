@@ -15,9 +15,17 @@ import BattleScene3D from "../components/BattleScene3D.jsx";
 import ProbeScene3D from "../components/ProbeScene3D.jsx";
 import Character3D from "../components/Character3D.jsx";
 import { computePlayerHp } from "../lib/shopItems.js";
+import { bossForGrade, bossById } from "../lib/bossConfig.js";
 import { useNpc } from "../NpcContext.jsx";
 
-// Детект появления босса: детерминированно по дню (seed = uid + дата), ~30%.
+// ── ТЕСТОВЫЙ РЕЖИМ ────────────────────────────────────────────────────────────
+// Тестовый ученический аккаунт: ежедневные задачи проходятся БЕСКОНЕЧНО (прогресс
+// НЕ пишется в Firestore → задачи остаются «к повторению») + шанс босса 50%.
+// Отключить целиком: TEST_UID = null.
+const TEST_UID = 'bsZhaekYhxODSY9Xanxvh3WutIQ2'; // meirbekbazarbek+student@gmail.com
+const isTestUser = (uid) => !!TEST_UID && uid === TEST_UID;
+
+// Детект появления босса: детерминированно по дню (seed = uid + дата), 30% (тест — 50%).
 // Чистая функция, без записи в БД — стабильно в течение дня (повторный вход = тот
 // же исход). Тип босса (дракон/слизень) — из второго среза хеша (косметика).
 function bossRollFor(uid, dateStr) {
@@ -25,7 +33,7 @@ function bossRollFor(uid, dateStr) {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
   h = h >>> 0;
-  const active = (h % 100) < 30;
+  const active = (h % 100) < (isTestUser(uid) ? 50 : 30);
   const TYPES = ['ufo', 'robot', 'slime', 'dragon', 'asteroid'];
   const type = TYPES[Math.floor(h / 100) % TYPES.length];
   return { active, type };
@@ -130,13 +138,16 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
 
   // ── Босс (косметический слой поверх сессии; учёбу/SRS/награды НЕ трогает) ──
   const [bossActive, setBossActive] = useState(false);
-  const [bossType,   setBossType]   = useState('ufo');
+  const [bossId,     setBossId]     = useState('shadow');
   const [bossHp,     setBossHp]     = useState(100);
   const [playerHp,   setPlayerHp]   = useState(3);
+  const bossDef = bossById(bossId);
+  const bossMax = bossDef.hp;
+  const bossName = bossDef.name;
   const [dmgMsg,     setDmgMsg]     = useState(null);
   const [playerHit,  setPlayerHit]  = useState(false);
   const [battleResult, setBattleResult] = useState(null); // null | 'win' | 'lose'
-  const [bossIntro,  setBossIntro]  = useState(false);
+  const [bossIntroPhase, setBossIntroPhase] = useState(null); // 'intro' | 'battle' | null
   const [attackSeq,  setAttackSeq]  = useState(0); // ++ при верном ответе → лазер персонажа
   const [hitSeq,     setHitSeq]     = useState(0); // ++ при настоящей ошибке → вздрагивание
 
@@ -151,7 +162,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   useEffect(() => () => { if (companionTimerRef.current) clearTimeout(companionTimerRef.current); }, []);
   const bossBonusAwardedRef = useRef(false);
   // HP героя в бою = база 3 + бонусы надетого снаряжения (Этап 2C).
-  const maxPlayerHp = computePlayerHp(user?.equipped);
+  const maxPlayerHp = computePlayerHp(user?.equipped, user?.gender);
 
   const shuf = arr => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
 
@@ -159,6 +170,13 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   useEffect(() => {
     if (phase === 'playing') questionStartRef.current = Date.now();
   }, [phase, qIdx]);
+
+  // Интро-анимация (VS-экран, ~3с) → переход в боевую фазу.
+  useEffect(() => {
+    if (bossIntroPhase !== 'intro') return;
+    const id = setTimeout(() => setBossIntroPhase('battle'), 3000);
+    return () => clearTimeout(id);
+  }, [bossIntroPhase]);
 
   useEffect(() => {
     const load = async () => {
@@ -223,7 +241,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         setQueue(shuf(items)); // interleave skills
         // Босс — редкое событие-сюрприз: ролл детерминирован по дню (стабилен в течение дня).
         const roll = bossRollFor(user?.uid, getAlmatyDateStr(0));
-        if (roll.active) { setBossActive(true); setBossType(roll.type); setBossHp(100); setPlayerHp(maxPlayerHp); setBattleResult(null); setBossIntro(true); }
+        if (roll.active) { const b = bossForGrade(user?.details || user?.grade); setBossActive(true); setBossId(b.id); setBossHp(b.hp); setPlayerHp(maxPlayerHp); setBattleResult(null); setBossIntroPhase('intro'); }
         setPhase('intro'); // экран старта миссии перед первой задачей
       } catch(e) { console.error(e); setPhase('empty'); }
     };
@@ -276,7 +294,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       }
       // ── Бой: урон боссу (косметика поверх; учёбу не трогает) ──
       if (bossActive) {
-        const dmg = Math.min(100, Math.ceil(100 / Math.max(1, queue.length - 2)));
+        const dmg = Math.min(bossMax, Math.ceil(bossMax / Math.max(1, queue.length - 2)));
         setBossHp(h => {
           const nh = Math.max(0, h - dmg);
           if (nh <= 0) setBattleResult(r => r || 'win');
@@ -347,6 +365,8 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
 
   const saveSession = async () => {
     if (!user?.phone) return;
+    // ТЕСТ: не сохраняем прогресс → ежедневные задачи можно проходить бесконечно.
+    if (isTestUser(user?.uid)) { console.info('[daily] test user — прогресс не сохраняется'); return; }
     const updates = {};
     for (const item of queue) {
       const { skillId, reviewStage } = item;
@@ -710,7 +730,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
           {/* Исход боя с боссом (механика не менялась) */}
           {bossActive && battleResult === 'win' && (
             <div style={{ background:'linear-gradient(135deg, rgba(212,175,55,0.14), rgba(102,178,255,0.10))', border:'1px solid rgba(212,175,55,0.5)', borderRadius:14, padding:'16px 18px', marginBottom:14, display:'flex', alignItems:'center', gap:14 }}>
-              <div style={{ width:120, flexShrink:0 }}><Boss3D type={bossType} hpPct={10} shake={false} height={100} /></div>
+              <div style={{ width:120, flexShrink:0 }}><Boss3D bossId={bossId} hpPct={10} shake={false} height={100} /></div>
               <div>
                 <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:'#b8860b' }}>🏆 Босс повержен!</div>
                 <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.textLight, marginTop:2 }}>Бонус сверху: <b style={{ color:'#a78bfa' }}>+5 💎</b> и <b style={{ color:'#22c55e' }}>+20 XP</b></div>
@@ -855,24 +875,9 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const isCorrectAnswer = chosen !== null && task.correct === chosen;
   const isDanger = (skillLives[current?.skillId] ?? 2) === 0;
   const lives = skillLives[current?.skillId] ?? 2;
-  const bossHpColor = bossHp > 60 ? '#22c55e' : bossHp > 30 ? '#f59e0b' : '#ef4444';
+  const bossHpPct = bossMax ? (bossHp / bossMax) * 100 : 0;
+  const bossHpColor = bossHpPct > 60 ? '#22c55e' : bossHpPct > 30 ? '#f59e0b' : '#ef4444';
 
-  // ── Интро босса перед сессией («Появился босс!») ──
-  if (bossActive && bossIntro) return (
-    <div className="page-themed" style={{ minHeight:'100vh', background:'linear-gradient(180deg, #0a1020, #0c1230)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-      <div style={{ textAlign:'center', color:'#fff', maxWidth:420 }}>
-        <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:26, marginBottom:6, textShadow:'0 0 14px rgba(102,178,255,0.5)' }}>⚔️ Появился босс!</div>
-        <div style={{ fontFamily:"'Inter',sans-serif", fontSize:14, color:'rgba(255,255,255,0.7)', marginBottom:20 }}>{BOSS_NAME[bossType]} бросает тебе вызов</div>
-        <div style={{ width:280, height:240, margin:'16px auto 24px' }}>
-          <Boss3D type={bossType} hpPct={100} shake={false} height={240} />
-        </div>
-        <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:'rgba(255,255,255,0.6)', marginBottom:22, lineHeight:1.6 }}>
-          Отвечай верно — наноси урон. Ошибки навыка тебя не штрафуют.<br/>Победа = бонус сверху, проигрыш ничего не отнимает.
-        </div>
-        <button onClick={() => setBossIntro(false)} style={{ ...BTN_GOLD, borderRadius:12, padding:'14px 40px', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, cursor:'pointer', boxShadow:'0 0 18px rgba(251,191,36,0.45)' }}>В бой! →</button>
-      </div>
-    </div>
-  );
 
   return (
     <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
@@ -901,6 +906,96 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         </div>
       )}
 
+      {/* ⚔️ Интро — VS-экран в стиле Dota 2: горизонтальный слайд + экшен-эффекты */}
+      {bossIntroPhase === 'intro' && (() => {
+        const pName = user?.firstName || 'Ты';
+        const pLevel = getLevelInfo(Number(user?.xp) || 0).level;
+        const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
+        const modelH = Math.round(vh * 0.94); // канвас выше половины → нижняя часть обрезается краем
+        const sparks = (palette, n, seed) => Array.from({ length: n }).map((_, i) => {
+          const left = (i * 53 + seed) % 100;
+          const dur = 2.4 + ((i * 7) % 12) / 10;   // 2.4..3.6с
+          const delay = ((i * 13) % 28) / 10;       // 0..2.7с
+          const sz = 2 + (i % 3);
+          const c = palette[i % palette.length];
+          return <span key={i} style={{ position:'absolute', left:left+'%', bottom:'-4%', width:sz, height:sz, borderRadius:'50%', background:c, boxShadow:`0 0 6px ${c}`, opacity:0, animation:`vs-rise ${dur}s linear ${delay}s infinite` }}/>;
+        });
+        return (
+        <div style={{ position:'fixed', inset:0, zIndex:200, overflow:'hidden', animation:'vs-fade 3s ease forwards' }}>
+          <style>{`
+            @keyframes vs-fade{0%{opacity:0}7%{opacity:1}90%{opacity:1}100%{opacity:0}}
+            @keyframes vs-shake{0%,9%{transform:translate(0,0)}10%{transform:translate(-3px,2px)}12%{transform:translate(3px,-2px)}14%{transform:translate(-3px,-2px)}16%{transform:translate(2px,3px)}18%{transform:translate(-2px,2px)}20%{transform:translate(3px,-1px)}23%,100%{transform:translate(0,0)}}
+            @keyframes vs-top{0%,84%{transform:translateY(0)}100%{transform:translateY(-105%)}}
+            @keyframes vs-bottom{0%,84%{transform:translateY(0)}100%{transform:translateY(105%)}}
+            @keyframes vs-pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.12)}}
+            @keyframes vs-boss-slide{0%{transform:translateX(120%)}100%{transform:translateX(0)}}
+            @keyframes vs-player-slide{0%{transform:translateX(-120%)}100%{transform:translateX(0)}}
+            @keyframes vs-redflash{0%,9%{opacity:0}13%{opacity:1}26%,100%{opacity:0}}
+            @keyframes vs-name{0%,63%{opacity:0;transform:translateY(10px)}73%,100%{opacity:1;transform:translateY(0)}}
+            @keyframes vs-line-appear{0%,40%{opacity:0;transform:translateY(-50%) scaleX(0)}43%{opacity:1;transform:translateY(-50%) scaleX(1)}100%{opacity:1;transform:translateY(-50%) scaleX(1)}}
+            @keyframes vs-line-flow{0%{background-position:0% 0}100%{background-position:200% 0}}
+            @keyframes vs-badge{0%,50%{opacity:0;transform:translate(-50%,-50%) scale(0)}57%{opacity:1;transform:translate(-50%,-50%) scale(1.5)}63%{transform:translate(-50%,-50%) scale(0.92)}67%{transform:translate(-50%,-50%) scale(1.06)}71%,100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+            @keyframes vs-white{0%,50%{opacity:0}53%{opacity:0.5}60%,100%{opacity:0}}
+            @keyframes vs-shock{0%,50%{opacity:0;transform:translate(-50%,-50%) scale(0)}52%{opacity:0.9}64%{opacity:0;transform:translate(-50%,-50%) scale(3)}100%{opacity:0}}
+            @keyframes vs-ray{0%,50%{opacity:0;transform:scaleX(0)}54%{opacity:1}55%{transform:scaleX(1)}66%{opacity:0;transform:scaleX(1.25)}100%{opacity:0}}
+            @keyframes vs-rise{0%{transform:translateY(0);opacity:0}12%{opacity:0.9}88%{opacity:0.6}100%{transform:translateY(-46vh);opacity:0}}
+          `}</style>
+
+          {/* сцена со screen-shake при появлении босса */}
+          <div style={{ position:'absolute', inset:0, animation:'vs-shake 3s ease forwards' }}>
+
+            {/* ВЕРХ — территория босса */}
+            <div style={{ position:'absolute', top:0, left:0, right:0, height:'50%', overflow:'hidden', animation:'vs-top 3s ease forwards' }}>
+              <div style={{ position:'absolute', inset:0, zIndex:0, background:'linear-gradient(135deg,#1a0a0a,#3a0a2a)', boxShadow:'inset 0 0 120px 10px rgba(0,0,0,0.6)', animation:'vs-pulse 2s ease-in-out infinite' }}/>
+              {sparks(['#ff6b35','#ffae42','#ff3b3b'], 20, 17)}
+              <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none', boxShadow:'inset 0 0 80px 6px rgba(255,0,0,0.45)', animation:'vs-redflash 3s ease forwards' }}/>
+              <div style={{ position:'absolute', top:'30%', left:'7%', transform:'translateY(-50%)', textAlign:'left', zIndex:3, animation:'vs-name 3s ease forwards' }}>
+                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:54, color:'#fff', textShadow:'0 0 24px rgba(255,60,80,0.75), 0 2px 10px rgba(0,0,0,0.85)', whiteSpace:'nowrap' }}>{bossName}</div>
+                <div style={{ fontFamily:"'Inter',sans-serif", fontSize:16, color:'rgba(255,200,200,0.9)', marginTop:8 }}>Tier {bossDef.tier} · {bossDef.hp} HP{bossDef.description ? ` · ${bossDef.description}` : ''}</div>
+              </div>
+              <div style={{ position:'absolute', top:Math.round(-modelH*0.05), right:'-4%', width:modelH, height:modelH, zIndex:2, filter:'drop-shadow(0 0 40px rgba(255,60,60,0.5))', animation:'vs-boss-slide 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.3s both' }}>
+                <Boss3D bossId={bossId} hpPct={100} height={modelH}/>
+              </div>
+            </div>
+
+            {/* НИЗ — территория игрока */}
+            <div style={{ position:'absolute', bottom:0, left:0, right:0, height:'50%', overflow:'hidden', animation:'vs-bottom 3s ease forwards' }}>
+              <div style={{ position:'absolute', inset:0, zIndex:0, background:'linear-gradient(135deg,#0a0a2a,#0a1a3a)', boxShadow:'inset 0 0 120px 10px rgba(0,0,0,0.6)', animation:'vs-pulse 2s ease-in-out infinite' }}/>
+              {sparks(['#60a5fa','#7dd3fc','#a5b4fc'], 20, 41)}
+              <div style={{ position:'absolute', top:Math.round(-modelH*0.12), left:'-6%', width:modelH, height:modelH, zIndex:2, filter:'drop-shadow(0 0 36px rgba(96,165,250,0.5))', animation:'vs-player-slide 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.5s both' }}>
+                <Character3D gender={user?.gender || 'male'} equipped={user?.equipped} height={modelH} autoSpin={0} animation="idle"/>
+              </div>
+              <div style={{ position:'absolute', top:'40%', right:'7%', transform:'translateY(-50%)', textAlign:'right', zIndex:3, animation:'vs-name 3s ease forwards' }}>
+                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:54, color:'#fff', textShadow:'0 0 24px rgba(96,165,250,0.75), 0 2px 10px rgba(0,0,0,0.85)', whiteSpace:'nowrap' }}>{pName}</div>
+                <div style={{ fontFamily:"'Inter',sans-serif", fontSize:16, color:'rgba(200,220,255,0.9)', marginTop:8 }}>Уровень {pLevel}</div>
+              </div>
+            </div>
+
+            {/* Огненно-энергетический разделитель (бегущий градиент) */}
+            <div style={{ position:'absolute', top:'50%', left:0, right:0, height:4, zIndex:4, transformOrigin:'center', background:'linear-gradient(90deg, #fbbf24, #ff3b3b, #fbbf24, #ff3b3b, #fbbf24)', backgroundSize:'200% 100%', boxShadow:'0 0 22px rgba(251,191,36,0.95), 0 0 10px rgba(255,60,60,0.8)', animation:'vs-line-appear 3s ease forwards, vs-line-flow 1.1s linear infinite' }}/>
+
+            {/* Ударная волна + лучи из центра (момент VS) */}
+            <div style={{ position:'absolute', top:'50%', left:'50%', width:120, height:120, marginLeft:-60, marginTop:-60, borderRadius:'50%', border:'4px solid rgba(251,191,36,0.9)', zIndex:6, pointerEvents:'none', animation:'vs-shock 3s ease forwards' }}/>
+            <div style={{ position:'absolute', top:'50%', left:'50%', zIndex:6, pointerEvents:'none' }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <span key={i} style={{ position:'absolute', left:0, top:0, transform:`rotate(${i*45}deg)`, transformOrigin:'0 0' }}>
+                  <span style={{ display:'block', width:90, height:3, marginTop:-1.5, transformOrigin:'0 50%', background:'linear-gradient(90deg, rgba(251,191,36,0.95), rgba(255,150,0,0))', animation:'vs-ray 3s ease forwards' }}/>
+                </span>
+              ))}
+            </div>
+
+            {/* VS — удар scale */}
+            <div style={{ position:'absolute', top:'50%', left:'50%', zIndex:7, animation:'vs-badge 3s ease forwards' }}>
+              <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:96, color:'#fbbf24', textShadow:'0 0 30px rgba(251,191,36,0.95), 0 0 60px rgba(255,120,0,0.6), 0 4px 12px rgba(0,0,0,0.8)', WebkitTextStroke:'2px rgba(0,0,0,0.35)' }}>VS</div>
+            </div>
+
+            {/* Белая вспышка на весь экран в момент VS */}
+            <div style={{ position:'absolute', inset:0, zIndex:8, background:'#fff', opacity:0, pointerEvents:'none', animation:'vs-white 3s ease forwards' }}/>
+          </div>
+        </div>
+        );
+      })()}
+
       <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Logo size={28}/>
         <div style={{ display:'flex', alignItems:'center', gap:14 }}>
@@ -921,40 +1016,22 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       </nav>
 
       <div style={{ maxWidth:800, margin:'0 auto', padding:'24px 20px 60px' }}>
-        {/* ── Боевая панель босса (косметический слой) ── */}
+        {/* ── Покемон-арена боя (HP боссa/игрока — оверлеями внутри сцены) ── */}
         {bossActive && (
           <>
-            <style>{`
-              @keyframes boss-dmg{0%{opacity:1;transform:translateX(-50%) translateY(0);}100%{opacity:0;transform:translateX(-50%) translateY(-26px);}}
-              @keyframes player-hit{0%,100%{transform:translateX(0);}20%{transform:translateX(-6px);}40%{transform:translateX(6px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}}
-            `}</style>
-            <div style={{ background:'linear-gradient(180deg, #0c1230, #0a1020)', border:'1px solid rgba(102,178,255,0.25)', borderRadius:14, padding:'14px 16px', marginBottom:18 }}>
-              {/* Шапка: имя босса + HP-бар на всю ширину */}
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-                <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:'#fff' }}>{BOSS_NAME[bossType]}</span>
-                <span style={{ color:bossHpColor, fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13 }}>{bossHp <= 0 ? 'повержен' : `${bossHp} / 100`}</span>
-              </div>
-              <div style={{ height:12, background:'rgba(255,255,255,0.1)', borderRadius:99, overflow:'hidden', border:'1px solid rgba(255,255,255,0.12)' }}>
-                <div style={{ height:'100%', width:`${Math.max(0, bossHp)}%`, background:bossHpColor, borderRadius:99, transition:'width 0.4s ease' }}/>
-              </div>
-              {/* Сердца игрока */}
-              <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:10, flexWrap:'wrap', animation: playerHit ? 'player-hit 0.6s ease' : 'none' }}>
-                <span style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,0.7)', fontWeight:600 }}>⚔️ Ты:</span>
-                {maxPlayerHp > 8 ? (
-                  <span style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:'#fff' }}>❤️ {playerHp} / {maxPlayerHp}</span>
-                ) : (
-                  Array.from({ length: maxPlayerHp }).map((_, i) => (
-                    <span key={i} style={{ fontSize:16, filter: i < playerHp ? 'none' : 'grayscale(1)', opacity: i < playerHp ? 1 : 0.35, transition:'all 0.3s' }}>{i < playerHp ? '❤️' : '🖤'}</span>
-                  ))
-                )}
-                {bossHp <= 0 && <span style={{ marginLeft:'auto', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:'#f5c518' }}>🏆 Повержен!</span>}
-                {bossHp > 0 && playerHp <= 0 && <span style={{ marginLeft:'auto', fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,0.6)' }}>Босс одолел… но учёба идёт</span>}
-              </div>
-              {/* Боевая сцена: персонаж (слева) + босс (справа) — один WebGL-контекст */}
-              <div style={{ position:'relative', marginTop:8 }}>
-                <BattleScene3D equipped={user?.equipped} gender={user?.gender || 'male'} bossType={bossType} bossHp={bossHp} attackSeq={attackSeq} hitSeq={hitSeq} height={190} />
-                {dmgMsg && <div style={{ position:'absolute', top:14, right:'20%', color:'#ef4444', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:17, whiteSpace:'nowrap', animation:'boss-dmg 0.7s ease forwards', pointerEvents:'none' }}>{dmgMsg}</div>}
-              </div>
+            <style>{`@keyframes boss-dmg{0%{opacity:1;transform:translateX(-50%) translateY(0);}100%{opacity:0;transform:translateX(-50%) translateY(-30px);}}`}</style>
+            <div style={{ position:'relative', marginBottom:18, borderRadius:14, overflow:'hidden', border:'1px solid rgba(102,178,255,0.25)' }}>
+              <BattleScene3D
+                equipped={user?.equipped} gender={user?.gender || 'male'}
+                bossId={bossId} bossHp={bossHp} maxHp={bossMax}
+                attackSeq={attackSeq} hitSeq={hitSeq}
+                playerHp={playerHp} playerMaxHp={maxPlayerHp} playerName={user?.firstName || 'Ты'}
+                hud={bossIntroPhase !== 'intro'}
+                height={Math.round((typeof window !== 'undefined' ? window.innerHeight : 900) * 0.46)}
+              />
+              {dmgMsg && <div style={{ position:'absolute', top:'42%', left:'72%', color:'#ef4444', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:20, whiteSpace:'nowrap', textShadow:'0 2px 6px rgba(0,0,0,0.7)', animation:'boss-dmg 0.7s ease forwards', pointerEvents:'none' }}>{dmgMsg}</div>}
+              {bossHp <= 0 && <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:'#f5c518', textShadow:'0 0 14px rgba(0,0,0,0.8)', pointerEvents:'none' }}>🏆 Босс повержен!</div>}
+              {bossHp > 0 && playerHp <= 0 && <div style={{ position:'absolute', bottom:12, left:16, fontFamily:"'Inter',sans-serif", fontSize:13, color:'rgba(255,255,255,0.85)', textShadow:'0 1px 4px rgba(0,0,0,0.7)', pointerEvents:'none' }}>Босс одолел… но учёба идёт</div>}
             </div>
           </>
         )}
@@ -1101,7 +1178,9 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         </div>
 
         {/* Герой-компаньон: idle; верный ответ → прыжок, ошибка → вздрагивание.
-            Скрыт на мобиле (≤760px), клики не перехватывает. */}
+            Скрыт на мобиле (≤760px), клики не перехватывает. В бою НЕ рендерим —
+            герой уже показан внутри BattleScene3D (иначе дублирование персонажа). */}
+        {!bossActive && (
         <div className="daily-companion">
           <Character3D
             gender={user?.gender || 'male'}
@@ -1112,6 +1191,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
             animation={companionAnim}
           />
         </div>
+        )}
         </div>
       </div>
     </div>

@@ -4,7 +4,8 @@ import { getContent } from "../lib/contentCache.js";
 import { DIFFICULTY_WEIGHTS } from "../lib/appConstants.js";
 import { useTheme } from "../ThemeContext.jsx";
 import { shuffle, generateQuestion, updateTopicProgress } from "../lib/mathUtils.js";
-import PixelBoss from "../components/PixelBoss.jsx";
+import Boss3D from "../components/Boss3D.jsx";
+import { bossForSection } from "../lib/bossConfig.js";
 import ImageModal from "../components/ui/ImageModal.jsx";
 import MathText from "../components/ui/MathText.jsx";
 import ChartRenderer from "../components/charts/ChartRenderer.jsx";
@@ -13,10 +14,11 @@ export default function BossFightScreen({ section, user, onBack }) {
   const { theme: THEME } = useTheme();
   const bossType = section.sectionType;
   const isChapter = bossType === "chapter";
+  const bossDef = bossForSection(bossType, user?.details || user?.grade);
   const [phase,setPhase]=useState("loading");
   const [questions,setQuestions]=useState([]);
   const [qIdx,setQIdx]=useState(0);
-  const [bossHp,setBossHp]=useState(100);
+  const [bossHp,setBossHp]=useState(bossDef.hp);
   const [answers,setAnswers]=useState([]);
   const [shake,setShake]=useState(false);
   const [dmgMsg,setDmgMsg]=useState(null);
@@ -36,10 +38,11 @@ export default function BossFightScreen({ section, user, onBack }) {
     })();
   },[]);
 
-  const maxHp=100;
+  const maxHp=bossDef.hp;
   const dmgPerQ=questions.length>0?maxHp/questions.length:20;
-  const hpColor=bossHp>60?"#22c55e":bossHp>30?"#f59e0b":"#ef4444";
-  const bossName=isChapter?"Тёмный Дракон":"Зелёный Слизень";
+  const bossHpPct=maxHp?Math.round(bossHp/maxHp*100):0;
+  const hpColor=bossHpPct>60?"#22c55e":bossHpPct>30?"#f59e0b":"#ef4444";
+  const bossName=bossDef.name;
   const bossAccent=isChapter?"#dc2626":"#16a34a";
 
   const handleChoose=(idx)=>{
@@ -156,8 +159,8 @@ export default function BossFightScreen({ section, user, onBack }) {
       {/* Boss panel */}
       <div style={{background:isChapter?"linear-gradient(180deg,#2d0a0a,#1a0a0a)":"linear-gradient(180deg,#0a2d0a,#0a1a0a)",borderBottom:`2px solid ${bossAccent}33`,padding:"24px 32px",position:"sticky",top:0,zIndex:10}}>
         <div style={{maxWidth:800,margin:"0 auto",display:"flex",alignItems:"center",gap:24,flexWrap:"wrap"}}>
-          <div style={{position:"relative",flexShrink:0}}>
-            <PixelBoss type={bossType} hpPct={bossHp} shake={shake}/>
+          <div style={{position:"relative",flexShrink:0,width:130}}>
+            <Boss3D bossId={bossDef.id} hpPct={bossHpPct} shake={shake} height={130}/>
             {dmgMsg&&<div style={{position:"absolute",top:-20,left:"50%",transform:"translateX(-50%)",color:"#ef4444",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:16,whiteSpace:"nowrap",animation:"boss-dmg 0.7s ease forwards",pointerEvents:"none"}}>{dmgMsg}</div>}
           </div>
           <div style={{flex:1,minWidth:200}}>
@@ -166,7 +169,7 @@ export default function BossFightScreen({ section, user, onBack }) {
               <span style={{color:hpColor,fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:15}}>{bossHp} / {maxHp} HP</span>
             </div>
             <div style={{height:16,background:"rgba(255,255,255,0.1)",borderRadius:99,overflow:"hidden",border:`1px solid ${bossAccent}44`}}>
-              <div style={{height:"100%",width:`${bossHp}%`,background:`linear-gradient(90deg,${hpColor},${hpColor}cc)`,borderRadius:99,transition:"width 0.5s ease",boxShadow:`0 0 8px ${hpColor}88`}}/>
+              <div style={{height:"100%",width:`${bossHpPct}%`,background:`linear-gradient(90deg,${hpColor},${hpColor}cc)`,borderRadius:99,transition:"width 0.5s ease",boxShadow:`0 0 8px ${hpColor}88`}}/>
             </div>
             <div style={{marginTop:8,fontSize:13,color:"rgba(255,255,255,0.5)"}}>Вопрос {qIdx+1} из {questions.length} · {isChapter?"Сложный":"Средний"} уровень</div>
           </div>

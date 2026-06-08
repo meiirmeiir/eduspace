@@ -136,9 +136,12 @@ export function setPurchasePrice(setId, inventory = []) {
 }
 
 // id завершённого сета (все 4 предмета линейки надеты) или null.
-export function completedSet(equipped) {
+// gender (опц.) — учитывать только сеты этого пола: сет другого пола (после
+// смены пола героя) НЕ считается надетым → не даёт бонус и не показывается.
+export function completedSet(equipped, gender) {
   if (!equipped) return null;
   for (const [id, set] of Object.entries(EQUIPMENT_SETS)) {
+    if (gender && set.gender && set.gender !== gender) continue;
     if (set.items.every((it) => EQ_SLOTS.some((s) => equipped[s] === it))) return id;
   }
   return null;
@@ -147,7 +150,8 @@ export function completedSet(equipped) {
 // HP персонажа — ЕДИНАЯ формула для всех экранов (профиль, магазин, бои):
 // база 3 + бонус ТЕКУЩЕГО экипированного сета. Per-item hp больше не суммируем
 // (наряды надеваются только целыми сетами → давало завышение, напр. 8 вместо 5).
-export function computePlayerHp(equipped) {
-  const set = completedSet(equipped);
+// gender (опц.) — игнорировать сет чужого пола (вернётся base 3).
+export function computePlayerHp(equipped, gender) {
+  const set = completedSet(equipped, gender);
   return 3 + (set ? (EQUIPMENT_SETS[set].bonus || 0) : 0);
 }

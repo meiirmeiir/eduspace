@@ -646,7 +646,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
               </div>
               {/* HP-блок: сердце + текущее HP + бонус от снаряжения */}
               {(() => {
-                const setId = completedSet(equipped);
+                const setId = completedSet(equipped, user?.gender || 'male');
                 // Бонус берётся ИМЕННО из текущего экипированного сета (а не из
                 // computePlayerHp, где суммируются ещё и per-item hp → завышение).
                 const bonus = setId ? (EQUIPMENT_SETS[setId].bonus || 0) : 0;
@@ -700,7 +700,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
                   .map(([setId, set]) => {
                     const { missing, price } = setPurchasePrice(setId, inventory);
                     const ownedAll = missing.length === 0;
-                    const isWorn = completedSet(equipped) === setId;
+                    const isWorn = completedSet(equipped, user?.gender || 'male') === setId;
                     const busy = pendingId === `set-${setId}` || pendingId === `equip-set-${setId}`;
                     return (
                       <div key={setId} className={`dashboard-section shop-card shop-rarity-${set.rarity || 'common'}`} style={{

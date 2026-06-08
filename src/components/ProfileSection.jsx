@@ -79,15 +79,21 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
     if(!editForm.region){alert("Выберите область.");return;}
     setEditSaving(true);
     try{
+      const newGender=editForm.gender||"male";
+      // Смена пола → снять экипировку чужого пола: иначе сет другого пола остаётся
+      // «надетым» (даёт бонус и показывается), хотя 3D-модель его не отрисовывает.
+      const wornId=completedSet(user?.equipped);
+      const clearEquip=wornId && EQUIPMENT_SETS[wornId]?.gender && EQUIPMENT_SETS[wornId].gender!==newGender;
       const updates={
         firstName:editForm.firstName.trim(),
         lastName:editForm.lastName.trim(),
-        gender:editForm.gender||"male",
+        gender:newGender,
         goalKey:editForm.goalKey,
         goal:REG_GOALS[editForm.goalKey],
         details:editForm.details,
         region:editForm.region,
         ...(editForm.avatarUrl?{avatarUrl:editForm.avatarUrl}:{}),
+        ...(clearEquip?{equipped:{...(user?.equipped||{}),helmet:null,top:null,bottom:null,boots:null}}:{}),
       };
       await updateDoc(doc(db,"users",user.uid),updates);
       onUpdateUser?.({...user,...updates});
@@ -148,12 +154,15 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
     const d = new Date(bestKey + 'T12:00:00');
     return { day: d.toLocaleDateString('ru-RU', { weekday: 'short' }), count: bestCount };
   })();
-  // Герой: HP, надетый сет, собранные сеты
-  const heroHp = computePlayerHp(user?.equipped);
-  const heroSetId = completedSet(user?.equipped);
+  // Герой: HP, надетый сет, собранные сеты. gender-фильтр: сет чужого пола
+  // (после смены пола) не считается надетым → base HP, без бонуса.
+  const heroGender = user?.gender || 'male';
+  const heroHp = computePlayerHp(user?.equipped, heroGender);
+  const heroSetId = completedSet(user?.equipped, heroGender);
   const inventoryArr = Array.isArray(user?.inventory) ? user.inventory : [];
   const ownedSets = Object.entries(EQUIPMENT_SETS).filter(([, s]) => s.items.every(id => inventoryArr.includes(id)));
-  const equippedItems = ['helmet','top','bottom','boots'].map(s => getShopItem(user?.equipped?.[s])).filter(Boolean);
+  // equippedItems показываем только для сета своего пола (иначе чужие вещи в HUD)
+  const equippedItems = heroSetId ? ['helmet','top','bottom','boots'].map(s => getShopItem(user?.equipped?.[s])).filter(Boolean) : [];
   // Следующий тир уровня — долгосрочная цель под XP-баром
   const levelInfo = getLevelInfo(user?.xp ?? 0);
   const nextTier = LEVEL_TIERS[LEVEL_TIERS.findIndex(t => t.tier === levelInfo.tier.tier) + 1] || null;

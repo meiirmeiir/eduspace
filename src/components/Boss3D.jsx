@@ -1,16 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadThree } from '../lib/loadThree.js';
+import { pickClip, cloneCharacterScene } from './Character3D.jsx';
+import { BOSSES, bossById, loadBossModel, normalizeBoss } from '../lib/bossConfig.js';
 import PixelBoss from './PixelBoss.jsx';
 
-// 3D-боссы (Three.js r128) в космо-стиле, единые с Lego-персонажем. 5 типов:
-// ufo / robot / slime / dragon / asteroid — из примитивов, металлик + emissive.
-// Совместимый с PixelBoss интерфейс: props { type, hpPct, shake }. Idle-анимация
-// (спин/скан/сквош/волна/кувырок), shake при уроне, затемнение при низком HP.
-// Один WebGL-контекст, полный cleanup. При сбое Three.js → PixelBoss (фолбэк).
-// Билдер buildBoss вынесен — переиспользуется в BattleScene3D (общая сцена боя).
+// 3D-боссы на GLB-моделях (public/models/bosses/*.glb), единый загрузчик с
+// персонажами (GLTFLoader r128). Idle — встроенная анимация GLB через
+// AnimationMixer, иначе программное покачивание (sin, период ~2с, амплитуда 0.1).
+// Сохранены: shake при уроне, dim+pulse при низком HP. Фолбэк → PixelBoss.
+// buildBossFromGltf переиспользуется в BattleScene3D (общая сцена боя).
 
-export const BOSS3D_TYPES = ['ufo', 'robot', 'slime', 'dragon', 'asteroid'];
-
+// Лёгкий env-cube для металлических бликов (используется и в BattleScene3D).
 export function makeEnvCube(THREE) {
   const faces = [];
   for (let i = 0; i < 6; i++) {
@@ -25,90 +25,65 @@ export function makeEnvCube(THREE) {
   const tex = new THREE.CubeTexture(faces); tex.needsUpdate = true; return tex;
 }
 
-// Строит босса заданного типа в новую Group. Возвращает группу, per-type idle
-// tick(t,dt), список dmgMats (для затемнения по HP) и созданные geos/mats (для
-// dispose вызывающим). Геометрии/материалы НЕ привязаны к рендереру.
-export function buildBoss(THREE, env, type) {
-  const geos = [], mats = [], dmgMats = [];
+// Клонирует GLB-сцену босса в новую Group: материалы клонируются per-instance
+// (для dim по HP без порчи кеша), геометрии шарятся с кешем (не диспозить).
+// Возвращает { group, dmgMats, mixer, tick, hasAnim }.
+export function buildBossFromGltf(THREE, gltf, targetH = 3.0) {
   const group = new THREE.Group();
-  const M = (color, o = {}) => {
-    const m = new THREE.MeshStandardMaterial({
-      color, metalness: o.metal ?? 0.5, roughness: o.rough ?? 0.4,
-      envMap: o.flat ? null : env, envMapIntensity: o.flat ? 0 : 0.8,
-      emissive: o.emissive ?? 0x000000, emissiveIntensity: o.emissive ? (o.ei ?? 0.6) : 0,
-      flatShading: !!o.flat, transparent: !!o.transparent, opacity: o.opacity ?? 1,
-    });
-    m.userData.baseColor = m.color.clone();
-    m.userData.baseEmis = m.emissiveIntensity;
-    m.userData.isEmis = !!o.emissive;
-    mats.push(m); dmgMats.push(m); return m;
-  };
-  const add = (geo, mat, x = 0, y = 0, z = 0) => { geos.push(geo); const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); group.add(m); return m; };
+  const model = cloneCharacterScene(THREE, gltf); // SkeletonUtils.clone (или scene.clone)
+  const dmgMats = [];
+  model.traverse((o) => {
+    if (o.isMesh || o.isSkinnedMesh) {
+      o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
+      const list = Array.isArray(o.material) ? o.material : [o.material];
+      list.forEach((m) => {
+        m.userData = m.userData || {};
+        m.userData.baseColor = m.color ? m.color.clone() : null;
+        m.userData.baseEmis = m.emissiveIntensity ?? 0;
+        m.userData.isEmis = !!(m.emissive && (m.emissive.r || m.emissive.g || m.emissive.b));
+        dmgMats.push(m);
+      });
+    }
+  });
+  normalizeBoss(THREE, model, targetH);
+  group.add(model);
 
-  let tick = () => {};
-  if (type === 'robot') {
-    add(new THREE.BoxGeometry(1.2, 1.3, 0.7), M(0x556070, { metal: 0.85, rough: 0.3 }), 0, -0.1, 0);
-    add(new THREE.BoxGeometry(0.74, 0.52, 0.62), M(0x44506a, { metal: 0.85, rough: 0.3 }), 0, 0.78, 0);
-    const eye = add(new THREE.BoxGeometry(0.5, 0.13, 0.1), M(0x0b1220, { emissive: 0x22d3ee, ei: 0.95, metal: 0.6 }), 0, 0.8, 0.32);
-    const cannonGeo = new THREE.CylinderGeometry(0.16, 0.18, 0.8, 16); cannonGeo.rotateX(Math.PI / 2);
-    [-0.85, 0.85].forEach((x) => { add(cannonGeo, M(0x3a4458, { metal: 0.9, rough: 0.25 }), x, 0, 0.2); add(new THREE.SphereGeometry(0.13, 12, 12), M(0x0b1220, { emissive: 0xf97316, ei: 0.8 }), x, 0, 0.62); });
-    tick = (t) => { eye.position.x = Math.sin(t * 2.2) * 0.13; };
-  } else if (type === 'slime') {
-    const body = add(new THREE.SphereGeometry(1.1, 24, 20), M(0x22c55e, { emissive: 0x0f5132, ei: 0.3, rough: 0.35, metal: 0.1 }), 0, -0.1, 0);
-    [-0.34, 0.34].forEach((x) => { add(new THREE.SphereGeometry(0.2, 14, 14), M(0xffffff, { emissive: 0x335544, ei: 0.2, rough: 0.2 }), x, 0.15, 0.92); add(new THREE.SphereGeometry(0.09, 10, 10), M(0x0a0f0a), x, 0.15, 1.06); });
-    tick = (t) => { const s = 1 + 0.08 * Math.sin(t * 2.6); body.scale.set(1 / Math.sqrt(s), s, 1 / Math.sqrt(s)); };
-  } else if (type === 'dragon') {
-    add(new THREE.BoxGeometry(0.7, 0.6, 0.7), M(0x3a2a55, { metal: 0.4, rough: 0.5 }), 0, 0.3, 0.1);
-    const snout = new THREE.ConeGeometry(0.32, 0.6, 12); snout.rotateX(Math.PI / 2);
-    add(snout, M(0x4a3a66, { metal: 0.4 }), 0, 0.2, 0.6);
-    [-0.22, 0.22].forEach((x) => { const horn = new THREE.ConeGeometry(0.08, 0.34, 8); add(horn, M(0xc9b9e6, { metal: 0.3 }), x, 0.66, 0); add(new THREE.SphereGeometry(0.075, 10, 10), M(0xff5a2b, { emissive: 0xff5a2b, ei: 0.9 }), x, 0.32, 0.42); });
-    const segs = [];
-    [[0, -0.4, -0.5, 0.5], [-0.15, -0.7, -1.0, 0.4], [-0.25, -0.95, -1.5, 0.3]].forEach(([x, y, z, r]) => segs.push(add(new THREE.SphereGeometry(r, 16, 14), M(0x4a3a66, { metal: 0.4, rough: 0.5 }), x, y, z)));
-    tick = (t) => { segs.forEach((sg, i) => { sg.position.x = (i + 1) * 0.12 * Math.sin(t * 2 + i * 0.9); }); };
-  } else if (type === 'asteroid') {
-    const rock = add(new THREE.IcosahedronGeometry(1.15, 0), M(0x5a5048, { flat: true, rough: 0.95, metal: 0.1 }), 0, 0, 0);
-    const cryGeo = new THREE.OctahedronGeometry(0.22);
-    [[0.7, 0.5, 0.5, 0x22d3ee], [-0.6, 0.3, 0.7, 0xa855f7], [0.2, -0.6, 0.8, 0x22d3ee], [-0.4, -0.4, 0.6, 0xf6a93b]].forEach(([x, y, z, c]) => add(cryGeo, M(c, { emissive: c, ei: 0.85, rough: 0.2 }), x, y, z));
-    [-0.28, 0.3].forEach((x) => add(new THREE.SphereGeometry(0.11, 12, 12), M(0xf6a93b, { emissive: 0xf6a93b, ei: 0.9 }), x, 0.12, 0.92));
-    tick = (t) => { rock.rotation.y = t * 0.35; rock.rotation.x = Math.sin(t * 0.4) * 0.2; };
-  } else { // ufo
-    const disc = add(new THREE.SphereGeometry(1.15, 28, 16), M(0x8893a8, { metal: 0.92, rough: 0.22 }), 0, 0, 0); disc.scale.set(1, 0.32, 1);
-    const ringGeo = new THREE.TorusGeometry(1.12, 0.06, 10, 32); ringGeo.rotateX(Math.PI / 2);
-    add(ringGeo, M(0x0b1220, { emissive: 0x22d3ee, ei: 0.8 }), 0, 0, 0);
-    add(new THREE.SphereGeometry(0.55, 20, 16, 0, Math.PI * 2, 0, Math.PI / 2), M(0x6fc9f0, { emissive: 0x3a7bd5, ei: 0.45, metal: 0.3, rough: 0.15, transparent: true, opacity: 0.92 }), 0, 0.18, 0);
-    const lights = [];
-    const N = 8;
-    for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2; lights.push({ m: add(new THREE.SphereGeometry(0.08, 10, 10), M(0x22d3ee, { emissive: 0x22d3ee, ei: 0.9 }), Math.cos(a) * 1.08, 0, Math.sin(a) * 1.08), p: a }); }
-    tick = (t) => { disc.rotation.y = t * 0.6; lights.forEach((l) => { l.m.material.emissiveIntensity = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 3 + l.p * 2)); }); };
+  let mixer = null;
+  if (gltf.animations && gltf.animations.length) {
+    mixer = new THREE.AnimationMixer(model);
+    const clip = pickClip(gltf.animations, 'idle');
+    if (clip) mixer.clipAction(clip).play();
   }
-  group.userData.emisFlicker = type !== 'ufo'; // у НЛО огни мигают сами
-  return { group, tick, dmgMats, geos, mats };
+  const tick = (t, dt) => { if (mixer) mixer.update(dt); };
+  group.userData.emisFlicker = true;
+  return { group, dmgMats, mixer, tick, hasAnim: !!mixer };
 }
 
-// Применяет затемнение/тревожный пульс к dmgMats по проценту HP (0..100).
+// Затемнение/тревожный пульс материалов по проценту HP (0..100).
 export function applyBossDamageDim(dmgMats, hpPct, t, emisFlicker = true) {
   const dim = hpPct < 25 ? 0.55 : hpPct < 50 ? 0.78 : 1;
   const lowPulse = hpPct < 25 ? (0.6 + 0.4 * Math.sin(t * 8)) : 1;
   for (const m of dmgMats) {
-    m.color.copy(m.userData.baseColor).multiplyScalar(dim);
-    if (m.userData.isEmis && emisFlicker) m.emissiveIntensity = m.userData.baseEmis * lowPulse;
+    if (m.userData?.baseColor && m.color) m.color.copy(m.userData.baseColor).multiplyScalar(dim);
+    if (m.userData?.isEmis && emisFlicker) m.emissiveIntensity = m.userData.baseEmis * lowPulse;
   }
 }
 
-export default function Boss3D({ type = 'ufo', hpPct = 100, shake = false, height = 150 }) {
+export default function Boss3D({ bossId = BOSSES[0].id, hpPct = 100, shake = false, height = 150 }) {
   const mountRef = useRef(null);
   const [failed, setFailed] = useState(false);
   const hpRef = useRef(hpPct); hpRef.current = hpPct;
   const shakeRef = useRef(shake); shakeRef.current = shake;
+  const boss = bossById(bossId);
 
   useEffect(() => {
-    let renderer, scene, camera, frameId, clock, ro;
+    let renderer, scene, camera, frameId, clock, ro, mixer;
     let cancelled = false;
     const mount = mountRef.current;
     if (!mount) return;
-    const geos = [], mats = [], texs = [];
+    const texs = [], clonedMats = [];
 
-    loadThree().then((THREE) => {
+    Promise.all([loadThree(), loadBossModel(boss.model)]).then(([THREE, { gltf }]) => {
       if (cancelled || !mount) return;
       let W = mount.clientWidth || 180;
 
@@ -120,17 +95,20 @@ export default function Boss3D({ type = 'ufo', hpPct = 100, shake = false, heigh
 
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(40, W / height, 0.1, 100);
-      camera.position.set(0, 0.4, 5);
-      camera.lookAt(0, 0, 0);
+      camera.position.set(0, 1.7, 5.4);
+      camera.lookAt(0, 1.4, 0);
 
-      const env = makeEnvCube(THREE); texs.push(env);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      scene.add(new THREE.AmbientLight(0xffffff, 0.65));
       const keyL = new THREE.DirectionalLight(0xffffff, 1.0); keyL.position.set(3, 5, 6); scene.add(keyL);
       const fill = new THREE.DirectionalLight(0x9bd0ff, 0.4); fill.position.set(-4, 1, 3); scene.add(fill);
+      // драматичный красный контровой свет за боссом
+      const rim = new THREE.PointLight(0xff5a2b, 0.8, 30); rim.position.set(0, 2.5, -3); scene.add(rim);
 
-      const { group, tick, dmgMats, geos: bGeos, mats: bMats } = buildBoss(THREE, env, type);
-      scene.add(group); geos.push(...bGeos); mats.push(...bMats);
-      const emisFlicker = group.userData.emisFlicker;
+      const built = buildBossFromGltf(THREE, gltf);
+      mixer = built.mixer;
+      clonedMats.push(...built.dmgMats);
+      scene.add(built.group);
+      const emisFlicker = built.group.userData.emisFlicker;
 
       ro = new ResizeObserver(() => { if (!renderer || !mount) return; W = mount.clientWidth || W; renderer.setSize(W, height); camera.aspect = W / height; camera.updateProjectionMatrix(); });
       ro.observe(mount);
@@ -139,23 +117,26 @@ export default function Boss3D({ type = 'ufo', hpPct = 100, shake = false, heigh
       const animate = () => {
         frameId = requestAnimationFrame(animate);
         const t = clock.getElapsedTime(); const dt = Math.min(t - last, 0.05); last = t;
-        tick(t, dt);
-        group.position.y = Math.sin(t * 1.3) * 0.05;
-        if (shakeRef.current) { group.position.x = Math.sin(t * 60) * 0.08; group.rotation.z = Math.sin(t * 55) * 0.05; }
-        else { group.position.x += (0 - group.position.x) * 0.3; group.rotation.z += (0 - group.rotation.z) * 0.3; }
-        applyBossDamageDim(dmgMats, hpRef.current, t, emisFlicker);
+        built.tick(t, dt);
+        // idle-покачивание: без встроенной анимации — заметнее (sin период ~2с, амп 0.1)
+        built.group.position.y = built.hasAnim ? Math.sin(t * 1.3) * 0.04 : Math.sin(t * Math.PI) * 0.1;
+        if (shakeRef.current) { built.group.position.x = Math.sin(t * 60) * 0.08; built.group.rotation.z = Math.sin(t * 55) * 0.05; }
+        else { built.group.position.x += (0 - built.group.position.x) * 0.3; built.group.rotation.z += (0 - built.group.rotation.z) * 0.3; }
+        applyBossDamageDim(built.dmgMats, hpRef.current, t, emisFlicker);
         renderer.render(scene, camera);
       };
       animate();
-    }).catch((e) => { console.warn('[boss3d] three load failed:', e?.message || e); if (!cancelled) setFailed(true); });
+    }).catch((e) => { console.warn('[boss3d] load failed → PixelBoss:', e?.message || e); if (!cancelled) setFailed(true); });
 
     return () => {
       cancelled = true;
       if (frameId) cancelAnimationFrame(frameId);
       if (ro) ro.disconnect();
-      geos.forEach((g) => g.dispose && g.dispose());
-      mats.forEach((m) => m.dispose && m.dispose());
-      texs.forEach((t) => t.dispose && t.dispose());
+      if (mixer) { mixer.stopAllAction(); try { mixer.uncacheRoot(mixer.getRoot()); } catch { /* noop */ } }
+      // Чистим только клонированные per-instance материалы и текстуры; геометрии
+      // шарятся с GLB-кешем — не диспозим (как в Character3D).
+      clonedMats.forEach((m) => m.dispose && m.dispose());
+      texs.forEach((tx) => tx.dispose && tx.dispose());
       if (renderer) {
         if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
         renderer.dispose();
@@ -163,10 +144,10 @@ export default function Boss3D({ type = 'ufo', hpPct = 100, shake = false, heigh
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, height]);
+  }, [bossId, height]);
 
   if (failed) {
-    const legacy = (type === 'slime' || type === 'ufo') ? 'topic' : 'chapter';
+    const legacy = (boss.tier <= 2) ? 'topic' : 'chapter';
     return <PixelBoss type={legacy} hpPct={hpPct} shake={shake} />;
   }
   return <div ref={mountRef} style={{ width: '100%', height }} />;
