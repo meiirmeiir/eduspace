@@ -189,7 +189,7 @@ export default function FriendsScreen({ user, onBack, onOpenPublicProfile }) {
         .fr-card { transition: transform 0.15s, box-shadow 0.15s; }
         .fr-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px -8px rgba(10,25,47,0.18); }
       `}</style>
-      <div style={{ background: THEME.primary, padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
+      <div style={{ background: THEME.primary, padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64, borderBottom: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 1px 8px rgba(0,0,0,0.18)' }}>
         <Logo size={32} light />
         <button onClick={onBack} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.25)', color: THEME.onPrimary ?? '#fff', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontFamily: "'Inter',sans-serif" }}>← Назад</button>
       </div>
@@ -345,8 +345,9 @@ export default function FriendsScreen({ user, onBack, onOpenPublicProfile }) {
                         <div title={`Уровень ${li.level}`} style={{ position: 'absolute', right: -3, bottom: -3, minWidth: 20, height: 20, borderRadius: 20, padding: '0 4px', boxSizing: 'border-box', background: li.tier.color, color: '#0f172a', border: `2px solid ${THEME.surface}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 10 }}>{li.level}</div>
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 16, color: THEME.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {name}{i === 0 && <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 800, color: '#b45309', background: 'rgba(251,191,36,0.18)', border: '1px solid rgba(251,191,36,0.45)', borderRadius: 99, padding: '2px 8px', verticalAlign: '1px' }}>лидер недели</span>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                          <span style={{ fontWeight: 600, fontSize: 16, color: THEME.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{name}</span>
+                          {i === 0 && <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 800, color: '#b45309', background: 'rgba(251,191,36,0.18)', border: '1px solid rgba(251,191,36,0.45)', borderRadius: 99, padding: '3px 9px', whiteSpace: 'nowrap', lineHeight: 1.3 }}>лидер недели</span>}
                         </div>
                         {titleItem?.value && <div style={{ fontSize: 11, color: '#d4af37' }}>{titleItem.value}</div>}
                       </div>

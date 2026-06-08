@@ -12,7 +12,7 @@ export default function Logo({ size=48, light=false }) {
   const subtitleColor = light ? (THEME.onPrimary ?? '#fff') : THEME.accent;
   return (
     <div style={{display:"flex",alignItems:"center",gap:14}}>
-      <svg width={size} height={size} viewBox="0 0 100 100" fill="none" style={{flexShrink:0}}>
+      <svg width={size} height={size} viewBox="0 0 100 100" fill="none" style={{flexShrink:0, filter:'drop-shadow(0 0 5px rgba(251,191,36,0.45))'}}>
         <circle cx="50" cy="50" r="50" fill="#0A2463"/>
         <path d="M45 35 L85 15 L78 28 L95 35 L78 40 L85 55 L65 40 Z" fill="#FBBF24"/>
         <path d="M50 75 Q35 60 15 65 L15 75 Q35 70 50 85 Q65 70 85 75 L85 65 Q65 60 50 75Z" fill="#E2E8F0"/>

@@ -373,7 +373,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile, o
           pointerEvents:'none',
         }}/>
       )}
-      <div style={{background:THEME.primary, padding:'0 24px', display:'flex', alignItems:'center', justifyContent:'space-between', height:64}}>
+      <div style={{background:THEME.primary, padding:'0 24px', display:'flex', alignItems:'center', justifyContent:'space-between', height:64, borderBottom:'1px solid rgba(255,255,255,0.06)', boxShadow:'0 1px 8px rgba(0,0,0,0.18)'}}>
         <Logo size={32} light/>
         <button onClick={onBack} style={{background:'transparent', border:`1px solid ${THEME.onPrimary ?? 'rgba(255,255,255,0.2)'}33`, color:THEME.onPrimary ?? '#fff', borderRadius:8, padding:'8px 16px', cursor:'pointer', fontSize:13, fontFamily:"'Inter',sans-serif"}}>← Назад</button>
       </div>

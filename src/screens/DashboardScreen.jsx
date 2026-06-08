@@ -693,16 +693,21 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
                       <InfoTooltip text="Недельный рейтинг. Очки за ежедневные задачи, навыки и диагностику. Сбрасывается каждый понедельник." />
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-                      {wkCh !== 0 && (
+                      {/* Показываем только положительную динамику; отрицательную/ноль скрываем,
+                          а при нулевом рейтинге — мотивирующая подпись вместо красного бейджа. */}
+                      {wkCh > 0 ? (
                         <div style={{
                           fontSize:13,fontWeight:700,
-                          color: wkCh > 0 ? '#10b981' : '#ef4444',
-                          background: wkCh > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                          color:'#10b981',background:'rgba(16,185,129,0.12)',
                           padding:'4px 10px',borderRadius:99,
                         }}>
-                          {wkCh > 0 ? '+' : ''}{wkCh} за неделю {wkCh > 0 ? '↑' : '↓'}
+                          +{wkCh} за неделю ↑
                         </div>
-                      )}
+                      ) : myPts === 0 ? (
+                        <div style={{fontSize:12,fontWeight:600,color:'rgba(226,232,240,0.6)'}}>
+                          Реши задачи — появишься в рейтинге
+                        </div>
+                      ) : null}
                       <div style={{fontFamily:"'Montserrat',sans-serif",fontSize:24,fontWeight:800,color:'#a78bfa',whiteSpace:'nowrap',lineHeight:1}}>
                         💎 {(user?.crystals ?? 0).toLocaleString('ru-RU')}
                       </div>

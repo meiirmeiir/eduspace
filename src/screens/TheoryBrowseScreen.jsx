@@ -287,7 +287,7 @@ function TheoryWalkthrough({ entry, ruName, onExit, awardXp }) {
         </div>
       </div>
 
-      <div className="tw-step" key={stepIdx} style={{ maxWidth:780, margin:'0 auto', padding:'14px 20px 60px' }}>
+      <div className="tw-step" key={stepIdx} style={{ maxWidth:780, margin:'0 auto', padding:'14px 20px 40px', display:'flex', flexDirection:'column', minHeight:'calc(100vh - 150px)' }}>
         {/* Заголовок темы */}
         <div style={{ marginBottom:22 }}>
           <div style={{ fontSize:13, color:THEME.textLight, marginBottom:6 }}>{[ruVerticalUpper(entry.vertical_line_id), entry.grade ? `${entry.grade} класс` : ''].filter(Boolean).join(' · ')}</div>
@@ -352,6 +352,19 @@ function TheoryWalkthrough({ entry, ruName, onExit, awardXp }) {
             <button onClick={onExit} style={ctaStyle}>Вернуться к теории</button>
           </div>
         )}
+
+        {/* Мотивационный футер, прижатый к низу видимой области — заполняет пустоту
+            под коротким контентом (напр. шаг «Теория»). */}
+        {steps.length > 0 && cur !== 'result' && (() => {
+          const stepNo = Math.min(stepIdx + 1, steps.length);
+          const remaining = steps.length - stepNo;
+          const pl = (n) => { const a = n % 100, b = a % 10; if (a > 10 && a < 20) return 'шагов'; if (b > 1 && b < 5) return 'шага'; if (b === 1) return 'шаг'; return 'шагов'; };
+          return (
+            <div style={{ marginTop:'auto', paddingTop:28, textAlign:'center', fontSize:12.5, fontWeight:600, color:THEME.textLight, opacity:0.75 }}>
+              Шаг {stepNo} из {steps.length}{remaining > 0 ? ` · осталось ${remaining} ${pl(remaining)}` : ' · последний шаг'}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

@@ -138,7 +138,7 @@ export default function QuestsWidget({ user, onUpdateUser, starterGate = false }
   const weeklyDone = countDone(WEEKLY_QUESTS, weekly);
 
   return (
-    <div className="dashboard-section" style={{ marginBottom: 0, padding: "22px 24px", flexGrow: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+    <div className="dashboard-section" style={{ marginBottom: 0, padding: "22px 24px", flexGrow: 1, display: "flex", flexDirection: "column", justifyContent: "flex-start" }}>
       <div>
         <SectionHeader title={<>📋 Задания дня<InfoTooltip text="Выполняй задания дня и недели — получай кристаллы. Дневные сбрасываются каждый день, недельные — в понедельник." /></>} reset={`Сброс через ${fmtDaily(dailyResetMs)}`} />
         {DAILY_QUESTS.map(q => <Row key={q.id} q={q} st={get(daily, q.id)} />)}

@@ -353,6 +353,7 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   padding-left:calc(24px + env(safe-area-inset-left));
   background:#ffffff;
   border-bottom:1px solid rgba(0,0,0,0.08);
+  box-shadow:0 2px 10px rgba(0,0,0,0.05);
   min-height:60px;
 }
 .app-topbar-back {
@@ -387,6 +388,7 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-theme="dark"] .app-topbar {
   background:#161b22 !important;
   border-bottom-color:rgba(255,255,255,0.08) !important;
+  box-shadow:0 2px 10px rgba(0,0,0,0.3) !important;
 }
 [data-theme="dark"] .app-topbar-back {
   color:#f0f6fc !important;
