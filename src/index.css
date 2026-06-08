@@ -347,15 +347,16 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   gap:12px;
   width:100%;
   box-sizing:border-box;
-  padding-top:calc(12px + env(safe-area-inset-top));
+  height:64px;
   padding-right:calc(24px + env(safe-area-inset-right));
-  padding-bottom:12px;
   padding-left:calc(24px + env(safe-area-inset-left));
   background:#ffffff;
   border-bottom:1px solid rgba(0,0,0,0.08);
   box-shadow:0 2px 10px rgba(0,0,0,0.05);
-  min-height:60px;
 }
+/* Правая зона: rightSlot + переключатель темы, прижата к краю */
+.app-topbar-right { margin-left:auto; display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.app-topbar-subtitle { font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:#64748b; white-space:nowrap; min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .app-topbar-back {
   display:inline-flex;
   align-items:center;
@@ -384,7 +385,7 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   white-space:nowrap;
   min-width:0;
 }
-.app-topbar .theme-toggle { margin-left:auto; padding:0; flex-shrink:0; }
+.app-topbar .theme-toggle { padding:0; flex-shrink:0; }
 [data-theme="dark"] .app-topbar {
   background:#161b22 !important;
   border-bottom-color:rgba(255,255,255,0.08) !important;
@@ -397,7 +398,7 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-theme="dark"] .app-topbar-back:hover { background:rgba(255,255,255,0.06) !important; }
 [data-theme="dark"] .app-topbar-title { color:#f0f6fc !important; }
 @media (max-width: 600px) {
-  .app-topbar { padding:12px 14px; padding-top:calc(12px + env(safe-area-inset-top)); }
+  .app-topbar { padding:0 16px; }
   .app-topbar-back { padding:8px 10px; }
   .app-topbar-back-text { display:none; }
   .app-topbar .logo-subtitle { display:none !important; }
@@ -1023,20 +1024,44 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   .profile-info-grid { grid-template-columns: 1fr !important; }
 }
 
-/* ── Профиль: двухколоночный лейаут (левая sticky «кто я», правая scroll «что сделал») ── */
+/* ── Профиль: двухколоночный лейаут (страница скроллится целиком, без отдельного
+   скролла внутри колонок) ── */
 .profile-layout { display: grid; grid-template-columns: 2fr 3fr; gap: 20px; align-items: start; }
-.profile-col-left { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding-right: 4px; }
+.profile-col-left { display: flex; flex-direction: column; gap: 16px; }
 .profile-col-right { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
-.profile-col-left::-webkit-scrollbar { width: 7px; }
-.profile-col-left::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.4); border-radius: 99px; }
 /* Компактные стат-карточки в левой колонке: 3×2 */
 .profile-col-left .profile-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 0; }
 .profile-col-left .profile-stats-grid .stat-card { padding: 13px 10px; }
 @media (max-width: 768px) {
   .profile-layout { grid-template-columns: 1fr; }
-  .profile-col-left { position: static; max-height: none; overflow: visible; padding-right: 0; }
   .profile-col-left .profile-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }
+
+/* ── AppTopbar варианты — поздно в файле + высокая специфичность, чтобы перебить
+   [data-theme="dark"] .page-themed [data-inner-nav] (тоже !important) ── */
+.app-topbar[data-inner-nav].app-topbar--dark {
+  background: #0d1117 !important;
+  border-bottom-color: rgba(255,255,255,0.06) !important;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.18) !important;
+}
+.app-topbar[data-inner-nav].app-topbar--transparent {
+  background: rgba(13,17,23,0.7) !important;
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-bottom-color: rgba(255,255,255,0.06) !important;
+  box-shadow: none !important;
+}
+.app-topbar--dark .app-topbar-title,
+.app-topbar--transparent .app-topbar-title { color: #f0f6fc !important; }
+.app-topbar--dark .app-topbar-subtitle,
+.app-topbar--transparent .app-topbar-subtitle { color: rgba(240,246,252,0.7) !important; }
+.app-topbar--dark .app-topbar-back,
+.app-topbar--transparent .app-topbar-back {
+  color: #f0f6fc !important;
+  border-color: rgba(255,255,255,0.2) !important;
+  background: rgba(255,255,255,0.05) !important;
+}
+.app-topbar--dark .app-topbar-back:hover,
+.app-topbar--transparent .app-topbar-back:hover { background: rgba(255,255,255,0.12) !important; }
 
 /* LeaderboardScreen / FriendsScreen — тёмный фон в тон остального приложения
    (#0a0e1a как dashboard dark). Фиолетовый — больше НЕ заливка всего экрана,

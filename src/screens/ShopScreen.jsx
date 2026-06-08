@@ -9,6 +9,7 @@ import { getLeague, getWeekId } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import InfoTooltip from "../components/InfoTooltip.jsx";
 import Character3D from "../components/Character3D.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 
 const THEME_SWATCHES = {
   galaxy: ['#1e1b4b', '#312e81', '#a78bfa'],
@@ -573,10 +574,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
         .shop-loadout-scroll::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.4); border-radius: 99px; }
         .shop-loadout-scroll::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.6); }
       `}</style>
-      <div style={{background:THEME.primary, padding:'0 24px', display:'flex', alignItems:'center', justifyContent:'space-between', height:64, borderBottom:'1px solid rgba(255,255,255,0.06)', boxShadow:'0 1px 8px rgba(0,0,0,0.18)'}}>
-        <Logo size={32} light/>
-        <button onClick={onBack} style={{background:'transparent', border:`1px solid ${THEME.onPrimary ?? 'rgba(255,255,255,0.2)'}33`, color:THEME.onPrimary ?? '#fff', borderRadius:8, padding:'8px 16px', cursor:'pointer', fontSize:13, fontFamily:"'Inter',sans-serif"}}>← Назад</button>
-      </div>
+      <AppTopbar variant="dark" title="Магазин" onBack={onBack} />
 
       <div style={{maxWidth:1100, margin:'0 auto', padding:'24px 16px'}}>
         <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color:THEME.primary, margin:'0 0 14px', display:'inline-flex', alignItems:'center'}}>🛍️ Магазин<InfoTooltip text="Трать кристаллы на оформление профиля: фоны, рамки, титулы, темы и снаряжение героя." /></h1>

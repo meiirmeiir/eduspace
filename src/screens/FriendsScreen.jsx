@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 import { FRAME_STYLES, getShopItem } from "../lib/shopItems.js";
 import { getLevelInfo } from "../lib/levelUtils.js";
 import {
@@ -189,10 +190,7 @@ export default function FriendsScreen({ user, onBack, onOpenPublicProfile }) {
         .fr-card { transition: transform 0.15s, box-shadow 0.15s; }
         .fr-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px -8px rgba(10,25,47,0.18); }
       `}</style>
-      <div style={{ background: THEME.primary, padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64, borderBottom: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 1px 8px rgba(0,0,0,0.18)' }}>
-        <Logo size={32} light />
-        <button onClick={onBack} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.25)', color: THEME.onPrimary ?? '#fff', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontFamily: "'Inter',sans-serif" }}>← Назад</button>
-      </div>
+      <AppTopbar variant="dark" title="Друзья" onBack={onBack} />
 
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 16px' }}>
 

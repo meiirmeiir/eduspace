@@ -7,6 +7,7 @@ import { addCrystals } from "../lib/crystalsUtils.js";
 import { addXp, XP_REWARDS } from "../lib/levelUtils.js";
 import { updateQuestProgress } from "../lib/questsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import { useNpc } from "../NpcContext.jsx";
 
@@ -208,13 +209,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
     const e = theory;
     return (
       <div style={{ minHeight:'100vh', background:BG }}>
-        <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <Logo size={28}/>
-          <div style={{ fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:13, color:THEME.primary }}>
-            📖 {skillName || skillId}
-          </div>
-          <button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
-        </nav>
+        <AppTopbar title={`📖 ${skillName || skillId}`} subtitle="Освоение навыка" onBack={onBack} />
         <div style={{ maxWidth:800, margin:'0 auto', padding:'32px 24px' }}>
           <div style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:12, padding:'14px 18px', marginBottom:24 }}>
             <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#6366f1', marginBottom:4 }}>Этап 1 из 3 — Изучение теории</div>

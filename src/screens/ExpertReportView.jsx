@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { RPG_NODES, RPG_PATHS } from "../lib/appConstants.js";
 import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 import RadarChart from "../components/ui/RadarChart.jsx";
 
 function PathMap({ user, onBack }) {
@@ -31,10 +32,7 @@ function ExpertReportView({ report, onBack, studentPhotos }) {
   const photos=studentPhotos||report.studentPhotos||[];
   return(
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <nav data-inner-nav style={{background:THEME.primary,padding:"0 40px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <Logo size={32} light/>
-        <button onClick={onBack} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.2)",color:"rgba(255,255,255,0.7)",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontFamily:"'Inter',sans-serif"}}>← Назад</button>
-      </nav>
+      <AppTopbar variant="dark" title="Экспертный отчёт" onBack={onBack} />
       <div style={{maxWidth:900,margin:"0 auto",padding:"40px 24px"}}>
         <div style={{marginBottom:32}}>
           <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:26,fontWeight:800,color:THEME.primary,marginBottom:6}}>Экспертный отчёт</h1>

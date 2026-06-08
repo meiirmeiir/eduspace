@@ -40,45 +40,74 @@ function longestRun(map) {
   return best;
 }
 
+// ISO-номер недели — для подписей баров («Нед. 21»).
+function isoWeekNum(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
 function ActivityGraph({ activity, streak, THEME }) {
   const days = activityLast(activity, ACT_WEEKS * 7);
-  // выравнивание на понедельник: добиваем пустыми клетками в начале
+  // выравнивание на понедельник, затем агрегация по неделям
   const firstDow = (days[0].date.getDay() + 6) % 7; // 0=пн
   const cells = [...Array(firstDow).fill(null), ...days];
-  const weeks = [];
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-  const colorFor = (c) => c === 0 ? 'rgba(148,163,184,0.18)'
-    : c <= 5 ? 'rgba(34,197,94,0.35)'
-    : c <= 15 ? 'rgba(34,197,94,0.65)'
-    : '#22c55e';
+  const rawWeeks = [];
+  for (let i = 0; i < cells.length; i += 7) rawWeeks.push(cells.slice(i, i + 7));
+  const weeks = rawWeeks.map(week => {
+    const real = week.filter(Boolean);
+    const total = real.reduce((s, d) => s + d.count, 0);
+    const repDate = (real[real.length - 1] || real[0])?.date || new Date();
+    return { total, weekNo: isoWeekNum(repDate) };
+  });
+  const total = weeks.reduce((s, w) => s + w.total, 0);
+  const maxVal = Math.max(1, ...weeks.map(w => w.total));
   const longest = Math.max(longestRun(activity), Number(streak) || 0);
-  const total = days.reduce((s, d) => s + d.count, 0);
+  const lastIdx = weeks.length - 1;
+  // цвет столбика: приглушённый #2a3a4a → яркий зелёный #4ade80 по доле
+  const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+  const barColor = (ratio) => {
+    const t = Math.min(1, Math.max(0, ratio));
+    return `rgb(${lerp(42, 74, t)},${lerp(58, 222, t)},${lerp(74, 128, t)})`;
+  };
   return (
     <div className="dashboard-section" style={{ marginBottom: 0 }}>
       <h2 className="section-title" style={{ marginBottom: 4 }}>📊 Твоя активность</h2>
-      <div style={{ fontSize: 12, color: THEME.textLight, marginBottom: 14 }}>
-        {total > 0 ? `${total} задач за последние ${ACT_WEEKS} недель` : 'Решай ежедневные задачи — здесь появится твоя карта активности'}
+      <div style={{ fontSize: 12, color: THEME.textLight, marginBottom: 16 }}>
+        {total > 0 ? `${total} задач за последние ${ACT_WEEKS} недель` : 'Решай ежедневные задачи — здесь появится твоя активность'}
       </div>
-      <div style={{ display: 'flex', gap: 3, overflowX: 'auto', paddingBottom: 6 }}>
-        {weeks.map((week, wi) => (
-          <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {week.map((d, di) => d === null
-              ? <span key={di} style={{ width: 13, height: 13 }}/>
-              : <span key={di}
-                  title={`${d.count} задач · ${d.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`}
-                  style={{ width: 13, height: 13, borderRadius: 3, background: colorFor(d.count), cursor: 'default' }}/>
-            )}
-          </div>
-        ))}
+      {/* Недельный бар-чарт: высота столбика ∝ числу задач за неделю */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, overflowX: 'auto', paddingBottom: 2 }}>
+        {weeks.map((w, i) => {
+          const ratio = w.total / maxVal;
+          const isCurrent = i === lastIdx;
+          const h = w.total === 0 ? (isCurrent ? 6 : 2) : Math.max(4, Math.round(ratio * 80));
+          const showLabel = (lastIdx - i) % 4 === 0;
+          return (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 0', minWidth: 16 }}>
+              <div style={{ height: 80, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                <div
+                  title={`Неделя ${w.weekNo} · ${w.total} задач`}
+                  style={{
+                    width: '72%', maxWidth: 22, height: h, borderRadius: '4px 4px 2px 2px',
+                    background: barColor(ratio),
+                    ...(isCurrent ? { boxShadow: '0 0 0 2px #fbbf24' } : {}),
+                    cursor: 'default', transition: 'height 0.3s ease',
+                  }}
+                />
+              </div>
+              <div style={{ height: 13, fontSize: 9, fontWeight: 600, color: THEME.textLight, marginTop: 4, whiteSpace: 'nowrap' }}>
+                {showLabel ? `Нед. ${w.weekNo}` : ''}
+              </div>
+            </div>
+          );
+        })}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 10, fontSize: 12, color: THEME.textLight, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 12, fontSize: 12, color: THEME.textLight, flexWrap: 'wrap' }}>
         <span>🔥 Стрик: <b style={{ color: '#f59e0b' }}>{Number(streak) || 0} дн</b></span>
-        <span>🏅 Самый длинный стрик: <b style={{ color: THEME.text }}>{longest} дн</b></span>
-        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          Меньше
-          {[0, 3, 10, 20].map(c => <span key={c} style={{ width: 11, height: 11, borderRadius: 3, background: colorFor(c) }}/>)}
-          Больше
-        </span>
+        <span>🏆 Самый длинный стрик: <b style={{ color: THEME.text }}>{longest} дн</b></span>
       </div>
     </div>
   );

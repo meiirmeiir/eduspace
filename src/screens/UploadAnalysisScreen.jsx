@@ -4,6 +4,7 @@ import { useTheme } from "../ThemeContext.jsx";
 import { compressImage } from "../lib/mathUtils.js";
 import { updateDoc, doc, db } from "../firestore-rest.js";
 import Logo from "../components/ui/Logo.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 
 // ── ЗАГРУЗКА ФОТО ─────────────────────────────────────────────────────────────
 function UploadAnalysisScreen({ user, onDone, onSkip, resultId }) {
@@ -60,10 +61,9 @@ function UploadAnalysisScreen({ user, onDone, onSkip, resultId }) {
 
   return (
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <nav data-inner-nav style={{background:THEME.primary,padding:"0 40px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <Logo size={32} light/>
+      <AppTopbar variant="dark" title="Загрузка работы" onBack={null} rightSlot={
         <button onClick={onSkip} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.2)",color:"rgba(255,255,255,0.7)",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontFamily:"'Inter',sans-serif"}}>Пропустить</button>
-      </nav>
+      } />
       <div style={{maxWidth:680,margin:"0 auto",padding:"48px 24px"}}>
         <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:28,fontWeight:800,color:THEME.primary,marginBottom:8}}>Загрузи фото решений</h1>
         <p style={{color:THEME.textLight,fontSize:16,marginBottom:36,lineHeight:1.6}}>Сфотографируй свои записи и отправь преподавателю для проверки.</p>

@@ -4,6 +4,7 @@ import { getWeekId, getMondayUtcIso, getLeague, LEAGUES } from "../lib/pointsUti
 import { getToken } from 'firebase/app-check';
 import { auth, app } from "../lib/firebase.js";
 import Logo from "../components/ui/Logo.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 import { FRAME_STYLES, getShopItem } from "../lib/shopItems.js";
 import { getLevelInfo } from "../lib/levelUtils.js";
 import InfoTooltip from "../components/InfoTooltip.jsx";
@@ -373,10 +374,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile, o
           pointerEvents:'none',
         }}/>
       )}
-      <div style={{background:THEME.primary, padding:'0 24px', display:'flex', alignItems:'center', justifyContent:'space-between', height:64, borderBottom:'1px solid rgba(255,255,255,0.06)', boxShadow:'0 1px 8px rgba(0,0,0,0.18)'}}>
-        <Logo size={32} light/>
-        <button onClick={onBack} style={{background:'transparent', border:`1px solid ${THEME.onPrimary ?? 'rgba(255,255,255,0.2)'}33`, color:THEME.onPrimary ?? '#fff', borderRadius:8, padding:'8px 16px', cursor:'pointer', fontSize:13, fontFamily:"'Inter',sans-serif"}}>← Назад</button>
-      </div>
+      <AppTopbar variant="dark" title="Рейтинг" onBack={onBack} />
 
       <div style={{maxWidth:720, margin:'0 auto', padding:'24px 16px'}}>
         {/* forceLightText = wallpaper активен → светлый текст поверх обоев.

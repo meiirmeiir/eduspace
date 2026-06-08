@@ -3,6 +3,7 @@ import { collection, getDocs, query, where, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
 import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 import PixelBoss from "../components/PixelBoss.jsx";
 
 export default function IntermediateTestsScreen({ user, onStartBoss, onBack }) {
@@ -37,10 +38,7 @@ export default function IntermediateTestsScreen({ user, onStartBoss, onBack }) {
 
   return(
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"16px 40px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <Logo size={32}/>
-        <button onClick={onBack} className="cta-button active" style={{width:"auto",padding:"10px 20px"}}>← Назад</button>
-      </nav>
+      <AppTopbar title="Промежуточный тест" onBack={onBack} />
       <div style={{maxWidth:960,margin:"0 auto",padding:"48px 24px"}}>
         <div style={{marginBottom:40}}>
           <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:32,fontWeight:800,color:THEME.primary,marginBottom:8}}>⚔️ Промежуточные тесты</h1>

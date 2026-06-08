@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useTheme } from "../ThemeContext.jsx";
 import { VERTICAL_LABELS } from "../lib/diagnosticUtils.js";
 import Logo from "../components/ui/Logo.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 
 function RoadmapScreen({ roadmap, user, onBack, onViewPlan }) {
   const { theme: THEME } = useTheme();
@@ -13,12 +14,7 @@ function RoadmapScreen({ roadmap, user, onBack, onViewPlan }) {
     <div style={{minHeight:'100vh',background:'linear-gradient(180deg,#080e1f 0%,#0d1a35 60%,#0a1228 100%)',color:'#fff',fontFamily:"'Inter',sans-serif"}}>
 
       {/* Nav */}
-      <nav style={{padding:'18px 32px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid rgba(255,255,255,0.06)',position:'sticky',top:0,backdropFilter:'blur(12px)',background:'rgba(8,14,31,0.85)',zIndex:100}}>
-        <Logo size={28}/>
-        <button onClick={onBack} style={{background:'transparent',border:'1px solid rgba(255,255,255,0.15)',color:'rgba(255,255,255,0.7)',borderRadius:8,padding:'8px 18px',cursor:'pointer',fontSize:13,fontFamily:"'Inter',sans-serif"}}>
-          На главную →
-        </button>
-      </nav>
+      <AppTopbar variant="transparent" backLabel="На главную" onBack={onBack} />
 
       <div style={{maxWidth:680,margin:'0 auto',padding:'44px 20px 80px'}}>
 

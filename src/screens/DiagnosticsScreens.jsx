@@ -8,6 +8,7 @@ import ChartRenderer from "../components/charts/ChartRenderer.jsx";
 import { getContent } from "../lib/contentCache.js";
 import { db, getDoc, getDocs, collection, query, where } from "../firestore-rest.js";
 import Logo from "../components/ui/Logo.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 import ImageModal from "../components/ui/ImageModal.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import MathText from "../components/ui/MathText.jsx";
@@ -193,10 +194,7 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
   // Список секций
   return (
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"16px 40px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <Logo size={32}/>
-        <button onClick={onBack} className="cta-button active" style={{width:"auto",padding:"10px 20px"}}>← Назад</button>
-      </nav>
+      <AppTopbar title="Диагностика" onBack={onBack} />
       <div style={{maxWidth:960,margin:"0 auto",padding:"48px 24px"}}>
         <div style={{marginBottom:40,display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
           <div>

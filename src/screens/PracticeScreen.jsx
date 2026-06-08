@@ -5,6 +5,7 @@ import { shuffle, generateQuestion } from "../lib/mathUtils.js";
 import { GRADES_LIST } from "../lib/appConstants.js";
 import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
+import AppTopbar from "../components/AppTopbar.jsx";
 import MathText from "../components/ui/MathText.jsx";
 import ChartRenderer from "../components/charts/ChartRenderer.jsx";
 import ImageModal from "../components/ui/ImageModal.jsx";
@@ -188,11 +189,7 @@ export default function PracticeScreen({ user, onBack }) {
   if (phase==="theory_list") {
     return (
       <div style={{minHeight:"100vh",background:THEME.bg}}>
-        <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <Logo size={28}/>
-          <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,color:THEME.textLight}}>📖 Теория</div>
-          <button onClick={()=>setPhase("select")} style={{background:"transparent",border:`1px solid ${THEME.border}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13,color:THEME.textLight}}>← Назад</button>
-        </nav>
+        <AppTopbar title="📖 Теория" onBack={()=>setPhase("select")} />
         <div style={{maxWidth:780,margin:"0 auto",padding:"40px 20px"}}>
           <div style={{marginBottom:28}}>
             <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:24,fontWeight:800,color:THEME.primary,marginBottom:4}}>Выбери тему для изучения</h1>
@@ -225,11 +222,7 @@ export default function PracticeScreen({ user, onBack }) {
     const cards = hasContent ? (theoryContent.cards||[]).filter(c=>c.front||c.back) : [];
     return (
       <div style={{minHeight:"100vh",background:THEME.bg}}>
-        <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <Logo size={28}/>
-          <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,color:THEME.textLight}}>📖 Теория · {selectedTopic?.topic}</div>
-          <button onClick={()=>setPhase("select")} style={{background:"transparent",border:`1px solid ${THEME.border}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13,color:THEME.textLight}}>← Назад</button>
-        </nav>
+        <AppTopbar title={`📖 Теория · ${selectedTopic?.topic || ''}`} onBack={()=>setPhase("select")} />
         <div style={{maxWidth:780,margin:"0 auto",padding:"40px 20px"}}>
           {!hasContent&&(
             <div style={{textAlign:"center",padding:"60px 24px",background:"#fff",borderRadius:20,border:`1px solid ${THEME.border}`}}>
@@ -364,11 +357,7 @@ export default function PracticeScreen({ user, onBack }) {
     return (
       <div style={{minHeight:"100vh",background:THEME.bg}}>
         <ImageModal src={lightboxSrc} onClose={()=>setLightboxSrc(null)}/>
-        <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <Logo size={28}/>
-          <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:13,color:THEME.textLight}}>🏋️ Тренировка · {selectedTopic?.topic}</div>
-          <button onClick={onBack} style={{background:"transparent",border:`1px solid ${THEME.border}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13,color:THEME.textLight}}>Выйти</button>
-        </nav>
+        <AppTopbar title={`🏋️ Тренировка · ${selectedTopic?.topic || ''}`} backLabel="Выйти" onBack={onBack} />
         <div style={{maxWidth:720,margin:"0 auto",padding:"40px 20px"}}>
           {/* Progress */}
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:28}}>
@@ -442,10 +431,7 @@ export default function PracticeScreen({ user, onBack }) {
   const sections = [...new Set(allSections.map(s=>s.name))];
   return (
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <nav data-inner-nav style={{background:THEME.surface,borderBottom:`1px solid ${THEME.border}`,padding:"0 40px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <Logo size={28}/>
-        <button onClick={onBack} className="cta-button active" style={{width:"auto",padding:"8px 18px",fontSize:13}}>← Главная</button>
-      </nav>
+      <AppTopbar title="🏋️ Тренировка" backLabel="Главная" onBack={onBack} />
       <div style={{maxWidth:860,margin:"0 auto",padding:"48px 20px"}}>
         <div style={{marginBottom:36}}>
           <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:28,fontWeight:800,color:THEME.primary,marginBottom:6}}>🏋️ Тренировочный режим</h1>

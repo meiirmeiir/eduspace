@@ -3,24 +3,52 @@ import Logo from "./ui/Logo.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 
 /**
- * Shared top bar for standalone screens (Theory, Daily, Plan,
- * Practice, Mastery, etc).
+ * Единый верхний бар для standalone-экранов (Theory, Daily, Plan, Shop,
+ * Leaderboard, Friends, Practice, Diagnostics и т.д.).
  *
- * Layout: [back ←] [logo] [title] [theme toggle]
- * Full-width on every viewport, themed via index.css.
+ * Props (все опциональны, обратносовместимо):
+ *   title            — заголовок раздела
+ *   subtitle         — подпись рядом с заголовком («Задача 1/5», «📖 Теория»)
+ *   onBack           — обработчик кнопки «Назад» (по умолчанию history.back())
+ *   backLabel        — текст кнопки назад (по умолчанию «Назад»)
+ *   variant          — 'light' (default) | 'dark' (THEME.primary) | 'transparent' (blur)
+ *   rightSlot        — кастомный контент справа (рядом с переключателем темы)
+ *   showThemeToggle  — показывать переключатель темы (default: true для light, false иначе)
+ *
+ * Высота 64px, padding 0 24px (16px на мобильном) — едины для всех вариантов.
  */
-export default function AppTopbar({ title, onBack }) {
+export default function AppTopbar({
+  title,
+  subtitle,
+  onBack,
+  backLabel = "Назад",
+  variant = "light",
+  rightSlot = null,
+  showThemeToggle,
+}) {
+  const dark = variant === "dark" || variant === "transparent";
+  const showToggle = showThemeToggle ?? (variant === "light");
+  // onBack не передан → history.back(); onBack={null} → кнопку «Назад» не рисуем.
+  const showBack = onBack !== null;
+  const handleBack = onBack || (() => { try { window.history.back(); } catch { /* noop */ } });
+
   return (
-    <nav className="app-topbar" data-inner-nav>
-      {onBack && (
-        <button className="app-topbar-back" onClick={onBack} aria-label="Назад">
+    <nav className={`app-topbar app-topbar--${variant}`} data-inner-nav>
+      {showBack && (
+        <button className="app-topbar-back" onClick={handleBack} aria-label={backLabel}>
           <span aria-hidden="true">←</span>
-          <span className="app-topbar-back-text">Назад</span>
+          <span className="app-topbar-back-text">{backLabel}</span>
         </button>
       )}
-      <Logo size={28} />
+      <Logo size={28} light={dark} />
       {title && <span className="app-topbar-title">{title}</span>}
-      <ThemeToggle />
+      {subtitle && <span className="app-topbar-subtitle">{subtitle}</span>}
+      {(rightSlot || showToggle) && (
+        <div className="app-topbar-right">
+          {rightSlot}
+          {showToggle && <ThemeToggle />}
+        </div>
+      )}
     </nav>
   );
 }
