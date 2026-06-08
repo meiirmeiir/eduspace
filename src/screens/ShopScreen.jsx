@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../ThemeContext.jsx";
 import {
-  SHOP_ITEMS, SHOP_TYPES, FRAME_STYLES, EQUIPMENT_SETS, computePlayerHp, completedSet,
+  SHOP_ITEMS, SHOP_TYPES, FRAME_STYLES, EQUIPMENT_SETS, completedSet,
   RARITY, ACHIEVEMENT_EXCLUSIVES, getWeeklyOffer, setFullPrice, setPurchasePrice, getShopItem,
 } from "../lib/shopItems.js";
 import { purchaseItem, equipItem, purchaseSet } from "../lib/shopUtils.js";
@@ -551,6 +551,27 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
           60%  { left: 110%; }
           100% { left: 110%; }
         }
+        /* ── Loadout-экран снаряжения: две колонки 45/55, стакаются на мобильном ── */
+        .shop-loadout { display: grid; grid-template-columns: 45fr 55fr; gap: 18px; align-items: stretch; }
+        .shop-loadout-gear { position: relative; }
+        .shop-loadout-gear-inner { display: flex; flex-direction: column; }
+        /* Десктоп: высоту правой колонки задаёт левая (персонаж+HP). Inner —
+           absolute inset:0, поэтому grid-трек считается по левой колонке, а
+           список нарядов скроллится внутри (flex:1 + overflow-y:auto). */
+        @media (min-width: 761px) {
+          .shop-loadout-gear-inner { position: absolute; inset: 0; }
+          .shop-loadout-scroll { flex: 1; min-height: 0; }
+        }
+        @media (max-width: 760px) {
+          .shop-loadout { grid-template-columns: 1fr; align-items: start; }
+          .shop-loadout-scroll { max-height: none !important; }
+        }
+        /* Тонкий золотистый скролл правой колонки */
+        .shop-loadout-scroll { scrollbar-width: thin; scrollbar-color: rgba(212,175,55,0.45) transparent; }
+        .shop-loadout-scroll::-webkit-scrollbar { width: 7px; }
+        .shop-loadout-scroll::-webkit-scrollbar-track { background: transparent; }
+        .shop-loadout-scroll::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.4); border-radius: 99px; }
+        .shop-loadout-scroll::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.6); }
       `}</style>
       <div style={{background:THEME.primary, padding:'0 24px', display:'flex', alignItems:'center', justifyContent:'space-between', height:64}}>
         <Logo size={32} light/>
@@ -606,79 +627,136 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
         </div>
 
         {activeType === 'showcase' ? renderShowcase() : activeType === 'equipment' ? (
-          /* ── Раздел «Снаряжение»: герой + НАРЯДЫ ЦЕЛЫМИ СЕТАМИ (один сет =
-             один товар; визуал — подмена модели на GLB наряда) ── */
-          <div style={{display:'flex', flexDirection:'column', gap:16}}>
-            <div style={{display:'flex', gap:16, flexWrap:'wrap', alignItems:'flex-start'}}>
-              <div className="dashboard-section" style={{flex:'1 1 300px', minWidth:280, padding:0, overflow:'hidden', borderRadius:14}}>
+          /* ── Раздел «Снаряжение» — loadout-экран в духе Dota 2: слева 3D-герой
+             на подиуме + HP-блок, справа прокручиваемая сетка нарядов (наряд =
+             один товар; визуал — подмена модели на GLB) ── */
+          <div className="shop-loadout">
+            {/* ЛЕВАЯ КОЛОНКА (~45%): герой во весь рост + HP под ним */}
+            <div className="shop-loadout-hero" style={{display:'flex', flexDirection:'column', gap:12}}>
+              <div className="dashboard-section" style={{padding:0, overflow:'hidden', borderRadius:16}}>
                 <Character3D
                   gender={user?.gender || 'male'}
                   equipped={{ helmet: equipped.helmet, top: equipped.top, bottom: equipped.bottom, boots: equipped.boots }}
+                  height={520}
                   zoomable
                 />
               </div>
-              <div style={{flex:'1 1 280px', minWidth:260, display:'flex', flexDirection:'column', gap:12}}>
-                {(() => {
-                  const setId = completedSet(equipped);
-                  return (
-                    <div className="dashboard-section" style={{padding:'14px 16px'}}>
-                      <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:15, color:THEME.primary, marginBottom:6}}>
-                        Твой герой: <span style={{color:'#ef4444'}}>❤️ {computePlayerHp(equipped)}</span>
+              {/* HP-блок: сердце + текущее HP + бонус от снаряжения */}
+              {(() => {
+                const setId = completedSet(equipped);
+                // Бонус берётся ИМЕННО из текущего экипированного сета (а не из
+                // computePlayerHp, где суммируются ещё и per-item hp → завышение).
+                const bonus = setId ? (EQUIPMENT_SETS[setId].bonus || 0) : 0;
+                const hp = 3 + bonus; // base 3 + бонус сета
+                const maxHp = 8;      // шкала бара: base 3 + макс. legendary-бонус 5
+                return (
+                  <div className="dashboard-section" style={{
+                    padding:'16px 20px', display:'flex', alignItems:'center', gap:14,
+                    border:'1px solid rgba(239,68,68,0.3)', boxShadow:'0 2px 14px rgba(239,68,68,0.1)',
+                  }}>
+                    <span style={{fontSize:34, lineHeight:1, filter:'drop-shadow(0 0 8px rgba(239,68,68,0.5))'}}>❤️</span>
+                    <div style={{display:'flex', flexDirection:'column', gap:2, flex:1, minWidth:0}}>
+                      <div style={{fontFamily:"'Inter',sans-serif", fontSize:11, fontWeight:700, color:THEME.textLight, textTransform:'uppercase', letterSpacing:0.6}}>Здоровье героя</div>
+                      {/* Полоска здоровья: заполнение = currentHP/maxHP */}
+                      <div style={{width:'100%', height:10, borderRadius:5, background:'rgba(255,255,255,0.1)', overflow:'hidden', margin:'6px 0 3px'}}>
+                        <div style={{width:`${Math.min(100, (hp / maxHp) * 100)}%`, height:'100%', borderRadius:5, background:'linear-gradient(90deg, #4ade80, #22c55e)', transition:'width 0.5s ease'}}/>
                       </div>
-                      {setId
-                        ? <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:'#f5c518', textShadow:'0 0 10px rgba(245,197,24,0.4)'}}>
-                            ⭐ Наряд «{EQUIPMENT_SETS[setId].name}» надет! +{EQUIPMENT_SETS[setId].bonus} ❤️
-                          </div>
-                        : <div style={{fontFamily:"'Inter',sans-serif", fontSize:12.5, color:THEME.textLight, lineHeight:1.55}}>
-                            Наряд надевается целиком и полностью преображает героя. Выбери и примерь 👇
-                          </div>}
+                      <div style={{fontFamily:"'Inter',sans-serif", fontSize:11, fontWeight:600, color:THEME.textLight}}>{hp} / {maxHp} HP</div>
+                      <div style={{display:'flex', alignItems:'baseline', gap:10, marginTop:2}}>
+                        <span style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:28, color:'#ef4444', lineHeight:1}}>{hp}</span>
+                        {bonus > 0 && (
+                          <span style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:'#22c55e'}}>
+                            +{bonus} от снаряжения
+                          </span>
+                        )}
+                      </div>
+                      {setId && (
+                        <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12, color:'#f5c518', textShadow:'0 0 8px rgba(245,197,24,0.35)', marginTop:2}}>
+                          ⭐ Наряд «{EQUIPMENT_SETS[setId].name}» надет
+                        </div>
+                      )}
                     </div>
-                  );
-                })()}
-              </div>
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* Карточки нарядов (фильтр по полу героя) */}
-            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:12}}>
-              {Object.entries(EQUIPMENT_SETS)
-                .filter(([, set]) => !set.gender || set.gender === (user?.gender || 'male'))
-                .map(([setId, set]) => {
-                  const { missing, price } = setPurchasePrice(setId, inventory);
-                  const ownedAll = missing.length === 0;
-                  const isWorn = completedSet(equipped) === setId;
-                  const busy = pendingId === `set-${setId}` || pendingId === `equip-set-${setId}`;
-                  return (
-                    <div key={setId} className={`dashboard-section shop-card shop-rarity-${set.rarity || 'common'}`} style={{position:'relative', padding:12, display:'flex', flexDirection:'column', gap:8, ...rarityFrame(set.rarity)}}>
-                      <div style={{aspectRatio:'4/3', borderRadius:10, background:'linear-gradient(135deg, #1e293b, #0f172a)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:46}}>
-                        {set.icon || '🧰'}
-                      </div>
-                      <div>
-                        <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:THEME.primary, lineHeight:1.2}}>Наряд «{set.name}»</div>
-                        <div style={{fontSize:12, color:THEME.textLight, fontWeight:600, marginTop:2}}>
-                          {ownedAll ? <span style={{color:'#4ade80'}}>Куплен ✓</span> : <>{price} 💎</>} · <span style={{color:'#ef4444'}}>+{set.bonus} ❤️</span>
+            {/* ПРАВАЯ КОЛОНКА (~55%): заголовок + прокручиваемая сетка нарядов */}
+            <div className="shop-loadout-gear" style={{minWidth:0}}>
+             <div className="shop-loadout-gear-inner">
+              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12, flex:'0 0 auto'}}>
+                <span style={{fontSize:20}}>⚔</span>
+                <span style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:19, color:THEME.primary, letterSpacing:'0.3px'}}>Наряды</span>
+              </div>
+              <div className="shop-loadout-scroll" style={{
+                overflowY:'auto', paddingRight:6,
+                display:'grid', gridTemplateColumns:'repeat(2, minmax(0, 1fr))', gap:12, alignContent:'start',
+              }}>
+                {Object.entries(EQUIPMENT_SETS)
+                  .filter(([, set]) => !set.gender || set.gender === (user?.gender || 'male'))
+                  .map(([setId, set]) => {
+                    const { missing, price } = setPurchasePrice(setId, inventory);
+                    const ownedAll = missing.length === 0;
+                    const isWorn = completedSet(equipped) === setId;
+                    const busy = pendingId === `set-${setId}` || pendingId === `equip-set-${setId}`;
+                    return (
+                      <div key={setId} className={`dashboard-section shop-card shop-rarity-${set.rarity || 'common'}`} style={{
+                        position:'relative', padding:10, display:'flex', flexDirection:'column', gap:8,
+                        ...rarityFrame(set.rarity),
+                        ...(isWorn ? { border:'1.5px solid rgba(16,185,129,0.65)', boxShadow:'0 0 14px rgba(16,185,129,0.3)' } : {}),
+                      }}>
+                        {isWorn && (
+                          <div style={{position:'absolute', top:8, right:8, zIndex:2, fontSize:10, fontWeight:800, color:'#052e16', background:'#10b981', padding:'3px 8px', borderRadius:99}}>Экипировано ✓</div>
+                        )}
+                        <div style={{height:220, borderRadius:10, background:'linear-gradient(135deg, #1e293b, #0f172a)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', fontSize:40}}>
+                          <img
+                            src={`/previews/outfits/${setId}_preview.png`}
+                            alt={set.name}
+                            loading="lazy"
+                            style={{width:'100%', height:200, objectFit:'contain', padding:8}}
+                            onError={(e) => {
+                              // Превью не загрузилось — откатываемся на эмодзи-иконку сета.
+                              e.currentTarget.style.display = 'none';
+                              const slot = e.currentTarget.parentElement;
+                              if (slot && !slot.dataset.fb) {
+                                slot.dataset.fb = '1';
+                                const span = document.createElement('span');
+                                span.textContent = set.icon || '🧰';
+                                slot.appendChild(span);
+                              }
+                            }}
+                          />
+                        </div>
+                        <div style={{fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:13, color:THEME.primary, lineHeight:1.2}}>{set.name}</div>
+                        <div style={{fontSize:11.5, color:THEME.textLight, fontWeight:600, display:'flex', gap:8, flexWrap:'wrap'}}>
+                          <span>{ownedAll ? <span style={{color:'#4ade80'}}>Куплен ✓</span> : <>{price} 💎</>}</span>
+                          <span style={{color:'#ef4444'}}>+{set.bonus} ❤️</span>
+                        </div>
+                        <div style={{marginTop:'auto', display:'flex', flexDirection:'column', gap:6}}>
+                          {isWorn ? (
+                            <div style={{textAlign:'center', padding:'7px 0', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12, color:'#10b981'}}>Надет ✓</div>
+                          ) : ownedAll ? (
+                            <button onClick={() => handleEquipSet(setId)} disabled={busy} style={{width:'100%', padding:'8px 10px', borderRadius:9, border:'none', cursor:'pointer', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12, background:THEME.accent, color:THEME.onAccent ?? '#0f172a', opacity:busy?0.6:1}}>
+                              {busy ? '...' : 'Надеть'}
+                            </button>
+                          ) : crystals >= price ? (
+                            <button onClick={() => handleBuySet(setId)} disabled={busy} style={{width:'100%', padding:'8px 10px', borderRadius:9, border:'none', cursor:'pointer', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12, background:'#22c55e', color:'#052e16', opacity:busy?0.6:1}}>
+                              {busy ? '...' : `Купить · ${price} 💎`}
+                            </button>
+                          ) : (
+                            <div style={{textAlign:'center', padding:'7px 0', fontSize:11.5, color:THEME.textLight}}>Нужно ещё {price - crystals} 💎</div>
+                          )}
+                          <button onClick={() => setPreviewSet(setId)} style={{
+                            width:'100%', padding:'7px 10px', borderRadius:9,
+                            fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12, cursor:'pointer',
+                            background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.text,
+                          }}>👁 Примерить</button>
                         </div>
                       </div>
-                      {isWorn ? (
-                        <div style={{textAlign:'center', padding:'8px 0', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12, color:'#10b981'}}>Надет ✓</div>
-                      ) : ownedAll ? (
-                        <button onClick={() => handleEquipSet(setId)} disabled={busy} style={{width:'100%', padding:'9px 12px', borderRadius:10, border:'none', cursor:'pointer', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12, background:THEME.accent, color:THEME.onAccent ?? '#0f172a', opacity:busy?0.6:1}}>
-                          {busy ? '...' : 'Надеть'}
-                        </button>
-                      ) : crystals >= price ? (
-                        <button onClick={() => handleBuySet(setId)} disabled={busy} style={{width:'100%', padding:'9px 12px', borderRadius:10, border:'none', cursor:'pointer', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:12, background:'#22c55e', color:'#052e16', opacity:busy?0.6:1}}>
-                          {busy ? '...' : `Купить за ${price} 💎`}
-                        </button>
-                      ) : (
-                        <div style={{textAlign:'center', padding:'8px 0', fontSize:12, color:THEME.textLight}}>Нужно ещё {price - crystals} 💎</div>
-                      )}
-                      <button onClick={() => setPreviewSet(setId)} style={{
-                        width:'100%', padding:'7px 12px', borderRadius:10,
-                        fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:12, cursor:'pointer',
-                        background:'transparent', border:`1px solid ${THEME.border}`, color:THEME.text,
-                      }}>👁 Примерить</button>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+              </div>
+             </div>
             </div>
           </div>
         ) : (
