@@ -154,7 +154,7 @@ const Lead = ({ children, style }) => (
 
 // ── якорь доверия (для шапки) ──────────────────────────────────────────────────
 function TrustAnchor() {
-  const items = [["1600", "задач"], ["307", "навыков"], ["5–11", "класс"]];
+  const items = [["40 000", "задач"], ["307", "навыков"], ["5–11", "класс"]];
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
       {items.map(([n, l], i) => (
@@ -171,7 +171,7 @@ function TrustAnchor() {
 
 // ── секция «В ЦИФРАХ» (огромные числа в ряд, как AngelList) ─────────────────────
 function StatsBand({ accent = GOLD }) {
-  const stats = [["1600", "задач по школьной программе"], ["307", "навыков с прогрессом"], ["7", "классов · с 5 по 11"], ["2000 ₸", "в месяц · фиксированно"]];
+  const stats = [["40 000", "задач по школьной программе"], ["307", "навыков с прогрессом"], ["7", "классов · с 5 по 11"], ["2000 ₸", "в месяц · цена раннего доступа"]];
   return (
     <Section bg="rgba(255,255,255,0.018)">
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 24 }} className="al-grid-4">
@@ -192,7 +192,7 @@ function StatsBand({ accent = GOLD }) {
 // ── секция «КАК ЭТО РАБОТАЕТ» (3 шага с большими номерами) ──────────────────────
 function HowItWorks({ accent = GOLD }) {
   const steps = [
-    ["01", "Диагностика", "15 минут адаптивных задач — система точно определяет уровень и находит пробелы.", "≈ 15 минут"],
+    ["01", "Диагностика", "Длительность подстраивается: диагностика адаптивная и даёт больше задач там, где нужно точнее оценить уровень и найти пробелы.", "от 15 минут"],
     ["02", "Индивидуальный план", "Маршрут из навыков под конкретные слабые места, а не общий учебник для всех.", "персонально"],
     ["03", "Прогресс по неделям", "Решает, закрывает навыки, поднимается по карте. Прогресс виден каждую неделю.", "каждую неделю"],
   ];
@@ -224,7 +224,7 @@ function HowItWorks({ accent = GOLD }) {
 
 // ── слайды карусели «Что внутри / Геймификация» (общие для обеих ролей) ─────────
 const CAROUSEL = [
-  { video: diagnosticVid, t: "Умная диагностика", s: "Каждый ученик решает разные вопросы — мы определяем слабые места за 15 минут." },
+  { video: diagnosticVid, t: "Умная диагностика", s: "Каждый ученик решает разные вопросы — адаптивная диагностика точно находит слабые места." },
   { video: progressVid, t: "Прогресс по навыкам", s: "Каждый из 307 навыков отслеживается отдельно — видно, что освоено, а что в процессе." },
   { video: skillMapVid, t: "Карта обучения", s: "Учебный материал по школьной программе, а не хаотическая выдача задач." },
   { video: leaderboardVid, t: "Мотивация без принуждения", s: "Лиги и рейтинги поддерживают мотивацию — ребёнок сам хочет заниматься." },
@@ -393,12 +393,12 @@ function PriceSection({ onCta, accent = GOLD, perks, ctaText }) {
       <Reveal>
         <div className="al-card" style={{ maxWidth: 720, margin: "0 auto", border: `2px solid ${accent}`,
           background: `linear-gradient(160deg,${accent}14,transparent)`, padding: "clamp(36px,6vw,60px) clamp(28px,5vw,56px)", textAlign: "center" }}>
-          <Eyebrow color={accent}>Простая подписка</Eyebrow>
+          <Eyebrow color={accent}>Цена раннего доступа</Eyebrow>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10, margin: "10px 0 8px" }}>
             <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "clamp(56px,11vw,104px)", fontWeight: 800, color: accent, lineHeight: 1, letterSpacing: "-3px" }}>2000</span>
             <span style={{ fontSize: 22, color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>₸ / мес</span>
           </div>
-          <Lead style={{ maxWidth: 440, margin: "0 auto 32px" }}>Полный доступ. Без скрытых платежей. Отменить можно в любой момент.</Lead>
+          <Lead style={{ maxWidth: 440, margin: "0 auto 32px" }}>Для первых учеников — закрепляется на год. Чем больше учеников на платформе, тем выше цена для новых; ранние сохраняют лоялти-условия.</Lead>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 28px", maxWidth: 520, margin: "0 auto 34px", textAlign: "left" }} className="al-perks">
             {perks.map((p) => (
               <div key={p} style={{ display: "flex", gap: 10, fontSize: 15, color: "rgba(255,255,255,0.78)", alignItems: "flex-start" }}>
@@ -744,7 +744,7 @@ function ParentPriceSection({ onCta, perks }) {
     <Section>
       <Reveal>
         <div style={{ textAlign: "center", marginBottom: "clamp(40px,6vw,64px)" }}>
-          <Eyebrow>Простая подписка</Eyebrow>
+          <Eyebrow>Цена раннего доступа</Eyebrow>
           <H2>Дешевле одного часа репетитора</H2>
         </div>
       </Reveal>
@@ -756,7 +756,7 @@ function ParentPriceSection({ onCta, perks }) {
               <span style={{ fontFamily: "'Inter',sans-serif", fontSize: "clamp(52px,9vw,92px)", fontWeight: 800, color: GOLD, lineHeight: 1, letterSpacing: "-3px" }}>2000</span>
               <span style={{ fontSize: 21, color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>₸ / мес</span>
             </div>
-            <Lead style={{ maxWidth: 420, margin: "0 auto 26px" }}>Полный доступ. Без скрытых платежей. Отменить можно в любой момент.</Lead>
+            <Lead style={{ maxWidth: 420, margin: "0 auto 26px" }}>Для первых учеников — закрепляется на год. Чем больше учеников на платформе, тем выше цена для новых; ранние сохраняют лоялти-условия.</Lead>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 24px", maxWidth: 480, margin: "0 auto 28px", textAlign: "left" }} className="al-perks">
               {perks.map((p) => (
                 <div key={p} style={{ display: "flex", gap: 9, fontSize: 14.5, color: "rgba(255,255,255,0.78)", alignItems: "flex-start" }}>
@@ -841,7 +841,7 @@ function ParentLanding({ onCta }) {
     { quote: "Дешевле одного часа репетитора, а ребёнок занимается каждый день сам. Для меня это главный аргумент.", name: "Дмитрий", role: "отец ученицы 8 класса", initial: "Д" },
     { quote: "Понравилось, что нет чатов и рекламы. Спокойно даю планшет — знаю, что там только математика.", name: "Гульнара", role: "мама ученика 5 класса", initial: "Г" },
   ];
-  const perks = ["Адаптивная диагностика", "1600 задач 5–11 класса", "Теория к каждому навыку", "Прогресс по 307 навыкам", "Еженедельный отчёт", "Безопасная среда без чатов"];
+  const perks = ["Адаптивная диагностика", "40 000 задач 5–11 класса", "Теория к каждому навыку", "Прогресс по 307 навыкам", "Еженедельный отчёт", "Безопасная среда без чатов"];
   const faqs = [
     { icon: "💰", defaultOpen: true, q: "Это замена репетитору?", a: "Для большинства тем — да. Система находит пробелы точнее, чем репетитор за первые занятия, и ребёнок тренируется столько, сколько нужно. Для форсированной подготовки к экзамену можно сочетать." },
     { icon: "🎮", q: "Ребёнок не будет просто играть?", a: "Геймификация — это обёртка над реальными задачами по школьной программе. Награды даются за решённые навыки, а не за «время в приложении». Прогресс вы видите в отчёте." },
@@ -863,7 +863,7 @@ function ParentLanding({ onCta }) {
               Готовьте ребёнка<br />к школе <span style={{ color: GOLD }}>уверенно.</span>
             </h1>
             <Lead style={{ marginBottom: 18, maxWidth: 480 }}>
-              <strong style={{ color: "#fff" }}>1600 задач · 307 навыков · 5–11 класс.</strong> Платформа находит слабые места и ведёт ребёнка по точному маршруту — за <strong style={{ color: GOLD }}>2000 ₸/мес</strong>, дешевле часа репетитора.
+              <strong style={{ color: "#fff" }}>40 000 задач · 307 навыков · 5–11 класс.</strong> Платформа находит слабые места и ведёт ребёнка по точному маршруту — за <strong style={{ color: GOLD }}>2000 ₸/мес</strong>, дешевле часа репетитора.
             </Lead>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
               <button className="al-btn-primary" style={{ fontSize: 16, padding: "17px 32px" }} onClick={onCta}>Попробовать бесплатно →</button>
@@ -1284,7 +1284,7 @@ function StudentLanding({ onCta }) {
     { quote: "Карта как в игре — видно, какие планеты-навыки ещё закрыты. Хочется открыть все.", name: "Аружан", role: "ученица 6 класса", initial: "А" },
     { quote: "Поднялась до Золотой лиги за две недели. Кристаллы коплю на рамку для аватара.", name: "Дана", role: "ученица 9 класса", initial: "Д" },
   ];
-  const perks = ["Карта-приключение с навыками", "Кристаллы, ачивки и streak", "Лидерборд и лиги с друзьями", "NPC-гид по сюжету", "Кастомизация аватара", "1600 задач с твоим уровнем"];
+  const perks = ["Карта-приключение с навыками", "Кристаллы, ачивки и streak", "Лидерборд и лиги с друзьями", "NPC-гид по сюжету", "Кастомизация аватара", "40 000 задач с твоим уровнем"];
   const faqs = [
     { q: "Это сложно?", a: "Система сама определяет твой уровень через короткую диагностику и даёт задачи по силам. Не будет ни слишком легко, ни слишком трудно." },
     { q: "Что за кристаллы и лиги?", a: "За решённые навыки получаешь кристаллы и очки, поднимаешься в лигах от Бронзы до Алмаза и соревнуешься с друзьями в лидерборде." },
