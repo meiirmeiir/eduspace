@@ -196,9 +196,12 @@ export default function SmartDiagRunner({ user, grade, onFinish, onStop, onSecti
 
   if (phase === 'question' && curQ) return (
     <div style={{position:'relative'}}>
+      {/* dev-оверлей с тех-метаданными задачи (раздел/skillId/verticalId) — скрыт от учеников.
+          Для отладки раскомментировать:
       <div style={{position:'fixed',top:8,left:'50%',transform:'translateX(-50%)',zIndex:9999,background:'rgba(0,0,0,0.75)',color:'#fff',fontSize:12,fontFamily:"'Courier New',monospace",padding:'5px 14px',borderRadius:20,whiteSpace:'nowrap',pointerEvents:'none',backdropFilter:'blur(4px)'}}>
         🔬 Р{sectionNum} · {curQ.section} · {curQ.skillId} · {curQ.verticalId}
       </div>
+      */}
       <QuestionScreen
         question={curQ}
         qNum={qNum + 1}
