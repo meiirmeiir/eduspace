@@ -1090,17 +1090,20 @@ function CustomizeSection() {
 // (BattleScene3D: герой в экипировке против босса) + тающий HP-бар.
 // Демо-цикл: «правильный ответ» каждые ~1.6с — герой стреляет (attackSeq),
 // босс теряет HP; на нуле возрождается. Крутится только пока секция видна.
-// На мобильных — статичный скриншот сцены (WebGL-сцена с двумя фигурами тяжёлая).
+// По умолчанию новые GLB-модели (как на ПК) рендерятся и на мобайле.
+// BOSS_MOBILE_3D=false — быстрый откат на статичный кадр в одну строку
+// (если на слабом Android будут лаги).
+const BOSS_MOBILE_3D = true;
 function BossBattleSection() {
   const hostRef = useRef(null);
   const mobile = useIsMobile();
+  // staticBoss=true → старый статичный фоллбэк; false → живая 3D-сцена (GLB).
+  const staticBoss = mobile && !BOSS_MOBILE_3D;
   const [active, setActive] = useState(false);
-  // На мобиле статичный кадр снят на ~66 HP («бой в разгаре») — живой HP-бар
-  // стартует с того же значения, чтобы кадр и бар были консистентны.
-  const startHp = mobile ? 66 : 100;
+  // Статичный кадр снят на ~66 HP; живая сцена стартует со 100 (полный цикл боя).
+  const startHp = staticBoss ? 66 : 100;
   const [hp, setHp] = useState(startHp);
   const hpRef = useRef(startHp);
-  const [shake, setShake] = useState(false);
   const [hit, setHit] = useState(0); // = attackSeq для BattleScene3D (выпад героя + лазер)
   const [defeated, setDefeated] = useState(false);
 
@@ -1114,22 +1117,18 @@ function BossBattleSection() {
 
   useEffect(() => {
     if (!active) return;
-    let shakeT;
     const id = setInterval(() => {
       if (hpRef.current <= 0) { hpRef.current = 100; setHp(100); setDefeated(false); return; }
       hpRef.current = Math.max(0, hpRef.current - 17);
       setHp(hpRef.current);
       setHit((c) => c + 1);
-      setShake(true);
-      shakeT = setTimeout(() => setShake(false), 240);
       if (hpRef.current <= 0) setDefeated(true);
     }, 1600);
-    return () => { clearInterval(id); clearTimeout(shakeT); };
+    return () => { clearInterval(id); };
   }, [active]);
 
   return (
     <Section>
-      <style>{`@keyframes bossBarShake{0%,100%{transform:none}20%{transform:translateX(-5px)}45%{transform:translateX(4px)}70%{transform:translateX(-3px)}}`}</style>
       <div ref={hostRef} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "clamp(28px,4vw,56px)", alignItems: "center" }} className="al-grid-2">
         <Reveal>
           <Eyebrow color="#f87171">Битвы с боссами</Eyebrow>
@@ -1141,19 +1140,11 @@ function BossBattleSection() {
         <Reveal i={1}>
           <div className="al-card" style={{ padding: "26px 26px 30px", textAlign: "center", overflow: "hidden",
             background: "radial-gradient(ellipse at 50% 30%, rgba(220,38,38,0.14), transparent 70%), rgba(255,255,255,0.03)" }}>
-            {/* HP-бар босса (трясётся при попадании) */}
-            <div style={{ animation: shake ? "bossBarShake 0.24s linear" : "none" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>
-                <span>🐉 Звёздный Дракон</span><span style={{ color: hp < 35 ? "#f87171" : "#fff" }}>{hp} / 100 HP</span>
-              </div>
-              <div style={{ height: 14, borderRadius: 99, background: "rgba(10,15,35,0.75)", border: "1px solid rgba(248,113,113,0.4)", overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${hp}%`, borderRadius: 99, transition: "width 0.4s ease",
-                  background: "linear-gradient(90deg,#dc2626,#f87171)", boxShadow: "0 0 12px rgba(220,38,38,0.7)" }} />
-              </div>
-            </div>
-            {/* арена — реальная сцена боя из ежедневных задач (герой + босс) */}
+            {/* арена — реальная сцена боя из ежедневных задач (герой + босс).
+                HP-индикатор и имя босса показываются ВНУТРИ сцены (hud у
+                BattleScene3D) — верхний дубль-бар (с неверным именем) убран. */}
             <div style={{ position: "relative", marginTop: 26, minHeight: 220 }}>
-              {mobile ? (
+              {staticBoss ? (
                 <img src={bossBattleImg} alt="Битва с боссом" loading="lazy"
                   style={{ width: "100%", height: 220, objectFit: "cover", borderRadius: 14, display: "block" }} />
               ) : (
@@ -1165,7 +1156,7 @@ function BossBattleSection() {
                   Без AnimatePresence: exit предыдущего флоата перекрывался с
                   enter нового → два «−17» одновременно. Один motion.div с
                   keyframes сам затухает к концу такта. */}
-              {hit > 0 && !defeated && !mobile && (
+              {hit > 0 && !defeated && !staticBoss && (
                 <motion.div key={hit}
                   initial={false}
                   animate={{ opacity: [0, 1, 1, 0], y: [6, -12, -28, -42], scale: [0.7, 1.1, 1.1, 1] }}
