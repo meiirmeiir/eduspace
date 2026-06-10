@@ -119,7 +119,7 @@ export function enableShadows(sceneRoot) {
 // Зум камеры: [мин (крупный план лица), макс (вся фигура с запасом), дефолт]
 const ZOOM_MIN = 2.5, ZOOM_MAX = 6.0, ZOOM_DEF = 4.35;
 
-export default function Character3D({ gender = 'male', equipped = {}, tryOn = {}, height = 380, autoSpin = 0.15, animation = 'idle', zoomable = false, zoomBottom = 10, shirtColor, pantsColor }) {
+export default function Character3D({ gender = 'male', equipped = {}, tryOn = {}, height = 380, autoSpin = 0.15, animation = 'idle', zoomable = false, zoomBottom = 10, shirtColor, pantsColor, lockVerticalDrag = false }) {
   const mountRef = useRef(null);
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -148,7 +148,7 @@ export default function Character3D({ gender = 'male', equipped = {}, tryOn = {}
     if (!mount) return;
     setLoading(true);
     const geos = [], mats = [], texs = [];
-    const drag = { active: false, lastX: 0, targetRotY: 0.3 };
+    const drag = { active: false, lastX: 0, targetRotY: 0.3, startX: 0, startY: 0, decided: false, rotating: false };
     let cleanupPointer = null;
 
     // Источник модели: полный сет → GLB наряда (свои анимации), иначе базовая
@@ -241,7 +241,10 @@ export default function Character3D({ gender = 'male', equipped = {}, tryOn = {}
 
       // Drag-вращение (как в Lego-версии) + зум (wheel / pinch двумя пальцами)
       const el = renderer.domElement;
-      el.style.touchAction = 'none'; el.style.cursor = 'grab';
+      // lockVerticalDrag (лендинги): pan-y → браузер отдаёт вертикальный свайп
+      // скроллу страницы, канвасу остаётся горизонталь (вращение). В приложении
+      // (default false) — прежнее поведение 'none' (полный захват жеста).
+      el.style.touchAction = lockVerticalDrag ? 'pan-y' : 'none'; el.style.cursor = 'grab';
       const down = (x) => { drag.active = true; drag.lastX = x; el.style.cursor = 'grabbing'; };
       const move = (x) => { if (!drag.active) return; drag.targetRotY += (x - drag.lastX) * 0.01; drag.lastX = x; };
       const up = () => { drag.active = false; panState.active = false; el.style.cursor = 'grab'; };
@@ -271,7 +274,11 @@ export default function Character3D({ gender = 'male', equipped = {}, tryOn = {}
       let lastPinch = 0, lastMidY = 0;
       const onTS = (e) => {
         if (zoomable && e.touches.length === 2) { lastPinch = pinchDist(e); lastMidY = pinchMidY(e); drag.active = false; return; }
-        if (e.touches[0]) down(e.touches[0].clientX);
+        if (e.touches[0]) {
+          drag.startX = e.touches[0].clientX; drag.startY = e.touches[0].clientY;
+          drag.decided = false; drag.rotating = false;
+          down(e.touches[0].clientX);
+        }
       };
       const onTM = (e) => {
         if (zoomable && e.touches.length === 2) {
@@ -283,7 +290,19 @@ export default function Character3D({ gender = 'male', equipped = {}, tryOn = {}
           e.preventDefault();
           return;
         }
-        if (e.touches[0]) { move(e.touches[0].clientX); e.preventDefault(); }
+        if (e.touches[0]) {
+          if (lockVerticalDrag) {
+            // Порог направления: жест вертикальный (|dy|>|dx|) → не крутим и НЕ
+            // preventDefault → страница скроллится; горизонтальный → крутим модель.
+            const dx = e.touches[0].clientX - drag.startX, dy = e.touches[0].clientY - drag.startY;
+            if (!drag.decided) {
+              if (Math.abs(dx) > 6 || Math.abs(dy) > 6) { drag.decided = true; drag.rotating = Math.abs(dx) >= Math.abs(dy); }
+              else return; // направление ещё не определено
+            }
+            if (!drag.rotating) { drag.active = false; return; } // вертикаль → отдаём скролл, не держим модель
+          }
+          move(e.touches[0].clientX); e.preventDefault();
+        }
       };
       const onWheel = (e) => {
         if (!zoomable) return;
