@@ -117,7 +117,7 @@ function PlanetView({ fromLife, toLife, size = 150, allowMobile = false }) {
 // ── переключатель ролей ────────────────────────────────────────────────────────
 function RoleToggle({ role, onChange }) {
   return (
-    <div style={{ display: "inline-flex", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)",
+    <div className="al-role-toggle" style={{ display: "inline-flex", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)",
       borderRadius: 99, padding: 4, position: "relative" }}>
       {[{ k: "parent", t: "Я родитель", c: GOLD }, { k: "student", t: "Я ученик", c: PURPLE }].map((o) => {
         const active = role === o.k;
@@ -1419,6 +1419,23 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
 
   useEffect(() => { setRoleCookie(role); }, []); // запомнить стартовую роль
 
+  // Sticky-compact header: после ~80px скролла схлопываем шапку в одну тонкую
+  // строку (лого + «Войти»), переключатель роли прячем. rAF-троттл — layout не
+  // дёргается на каждый кадр. Compact-стили только в @media мобайла, поэтому на
+  // десктопе класс эффекта не имеет.
+  const [headerCompact, setHeaderCompact] = useState(false);
+  useEffect(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => { setHeaderCompact(window.scrollY > 80); ticking = false; });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   // Тёмный фон на сам body: без него белый canvas просвечивает при
   // overscroll/быстрой прокрутке и в недорисованных областях по краям.
   useEffect(() => {
@@ -1432,7 +1449,7 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
   const cta = user ? onDashboard : (onDemo || onStart);
 
   return (
-    <div style={{ fontFamily: "'Inter',sans-serif", background: BG, color: "#fff", minHeight: "100vh", overflowX: "hidden", position: "relative" }}>
+    <div className="al-root" style={{ fontFamily: "'Inter',sans-serif", background: BG, color: "#fff", minHeight: "100vh", overflowX: "hidden", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         .al-btn-primary{background:linear-gradient(135deg,${GOLD},#f59e0b);color:#0a0e1a;border:none;padding:16px 32px;border-radius:14px;font-family:'Inter',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:transform .2s,box-shadow .2s;letter-spacing:.2px;}
@@ -1444,11 +1461,30 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
         .al-car-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:5;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(10,10,20,.7);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:26px;line-height:1;cursor:pointer;transition:background .2s,border-color .2s,transform .2s;font-family:'Inter',sans-serif;}
         .al-car-arrow:hover{background:rgba(10,10,20,.92);border-color:rgba(255,255,255,.4);transform:translateY(-50%) scale(1.08);}
         .al-nav{position:sticky;top:0;z-index:100;background:rgba(10,10,20,.82);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.07);padding:0 32px;min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+        /* десктоп: role+cta прижаты к правому краю (как было до разбивки на 3 ребёнка) */
+        .al-nav-role{margin-left:auto;}
+        @media(prefers-reduced-motion:reduce){.al-nav-role{transition:none!important;}}
         @media(max-width:880px){
           .al-grid-2,.al-grid-3,.al-grid-4{grid-template-columns:1fr!important;}
           .al-perks{grid-template-columns:1fr!important;}
-          .al-nav{padding:12px 18px;min-height:0;}
+          /* overflow-x:clip вместо hidden — клипит горизонталь, но НЕ создаёт
+             scroll-контейнер, поэтому position:sticky шапки на мобайле работает
+             (overflow-x:hidden у body И корня его ломал). Десктоп — без изменений
+             (там остаётся hidden, sticky-поведение как было). iOS 16+ поддерживает clip. */
+          html,body{overflow-x:clip!important;}
+          .al-root{overflow-x:clip!important;}
+          /* Header — две строки: стр.1 лого + «Войти», стр.2 переключатель роли
+             на всю ширину. Факты (al-nav-trust) убраны (дублируются в hero). */
+          .al-nav{padding:10px 16px;min-height:0;gap:10px 12px;}
           .al-nav-trust{display:none!important;}
+          .al-nav-left{order:0;}
+          .al-nav-cta{order:1;margin-left:auto;}
+          .al-nav-role{order:2;flex-basis:100%;margin-left:0;overflow:hidden;
+            max-height:64px;opacity:1;transition:max-height .28s ease,opacity .2s ease;}
+          .al-role-toggle{display:flex!important;width:100%;}
+          .al-role-toggle button{flex:1;padding:14px 12px!important;font-size:14px!important;}
+          /* Compact при скролле (>80px): прячем строку роли — header в одну тонкую строку. */
+          .al-nav.header-compact .al-nav-role{max-height:0;opacity:0;margin-top:0;margin-bottom:0;}
           /* Анти-blowout сетки на мобайле: дети 1fr-колонки могут сжиматься уже
              своего контента (по умолчанию min-width:auto). На iOS 3D-канвас
              монтируется с inline width:360px (clientWidth=0 → фоллбэк) и распирал
@@ -1485,14 +1521,14 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
           </div>
         )}
         {/* ШАПКА */}
-        <nav className="al-nav">
-          <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+        <nav className={`al-nav${headerCompact ? " header-compact" : ""}`}>
+          <div className="al-nav-left" style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
             <Logo size={32} light />
             <span style={{ width: 1, height: 24, background: "rgba(255,255,255,0.12)" }} className="al-nav-trust" />
             <div className="al-nav-trust"><TrustAnchor /></div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <RoleToggle role={role} onChange={changeRole} />
+          <div className="al-nav-role"><RoleToggle role={role} onChange={changeRole} /></div>
+          <div className="al-nav-cta">
             {user ? (
               <button className="al-btn-primary" style={{ padding: "10px 22px", fontSize: 14 }} onClick={onDashboard}>Войти в кабинет →</button>
             ) : (
