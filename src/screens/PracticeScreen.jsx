@@ -189,7 +189,7 @@ export default function PracticeScreen({ user, onBack }) {
   if (phase==="theory_list") {
     return (
       <div style={{minHeight:"100vh",background:THEME.bg}}>
-        <AppTopbar title="📖 Теория" onBack={()=>setPhase("select")} />
+        <AppTopbar title="📖 Теория" onBack={()=>setPhase("select")} user={user} />
         <div style={{maxWidth:780,margin:"0 auto",padding:"40px 20px"}}>
           <div style={{marginBottom:28}}>
             <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:24,fontWeight:800,color:THEME.primary,marginBottom:4}}>Выбери тему для изучения</h1>
@@ -222,7 +222,7 @@ export default function PracticeScreen({ user, onBack }) {
     const cards = hasContent ? (theoryContent.cards||[]).filter(c=>c.front||c.back) : [];
     return (
       <div style={{minHeight:"100vh",background:THEME.bg}}>
-        <AppTopbar title={`📖 Теория · ${selectedTopic?.topic || ''}`} onBack={()=>setPhase("select")} />
+        <AppTopbar title={`📖 Теория · ${selectedTopic?.topic || ''}`} onBack={()=>setPhase("select")} user={user} />
         <div style={{maxWidth:780,margin:"0 auto",padding:"40px 20px"}}>
           {!hasContent&&(
             <div style={{textAlign:"center",padding:"60px 24px",background:"#fff",borderRadius:20,border:`1px solid ${THEME.border}`}}>
@@ -357,7 +357,7 @@ export default function PracticeScreen({ user, onBack }) {
     return (
       <div style={{minHeight:"100vh",background:THEME.bg}}>
         <ImageModal src={lightboxSrc} onClose={()=>setLightboxSrc(null)}/>
-        <AppTopbar title={`🏋️ Тренировка · ${selectedTopic?.topic || ''}`} backLabel="Выйти" onBack={onBack} />
+        <AppTopbar title={`🏋️ Тренировка · ${selectedTopic?.topic || ''}`} backLabel="Выйти" onBack={onBack} user={user} />
         <div style={{maxWidth:720,margin:"0 auto",padding:"40px 20px"}}>
           {/* Progress */}
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:28}}>
@@ -431,7 +431,7 @@ export default function PracticeScreen({ user, onBack }) {
   const sections = [...new Set(allSections.map(s=>s.name))];
   return (
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <AppTopbar title="🏋️ Тренировка" backLabel="Главная" onBack={onBack} />
+      <AppTopbar title="🏋️ Тренировка" backLabel="Главная" onBack={onBack} user={user} />
       <div style={{maxWidth:860,margin:"0 auto",padding:"48px 20px"}}>
         <div style={{marginBottom:36}}>
           <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:28,fontWeight:800,color:THEME.primary,marginBottom:6}}>🏋️ Тренировочный режим</h1>

@@ -342,7 +342,8 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 
 /* ── Unified top bar for standalone screens (AppTopbar) ────── */
 .app-topbar {
-  display:flex;
+  display:grid;
+  grid-template-columns:1fr auto 1fr;   /* ЛЕВО | ЦЕНТР | ПРАВО — центр строго по середине бара */
   align-items:center;
   gap:12px;
   width:100%;
@@ -354,9 +355,47 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   border-bottom:1px solid rgba(0,0,0,0.08);
   box-shadow:0 2px 10px rgba(0,0,0,0.05);
 }
-/* Правая зона: rightSlot + переключатель темы, прижата к краю */
-.app-topbar-right { margin-left:auto; display:flex; align-items:center; gap:10px; flex-shrink:0; }
-.app-topbar-subtitle { font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:#64748b; white-space:nowrap; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+/* Левая зона: leftSlot/Назад + Logo */
+.app-topbar-left { display:flex; align-items:center; gap:12px; min-width:0; justify-self:start; }
+/* Центр: иконка + title (+ subtitle), только десктоп */
+.app-topbar-center { display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:0; justify-self:center; line-height:1.15; }
+/* Правая зона: rightSlot + TopbarStats (чипы + тема), прижата к краю */
+.app-topbar-right { display:flex; align-items:center; gap:10px; flex-shrink:0; justify-self:end; }
+.app-topbar-subtitle { font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:#64748b; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+
+/* ── TopbarStats: чипы ESR/Кристаллы (некликабельные индикаторы) + тема ── */
+.topbar-stats { display:flex; align-items:center; gap:8px; }
+.topbar-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 10px; border-radius:99px;
+  background:rgba(15,23,42,0.05);
+  border:1px solid rgba(15,23,42,0.08);
+  font-family:'Montserrat',sans-serif; font-weight:700; font-size:13px;
+  color:#0f172a; white-space:nowrap; user-select:none; line-height:1;
+}
+.topbar-chip svg { flex-shrink:0; }
+.topbar-chip-val { line-height:1; }
+/* Светлые чипы для тёмного/прозрачного варианта шапки и тёмной темы */
+.topbar-stats--dark .topbar-chip,
+[data-theme="dark"] .topbar-chip {
+  background:rgba(255,255,255,0.08);
+  border-color:rgba(255,255,255,0.16);
+  color:#f0f6fc;
+}
+/* Мобайл: центральный заголовок раздела скрываем (дублирует H1 + нижний таб).
+   Уходим с grid на flex space-between: ЛЕВО к левому краю, ПРАВО к правому.
+   Причина бага «AAPA впритык к чипу»: левая зона (min-width:0, flex-shrink:1)
+   сжималась, а текст вордмарка вытекал за её бокс на чипы. Поэтому: левую зону
+   НЕ сжимаем (flex-shrink:0), а правый HUD делаем компактнее, чтобы суммарный
+   контент влезал на узких экранах с честным зазором. Десктоп (3-зонный grid)
+   не тронут — все правила в @media. Скоуп — только .app-topbar (дашборд как был). */
+@media (max-width: 767px) {
+  .app-topbar { display:flex; justify-content:space-between; }
+  .app-topbar-center { display:none; }
+  .app-topbar-left { flex-shrink:0; }
+  .app-topbar .topbar-stats { gap:6px; }
+  .app-topbar .topbar-chip { padding:4px 8px; font-size:12px; }
+}
 .app-topbar-back {
   display:inline-flex;
   align-items:center;

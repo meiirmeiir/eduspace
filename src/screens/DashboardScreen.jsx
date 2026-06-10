@@ -9,7 +9,7 @@ import { useTheme } from "../ThemeContext.jsx";
 import { getMyWeeklyRank, getLeague } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
-import ThemeToggle from "../components/ThemeToggle.jsx";
+import TopbarStats from "../components/TopbarStats.jsx";
 import QuestsWidget from "../components/QuestsWidget.jsx";
 import LevelRing from "../components/LevelRing.jsx";
 import XpBar from "../components/XpBar.jsx";
@@ -450,13 +450,7 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
           <div style={{flex:1,minWidth:0}}>
             <div className="sidebar-user-name">{user?.firstName} {user?.lastName}</div>
             <div className="sidebar-user-role" style={{color:statusObj.color+"cc"}}>{isAdmin?"Администратор":isTeacher?"Преподаватель":statusObj.label}</div>
-            {/* Кристаллы — видны всем ролям, в том числе admin/teacher (ESR-виджет от них скрыт). */}
-            {(user?.crystals ?? 0) > 0 && (
-              <div onClick={e=>e.stopPropagation()} style={{fontSize:13, color:'#a78bfa', fontWeight:700, marginTop:4}}>
-                💎 {(user?.crystals ?? 0).toLocaleString('ru-RU')}
-                <InfoTooltip text="Валюта для магазина. Зарабатывай за ежедневные задачи, навыки и квесты." />
-              </div>
-            )}
+            {/* Кристаллы вынесены в единый HUD-чип шапки (TopbarStats) — в сайдбаре дубль убран. */}
           </div>
           <button onClick={e=>{e.stopPropagation();onLogout();}} title="Выйти" style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",color:"rgba(255,255,255,0.45)",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:13,flexShrink:0,transition:"all 0.15s"}}
             onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.15)";e.currentTarget.style.color="#ef4444";e.currentTarget.style.borderColor="rgba(239,68,68,0.3)";}}
@@ -468,18 +462,21 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
       <main className="dashboard-main">
         <div className="mobile-topbar">
           <button className="burger-btn" onClick={()=>setSidebarOpen(true)}>☰</button>
-          <Logo size={28}/>
+          <Logo size={28} showSubtitle={false}/>
           <span className="mobile-breadcrumb">
             {activeSection==="profile" ? "Профиль" : "Главная"}
           </span>
-          <ThemeToggle />
-          <button onClick={openProfile} aria-label="Профиль" title="Профиль"
-            style={{background:"none",border:"none",padding:0,cursor:"pointer",flexShrink:0,lineHeight:0,borderRadius:"50%"}}>
-            <LevelRing xp={user?.xp ?? 0} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
-              size={30} label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} showLevel={false} />
-          </button>
+          <TopbarStats user={user} />
+          {/* Аватар-шорткат в профиль — скрыт на самом Профиле (там аватар крупно в теле) */}
+          {activeSection !== "profile" && (
+            <button onClick={openProfile} aria-label="Профиль" title="Профиль"
+              style={{background:"none",border:"none",padding:0,cursor:"pointer",flexShrink:0,lineHeight:0,borderRadius:"50%"}}>
+              <LevelRing xp={user?.xp ?? 0} avatarUrl={user?.avatarUrl} equippedFrame={user?.equipped?.frame}
+                size={30} label={`${user?.firstName?.[0]||''}${user?.lastName?.[0]||''}`} showLevel={false} />
+            </button>
+          )}
         </div>
-        <div className="desktop-header-actions"><ThemeToggle /></div>
+        <div className="desktop-header-actions"><TopbarStats user={user} /></div>
 
         {activeSection==="home"&&isInactive&&!isTeacher&&(
           <div style={{maxWidth:520,margin:"80px auto",background:"#fff",border:`1px solid ${THEME.border}`,borderRadius:16,padding:"48px 32px",textAlign:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.04)"}}>

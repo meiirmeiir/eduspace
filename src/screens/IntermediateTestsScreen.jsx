@@ -38,7 +38,7 @@ export default function IntermediateTestsScreen({ user, onStartBoss, onBack }) {
 
   return(
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <AppTopbar title="Промежуточный тест" onBack={onBack} />
+      <AppTopbar title="Промежуточный тест" onBack={onBack} user={user} />
       <div style={{maxWidth:960,margin:"0 auto",padding:"48px 24px"}}>
         <div style={{marginBottom:40}}>
           <h1 style={{fontFamily:"'Montserrat',sans-serif",fontSize:32,fontWeight:800,color:THEME.primary,marginBottom:8}}>⚔️ Промежуточные тесты</h1>

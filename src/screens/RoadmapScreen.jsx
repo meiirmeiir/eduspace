@@ -14,7 +14,7 @@ function RoadmapScreen({ roadmap, user, onBack, onViewPlan }) {
     <div style={{minHeight:'100vh',background:'linear-gradient(180deg,#080e1f 0%,#0d1a35 60%,#0a1228 100%)',color:'#fff',fontFamily:"'Inter',sans-serif"}}>
 
       {/* Nav */}
-      <AppTopbar variant="transparent" backLabel="На главную" onBack={onBack} />
+      <AppTopbar variant="transparent" backLabel="На главную" onBack={onBack} user={user} />
 
       <div style={{maxWidth:680,margin:'0 auto',padding:'44px 20px 80px'}}>
 

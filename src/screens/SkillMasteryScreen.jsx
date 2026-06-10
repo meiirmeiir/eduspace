@@ -209,7 +209,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
     const e = theory;
     return (
       <div style={{ minHeight:'100vh', background:BG }}>
-        <AppTopbar title={`📖 ${skillName || skillId}`} subtitle="Освоение навыка" onBack={onBack} />
+        <AppTopbar title={`📖 ${skillName || skillId}`} subtitle="Освоение навыка" onBack={onBack} user={user} />
         <div style={{ maxWidth:800, margin:'0 auto', padding:'32px 24px' }}>
           <div style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:12, padding:'14px 18px', marginBottom:24 }}>
             <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:13, color:'#6366f1', marginBottom:4 }}>Этап 1 из 3 — Изучение теории</div>

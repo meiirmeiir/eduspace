@@ -233,7 +233,7 @@ const QUESTIONS = [
   },
 ];
 
-export default function FaqScreen({ onBack, initialQuestion }) {
+export default function FaqScreen({ user, onBack, initialQuestion }) {
   const { theme: THEME } = useTheme();
   const [openKey, setOpenKey] = useState(initialQuestion || null);
   const BG = '#f8fafc';
@@ -242,7 +242,7 @@ export default function FaqScreen({ onBack, initialQuestion }) {
 
   return (
     <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
-      <AppTopbar title="❓ Частые вопросы" onBack={onBack} />
+      <AppTopbar title="❓ Частые вопросы" onBack={onBack} user={user} />
       <div style={{ maxWidth:760, margin:'24px auto 48px', padding:'0 16px' }}>
         <h1 style={{
           fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:24,

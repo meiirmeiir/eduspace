@@ -194,7 +194,7 @@ function DiagnosticsScreen({ user, onSelectSection, onViewReport, onBack }) {
   // Список секций
   return (
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <AppTopbar title="Диагностика" onBack={onBack} />
+      <AppTopbar title="Диагностика" onBack={onBack} user={user} />
       <div style={{maxWidth:960,margin:"0 auto",padding:"48px 24px"}}>
         <div style={{marginBottom:40,display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
           <div>

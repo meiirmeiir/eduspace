@@ -574,7 +574,7 @@ export default function ShopScreen({ user, onBack, onUpdateUser, onGoDaily }) {
         .shop-loadout-scroll::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.4); border-radius: 99px; }
         .shop-loadout-scroll::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.6); }
       `}</style>
-      <AppTopbar variant="dark" title="Магазин" onBack={onBack} />
+      <AppTopbar variant="dark" title="Магазин" onBack={onBack} user={user} />
 
       <div style={{maxWidth:1100, margin:'0 auto', padding:'24px 16px'}}>
         <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color:THEME.primary, margin:'0 0 14px', display:'inline-flex', alignItems:'center'}}>🛍️ Магазин<InfoTooltip text="Трать кристаллы на оформление профиля: фоны, рамки, титулы, темы и снаряжение героя." /></h1>

@@ -474,7 +474,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     // 1) Диагностика не пройдена
     if (emptyReason === 'no-diag') return (
       <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
-        <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
+        <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} user={user} />
         <div style={{ maxWidth:520, margin:'80px auto', padding:'0 24px', textAlign:'center' }}>
           <div style={{ fontSize:56, marginBottom:16 }}>🎯</div>
           <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary, marginBottom:12 }}>Сначала пройди диагностику</h2>
@@ -495,7 +495,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       ];
       return (
         <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
-          <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
+          <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} user={user} />
           <div style={{ maxWidth:520, margin:'48px auto', padding:'0 24px', textAlign:'center' }}>
             <div style={{ fontSize:56, marginBottom:12 }}>🎓</div>
             <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary, marginBottom:8 }}>Освой первый навык</h2>
@@ -556,7 +556,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       ].filter(Boolean);
       return (
         <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
-          <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
+          <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} user={user} />
           <div style={{ maxWidth:560, margin:'64px auto', padding:'0 24px', textAlign:'center' }}>
             <div style={{ fontSize:60, marginBottom:14 }}>🏆</div>
             <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:24, color:THEME.primary, marginBottom:10 }}>Всё повторено! Ты молодец 🎉</h2>
@@ -589,7 +589,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     // 4) Fallback — что-то пошло не так / нет данных / пользователь без uid
     return (
       <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
-        <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
+        <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} user={user} />
         <div style={{ maxWidth:480, margin:'80px auto', padding:'0 24px', textAlign:'center' }}>
           <div style={{ fontSize:56, marginBottom:16 }}>🌙</div>
           <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:22, color:THEME.primary, marginBottom:12 }}>Разминка не нужна</h2>
@@ -708,7 +708,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
           </div>
         )}
 
-        <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} />
+        <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} user={user} />
         <div style={{ maxWidth:560, margin:'36px auto', padding:'0 24px 60px' }}>
           {/* a) Заголовок */}
           <div style={{ textAlign:'center', marginBottom:18 }}>

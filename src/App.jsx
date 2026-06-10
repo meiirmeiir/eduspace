@@ -1322,7 +1322,7 @@ function AppInner() {
       {screen==="mastery"&&masterySkillId&&<SkillMasteryScreen user={user} skillId={masterySkillId} skillName={masterySkillName} onBack={()=>{setMasterySkillId(null);setMasterySkillName('');goBack("plan");}} onRankRefresh={refreshRank}/>}
       {screen==="theory"&&<TheoryBrowseScreen user={user} onBack={()=>{setTheorySkillId(null);goBack();}} initialSkillId={theorySkillId}/>}
       {screen==="daily"&&<DailyTasksScreen user={user} onBack={()=>goBack()} onOpenDiagnostics={openDiagnostics} onViewPlan={viewPlan} onOpenFaq={openFaq} onRankRefresh={refreshRank}/>}
-      {screen==="faq"&&<FaqScreen initialQuestion={faqInitial} onBack={()=>goBack()}/>}
+      {screen==="faq"&&<FaqScreen user={user} initialQuestion={faqInitial} onBack={()=>goBack()}/>}
       {screen==="intermediate_tests"&&<IntermediateTestsScreen user={user} onStartBoss={sec=>{setBossSection(sec);navigate("boss_fight");}} onBack={()=>goBack()}/>}
       {screen==="boss_fight"&&bossSection&&<BossFightScreen section={bossSection} user={user} onBack={()=>goBack("intermediate_tests")}/>}
       {screen==="leaderboard"&&<LeaderboardScreen user={user} onBack={()=>goBack()} onOpenPublicProfile={openPublicProfile} onOpenFriends={()=>navigate("friends")} onGoDaily={()=>navigate("daily")}/>}

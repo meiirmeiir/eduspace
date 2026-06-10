@@ -269,7 +269,7 @@ function TheoryWalkthrough({ entry, ruName, onExit, awardXp }) {
         .tw-step { animation: twStepIn 0.25s ease; }
         .tw-option:hover { background:${THEME.bg} !important; border-color:#fbbf24 !important; }
       `}</style>
-      <AppTopbar title="📖 Теория" onBack={onExit} />
+      <AppTopbar title="📖 Теория" onBack={onExit} user={user} />
 
       {/* Сегментированный прогресс-бар: пройденные шаги — золотые */}
       <div style={{ maxWidth:780, margin:'0 auto', padding:'14px 20px 0' }}>
@@ -615,7 +615,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
 
   return (
     <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
-      <AppTopbar title="📖 Теория" onBack={onBack} />
+      <AppTopbar title="📖 Теория" onBack={onBack} user={user} />
       <div style={{ maxWidth:1000, margin:'0 auto', padding:'40px 20px' }}>
         <div style={{ marginBottom:24 }}>
           <h1 style={{ fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color:THEME.primary, marginBottom:6 }}>📖 Теория</h1>

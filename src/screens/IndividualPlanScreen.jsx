@@ -79,7 +79,7 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
 
   return (
     <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>
-      <AppTopbar title="🗺️ Индивидуальный план" onBack={onBack} />
+      <AppTopbar title="🗺️ Индивидуальный план" onBack={onBack} user={user} />
 
       <div style={{ maxWidth:1440, margin:'0 auto', padding:'28px 20px 60px' }}>
         <div data-tour="plan-header" style={{ marginBottom:20 }}>

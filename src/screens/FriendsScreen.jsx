@@ -190,7 +190,7 @@ export default function FriendsScreen({ user, onBack, onOpenPublicProfile }) {
         .fr-card { transition: transform 0.15s, box-shadow 0.15s; }
         .fr-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px -8px rgba(10,25,47,0.18); }
       `}</style>
-      <AppTopbar variant="dark" title="Друзья" onBack={onBack} />
+      <AppTopbar variant="dark" title="Друзья" onBack={onBack} user={user} />
 
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 16px' }}>
 

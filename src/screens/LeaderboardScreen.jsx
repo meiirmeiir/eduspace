@@ -374,7 +374,7 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile, o
           pointerEvents:'none',
         }}/>
       )}
-      <AppTopbar variant="dark" title="Рейтинг" onBack={onBack} />
+      <AppTopbar variant="dark" title="Рейтинг" onBack={onBack} user={user} />
 
       <div style={{maxWidth:720, margin:'0 auto', padding:'24px 16px'}}>
         {/* forceLightText = wallpaper активен → светлый текст поверх обоев.

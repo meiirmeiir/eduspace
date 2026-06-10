@@ -1,7 +1,7 @@
 import React from "react";
 import { useTheme } from "../../ThemeContext.jsx";
 
-export default function Logo({ size=48, light=false }) {
+export default function Logo({ size=48, light=false, showSubtitle=true }) {
   const { theme: THEME } = useTheme();
   // light=true → текст на цветном primary topbar (или sidebar с primary bg).
   // Sakura — особый случай: её sidebar светло-розовый, а topbar тёмно-бордовый.
@@ -24,7 +24,7 @@ export default function Logo({ size=48, light=false }) {
       </svg>
       <div>
         <div className="logo-title" style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:size*0.6,color:titleColor,lineHeight:1,letterSpacing:"1px"}}>AAPA</div>
-        <div className="logo-subtitle" style={{fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:Math.max(size*0.2,9),color:subtitleColor,letterSpacing:"1px",marginTop:4,textTransform:"uppercase"}}>Ad Astra Per Aspera</div>
+        {showSubtitle && <div className="logo-subtitle" style={{fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:Math.max(size*0.2,9),color:subtitleColor,letterSpacing:"1px",marginTop:4,textTransform:"uppercase"}}>Ad Astra Per Aspera</div>}
       </div>
     </div>
   );

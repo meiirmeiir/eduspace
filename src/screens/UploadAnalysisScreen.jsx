@@ -61,7 +61,7 @@ function UploadAnalysisScreen({ user, onDone, onSkip, resultId }) {
 
   return (
     <div style={{minHeight:"100vh",background:THEME.bg}}>
-      <AppTopbar variant="dark" title="Загрузка работы" onBack={null} rightSlot={
+      <AppTopbar variant="dark" title="Загрузка работы" onBack={null} user={user} rightSlot={
         <button onClick={onSkip} style={{background:"transparent",border:"1px solid rgba(255,255,255,0.2)",color:"rgba(255,255,255,0.7)",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontFamily:"'Inter',sans-serif"}}>Пропустить</button>
       } />
       <div style={{maxWidth:680,margin:"0 auto",padding:"48px 24px"}}>
