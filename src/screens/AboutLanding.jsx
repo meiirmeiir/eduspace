@@ -599,7 +599,7 @@ function ParentChildSideSection() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20 }} className="al-grid-4">
         <Reveal>
           <div className="al-card" style={{ height: "100%", textAlign: "center", padding: "22px 16px 24px" }}>
-            <div style={visual}><PlanetView fromLife={0.4} toLife={1} size={160} /></div>
+            <div style={visual}><PlanetView fromLife={0.4} toLife={1} size={160} allowMobile /></div>
             <div style={caption}>Планеты навыков</div>
             <div style={sub}>Каждая тема — мир, который расцветает по мере освоения</div>
           </div>
@@ -1449,6 +1449,13 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
           .al-perks{grid-template-columns:1fr!important;}
           .al-nav{padding:12px 18px;min-height:0;}
           .al-nav-trust{display:none!important;}
+          /* Анти-blowout сетки на мобайле: дети 1fr-колонки могут сжиматься уже
+             своего контента (по умолчанию min-width:auto). На iOS 3D-канвас
+             монтируется с inline width:360px (clientWidth=0 → фоллбэк) и распирал
+             колонку шире вьюпорта — текст карточек вытекал вправо. */
+          .al-grid-2>*,.al-grid-3>*,.al-grid-4>*{min-width:0;}
+          .al-card{min-width:0;}
+          .al-card canvas{max-width:100%;}
         }
         @media(max-width:520px){
           .al-perks{grid-template-columns:1fr!important;}
