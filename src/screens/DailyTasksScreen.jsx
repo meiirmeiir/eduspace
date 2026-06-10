@@ -1070,24 +1070,6 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
           )}
         </div>
 
-        {/* Skill chips (mini map) */}
-        <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:20 }}>
-          {queue.map((q, i) => {
-            const done = i < qIdx;
-            const active = i === qIdx;
-            const isCorr = done && correct.has(q.skillId);
-            const isDeg = done && degraded.has(q.skillId);
-            return (
-              <div key={q.skillId} style={{ padding:'6px 14px', borderRadius:20, fontSize:13, fontFamily:"'Inter',sans-serif", fontWeight:600,
-                background: isDeg?'rgba(239,68,68,0.1)':isCorr?'rgba(34,197,94,0.12)':active?'rgba(99,102,241,0.14)':(isDarkUi?'rgba(148,163,184,0.10)':'#f1f5f9'),
-                border: active ? '2px solid #6366f1' : `1px solid ${isDeg?'#fca5a5':isCorr?'#86efac':(isDarkUi?'rgba(148,163,184,0.25)':'#e2e8f0')}`,
-                color: isDeg?(isDarkUi?'#f87171':'#dc2626'):isCorr?(isDarkUi?'#4ade80':'#15803d'):active?(isDarkUi?'#a5b4fc':'#6366f1'):'#94a3b8' }}>
-                {isDeg?'💀':isCorr?'✓':active?'▶':''} {q.skillName}
-              </div>
-            );
-          })}
-        </div>
-
         {/* Danger alert if lives=0 and last wrong */}
         {lastWrongWasDanger && (
           <div style={{ background:'rgba(239,68,68,0.08)', border:`1px solid ${isDarkUi?'rgba(248,113,113,0.45)':'#fca5a5'}`, borderRadius:10, padding:'10px 14px', marginBottom:16, fontFamily:"'Inter',sans-serif", fontSize:13, color:isDarkUi?'#f87171':'#dc2626' }}>
