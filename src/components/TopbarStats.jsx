@@ -37,7 +37,7 @@ export default function TopbarStats({ user, dark = false, showStats }) {
             <IconStar size={15} style={tier?.color ? { color: tier.color } : undefined} />
             <span className="topbar-chip-val">{esr.toLocaleString("ru-RU")}</span>
           </span>
-          <span className="topbar-chip" title={`Кристаллы: ${crystals.toLocaleString("ru-RU")}`}>
+          <span className="topbar-chip" data-tour="crystals-chip" title={`Кристаллы: ${crystals.toLocaleString("ru-RU")}`}>
             <IconGem size={15} />
             <span className="topbar-chip-val">{crystals.toLocaleString("ru-RU")}</span>
           </span>

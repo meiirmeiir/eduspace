@@ -3,7 +3,7 @@ import { doc, getDoc, updateDoc, db } from "../firestore-rest.js";
 import { useTheme } from "../ThemeContext.jsx";
 import { isStageUnlocked, getAlmatyDateStr, SRS_INTERVALS, getAlmatyNextMidnightAfter, fmtCountdown } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
-import { addCrystals } from "../lib/crystalsUtils.js";
+import { addCrystals, onboardFirstCrystals } from "../lib/crystalsUtils.js";
 import { addXp, XP_REWARDS } from "../lib/levelUtils.js";
 import { updateQuestProgress } from "../lib/questsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
@@ -116,6 +116,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
       if (firstMastery) {
         addPoints(user.uid, 'skill_mastered', user);
         addCrystals(user.uid, 10, 'skill_mastered');
+        onboardFirstCrystals(user, showNpcMessage); // онбординг: разовое объяснение при первом начислении
         addXp(user.uid, XP_REWARDS.skill_mastered, 'skill_mastered', user);
         // Квест «Освой 3 навыка за неделю» — на полное освоение навыка.
         updateQuestProgress(user.uid, 'weekly_mastered', 1, user);

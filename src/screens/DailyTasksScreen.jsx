@@ -4,7 +4,7 @@ import { getContent } from "../lib/contentCache.js";
 import { useTheme } from "../ThemeContext.jsx";
 import { getAlmatyDateStr, SRS_INTERVALS } from "../lib/srsUtils.js";
 import { addPoints } from "../lib/pointsUtils.js";
-import { addCrystals } from "../lib/crystalsUtils.js";
+import { addCrystals, onboardFirstCrystals } from "../lib/crystalsUtils.js";
 import { addXp, XP_REWARDS, getLevelInfo } from "../lib/levelUtils.js";
 import { updateQuestProgress } from "../lib/questsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
@@ -351,7 +351,10 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       // UI показывал накопление live (sessionXp/sessionCrystals); зонд — сверху.
       if (user?.uid) {
         if (sessionXp > 0)           addXp(user.uid, sessionXp, 'daily_session', user);
-        if (sessionCrystals + loot > 0) addCrystals(user.uid, sessionCrystals + loot, 'daily_session');
+        if (sessionCrystals + loot > 0) {
+          addCrystals(user.uid, sessionCrystals + loot, 'daily_session');
+          onboardFirstCrystals(user, showNpcMessage); // онбординг: разовое объяснение при первом начислении
+        }
       }
       // Бонус за победу над боссом — СВЕРХ учебных наград, один раз. Учёбу/SRS не трогает.
       if (bossActive && battleResult === 'win' && !bossBonusAwardedRef.current && user?.uid) {

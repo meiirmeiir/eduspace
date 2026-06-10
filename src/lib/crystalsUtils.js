@@ -55,3 +55,34 @@ export async function addCrystals(uid, amount, reason) {
     return false;
   }
 }
+
+/**
+ * Онбординг Пикселя: ОДИН раз объясняет кристаллы при ПЕРВОМ начислении.
+ * Вызывать СРАЗУ после addCrystals в точке начисления, передав текущий `user`
+ * и `showNpcMessage` из useNpc().
+ *
+ * Детект «впервые»: addCrystals пишет в Firestore и НЕ трогает локальный
+ * user.crystals (он заморожен с логина) — поэтому на момент вызова
+ * `user.crystals` ещё хранит ПРЕД-начисление. Если оно 0 — кристаллы стали
+ * >0 впервые. Однократность — флаг aapa_npc_first_crystals_{uid}
+ * (консистентно с greeted/skillmap-флагами онбординга).
+ *
+ * Ничего не пишет в Firestore и не меняет логику начисления.
+ */
+export function onboardFirstCrystals(user, showNpcMessage) {
+  const uid = user?.uid;
+  if (!uid || typeof showNpcMessage !== 'function') return;
+  if ((user?.crystals ?? 0) !== 0) return; // у юзера уже были кристаллы — не онбординг
+  const key = `aapa_npc_first_crystals_${uid}`;
+  try {
+    if (localStorage.getItem(key)) return;  // уже показывали
+    localStorage.setItem(key, '1');         // ставим СИНХРОННО (защита от двойных вызовов)
+  } catch { return; }
+  // Задержка: в момент начисления могут идти success(6с)/streak(4с) — даём им
+  // догореть, чтобы не накладываться. Spotlight на чип кристаллов — только если
+  // он сейчас в DOM (чип скрыт, пока user.weekPoints == null); иначе просто реплика.
+  setTimeout(() => {
+    const hasChip = !!document.querySelector('[data-tour="crystals-chip"]');
+    showNpcMessage('onboard_crystals', 14000, hasChip ? { selector: '[data-tour="crystals-chip"]' } : {});
+  }, 6500);
+}
