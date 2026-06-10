@@ -76,8 +76,7 @@ export default function NpcGuide() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
   const isOnboarding = hash.includes('onboarding') || window.location.pathname.includes('/onboarding');
-  if (isOnboarding) return null;
-  if (profile && !profile.onboardingDone) return null;
+  // (гейты рендера перенесены ВНИЗ — после всех хуков, см. ниже)
 
   useEffect(() => {
     const restore = (el) => {
@@ -168,6 +167,13 @@ export default function NpcGuide() {
     };
   }, [npcState.visible, npcState.selector, npcState.tourActive]);
 
+  // ── Гейты рендера — ПОСЛЕ всех хуков (Rules of Hooks) ──
+  // Раньше эти `return null` стояли ВЫШЕ useEffect-подсветки, из-за чего число
+  // вызванных хуков менялось при смене условия (онбординг завершён / профиль
+  // дозагрузился) → React ронял NpcGuide и помощник переставал появляться.
+  // Логика гейтов та же: скрываем во время/до онбординга и когда нечего показать.
+  if (isOnboarding) return null;
+  if (profile && !profile.onboardingDone) return null;
   if (!npcState.visible) return null;
 
   const isTour = npcState.tourActive;
