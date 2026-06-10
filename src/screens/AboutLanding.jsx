@@ -942,16 +942,28 @@ const PLANET_STAGES = [
   { life: 1,   prev: 0.5, t: "Освоен",       s: "Цветущий мир с океанами, облаками и атмосферой." },
 ];
 
+// Статичные PNG-рендеры планет-состояний (реальный SkillPlanet3D, прозрачный фон,
+// 2× ретина). На мобайле показываем их вместо WebGL — ноль нагрузки на слабый GPU.
+const PLANET_STAGE_IMG = { "-1": "locked", "0": "available", "0.5": "progress", "1": "mastered" };
+
 function PlanetStageCard({ life, prev, t, s, i }) {
   const mobile = useIsMobile();
   const [replay, setReplay] = useState(0);
   const canAnimate = life !== prev;
+  const stageImg = PLANET_STAGE_IMG[String(life)];
   return (
     <Reveal i={i}>
       <div className="al-card"
         onMouseEnter={() => { if (!mobile && canAnimate) setReplay((r) => r + 1); }}
-        style={{ height: "100%", textAlign: "center", padding: "26px 16px 24px", cursor: canAnimate ? "pointer" : "default" }}>
-        <PlanetView key={replay} fromLife={prev} toLife={life} size={150} />
+        style={{ height: "100%", textAlign: "center", padding: "26px 16px 24px", cursor: (!mobile && canAnimate) ? "pointer" : "default" }}>
+        {mobile && stageImg ? (
+          // Мобайл: статичный PNG-рендер (вместо WebGL-планеты/градиента)
+          <img src={`/previews/planets/${stageImg}.png`} alt={t} loading="lazy"
+            style={{ width: 150, maxWidth: "100%", height: "auto", display: "block", margin: "0 auto" }} />
+        ) : (
+          // Десктоп: живая 3D-планета с анимацией «оживления»
+          <PlanetView key={replay} fromLife={prev} toLife={life} size={150} />
+        )}
         <div style={{ marginTop: 18, fontWeight: 800, fontSize: 18, color: "#fff", letterSpacing: "-0.3px" }}>
           {i > 0 && <span style={{ color: PURPLE, marginRight: 8 }}>→</span>}{t}
         </div>
@@ -1253,11 +1265,6 @@ function DeviceFrame({ kind, img, label, children }) {
 }
 
 function DevicesSection({ accent = PURPLE }) {
-  const devices = [
-    { kind: "laptop", img: deviceDesktopImg, label: "Компьютер" },
-    { kind: "tablet", img: deviceTabletImg,  label: "Планшет" },
-    { kind: "phone",  img: devicePhoneImg,   label: "Телефон" },
-  ];
   return (
     <Section>
       <Reveal>
@@ -1267,14 +1274,24 @@ function DevicesSection({ accent = PURPLE }) {
           <Lead style={{ maxWidth: 560, margin: "0 auto" }}>Платформа работает на компьютере, планшете и телефоне одинаково — прогресс общий.</Lead>
         </div>
       </Reveal>
-      <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr 0.72fr", gap: "clamp(20px,3vw,40px)", alignItems: "end" }} className="al-grid-3">
-        {devices.map((d, i) => (
-          <Reveal key={d.kind} i={i}>
-            <DeviceFrame {...d} />
-            <div style={{ textAlign: "center", marginTop: 16, fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>{d.label}</div>
-          </Reveal>
-        ))}
-      </div>
+      {/* Единая сцена устройств вместо трёх блоков в столбик: ноутбук крупно по
+          центру/сзади, планшет и телефон меньше и внахлёст спереди по бокам.
+          Позиции в % + aspect-ratio контейнера → композиция масштабируется под
+          ширину (на мобайле секция заметно ниже, ничего не вытекает). Отдельные
+          подписи убраны — единая сцена в них не нуждается. */}
+      <Reveal>
+        <div style={{ position: "relative", maxWidth: 720, margin: "0 auto", aspectRatio: "16 / 9" }}>
+          <div style={{ position: "absolute", left: "50%", top: "4%", transform: "translateX(-50%)", width: "70%", zIndex: 1 }}>
+            <DeviceFrame kind="laptop" img={deviceDesktopImg} label="На компьютере" />
+          </div>
+          <div style={{ position: "absolute", left: "1%", bottom: 0, width: "30%", zIndex: 2 }}>
+            <DeviceFrame kind="tablet" img={deviceTabletImg} label="На планшете" />
+          </div>
+          <div style={{ position: "absolute", right: "2%", bottom: "3%", width: "16%", zIndex: 3 }}>
+            <DeviceFrame kind="phone" img={devicePhoneImg} label="На телефоне" />
+          </div>
+        </div>
+      </Reveal>
     </Section>
   );
 }
