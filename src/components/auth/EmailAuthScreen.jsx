@@ -242,8 +242,10 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
         throw new Error('profile_write_failed');
       }
 
-      // AuthContext подхватит пользователя через onIdTokenChanged
-      onSuccess?.();
+      // AuthContext подхватит пользователя через onIdTokenChanged.
+      // isNewUser → роутинг ведёт нового юзера на онбординг ДЕТЕРМИНИРОВАННО
+      // (а не на dashboard через async-редирект, который проигрывал гонку).
+      onSuccess?.({ isNewUser: true });
     } catch (err) {
       if (err.message === 'profile_write_failed') {
         setError('Аккаунт создан, но профиль не сохранился. Попробуйте войти — если не получится, зарегистрируйтесь снова.');

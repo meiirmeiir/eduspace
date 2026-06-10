@@ -1044,7 +1044,7 @@ function AppInner() {
   if (!firebaseUser) {
     if (demoRoute?.step==="result") return <DemoResultScreen result={demoResult} onRegister={demoRegister} onRestart={startDemo} onExit={exitDemo}/>;
     if (demoRoute?.step==="quiz")   return <DemoScreen onFinish={finishDemo} onExit={exitDemo}/>;
-    if (showAuth) return <EmailAuthScreen from={authFrom} onSuccess={()=>{setAboutRoute(null);setDemoRoute(null);_setScreen('dashboard');}} onBack={()=>{setShowAuth(false);setAuthFrom(null);}}/>;
+    if (showAuth) return <EmailAuthScreen from={authFrom} onSuccess={(res)=>{setAboutRoute(null);setDemoRoute(null);_setScreen(res?.isNewUser?'onboarding':'dashboard');}} onBack={()=>{setShowAuth(false);setAuthFrom(null);}}/>;
     return <AboutLanding initialRole={aboutRoute?.role ?? null} onStart={()=>setShowAuth(true)} onDemo={startDemo} invitePending={inviteBanner}/>;
   }
   // Залогинен, но открыт публичный лендинг (/about · /landing/*) — показываем для шеринга.
