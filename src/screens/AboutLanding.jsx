@@ -607,7 +607,7 @@ function ParentChildSideSection() {
         <Reveal i={1}>
           <div className="al-card" style={{ height: "100%", textAlign: "center", padding: "22px 16px 24px" }}>
             <div style={visual}>
-              <LazyMount height={190}><Character3D gender="male" equipped={setToEquipped("astronaut-m")} height={190} autoSpin={0.35} /></LazyMount>
+              <LazyMount height={190}><Character3D gender="male" equipped={setToEquipped("astronaut-m")} height={190} autoSpin={0.35} lockVerticalDrag /></LazyMount>
             </div>
             <div style={caption}>Свой герой</div>
             <div style={sub}>Экипировка покупается за кристаллы — награду за решённые задачи</div>
@@ -1029,7 +1029,7 @@ function CustomizeSection() {
           <div className="al-card" style={{ padding: "16px 10px 4px",
             background: "radial-gradient(ellipse at 50% 35%, rgba(124,58,237,0.16), transparent 70%), rgba(255,255,255,0.03)" }}>
             <LazyMount height={400}>
-              <Character3D gender="male" equipped={setToEquipped(setId)} height={400} autoSpin={0.25} />
+              <Character3D gender="male" equipped={setToEquipped(setId)} height={400} autoSpin={0.25} lockVerticalDrag />
             </LazyMount>
             <div style={{ textAlign: "center", fontSize: 12.5, color: "rgba(255,255,255,0.4)", padding: "8px 0 12px" }}>
               ↔ Покрути героя мышкой или пальцем
