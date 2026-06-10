@@ -470,7 +470,7 @@ function ParentHeroVisual() {
         <div style={{ position: "absolute", right: -6, bottom: 0, width: "25%", zIndex: 2, filter: "drop-shadow(0 18px 36px rgba(0,0,0,0.6))" }}>
           <DeviceFrame kind="phone" img={devicePhoneImg} label="Кабинет ребёнка" />
         </div>
-        <div style={{ position: "absolute", left: 0, bottom: 2, background: "rgba(7,11,22,0.85)", backdropFilter: "blur(8px)",
+        <div className="parent-hero-capsule" style={{ position: "absolute", left: 0, bottom: 2, background: "rgba(7,11,22,0.85)", backdropFilter: "blur(8px)",
           border: `1px solid ${GOLD}55`, borderRadius: 99, padding: "8px 16px", fontSize: 12.5, fontWeight: 700, color: "#fff" }}>
           👀 Вы видите прогресс <span style={{ color: GOLD, margin: "0 4px" }}>→</span> 🎮 ребёнок учится в игре
         </div>
@@ -867,7 +867,7 @@ function ParentLanding({ onCta }) {
               Готовьте ребёнка<br />к школе <span style={{ color: GOLD }}>уверенно.</span>
             </h1>
             <Lead style={{ marginBottom: 18, maxWidth: 480 }}>
-              <strong style={{ color: "#fff" }}>40 000 задач · 307 навыков · 5–11 класс.</strong> Платформа находит слабые места и ведёт ребёнка по точному маршруту — за <strong style={{ color: GOLD }}>2000 ₸/мес</strong>, дешевле часа репетитора.
+              <strong style={{ color: "#fff" }}>40 000 задач · 307 навыков · 5–11 класс.</strong> Платформа находит слабые места и ведёт ребёнка по точному маршруту — за <strong style={{ color: GOLD, whiteSpace: "nowrap" }}>2000 ₸/мес</strong>, дешевле часа репетитора.
             </Lead>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
               <button className="al-btn-primary" style={{ fontSize: 16, padding: "17px 32px" }} onClick={onCta}>Попробовать бесплатно →</button>
@@ -1456,6 +1456,10 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
           .al-grid-2>*,.al-grid-3>*,.al-grid-4>*{min-width:0;}
           .al-card{min-width:0;}
           .al-card canvas{max-width:100%;}
+          /* Капсула «вы видите → ребёнок в игре»: ограничиваем левой зоной (правее —
+             иллюстрация телефона) и разрешаем перенос, чтобы не вытекала за экран
+             (iOS shrink-to-fit) и не наезжала на телефон. */
+          .parent-hero-capsule{max-width:62%;white-space:normal;line-height:1.35;}
         }
         @media(max-width:520px){
           .al-perks{grid-template-columns:1fr!important;}
