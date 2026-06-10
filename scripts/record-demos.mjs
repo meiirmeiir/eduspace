@@ -16,7 +16,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const R = (p) => resolve(__dirname, '..', p);
-const BASE = 'https://eduspace-murex.vercel.app/';
+const BASE = 'https://aapa.vercel.app/';
 const STUDENT = { email: 'meirbekbazarbek+student@gmail.com', password: 'TestStudent2026' };
 const VW = 720, VH = 1280;
 const USER_DATA = R('.rec-profile');

@@ -88,7 +88,7 @@ export async function resolveFriendCode(code) {
 }
 
 export function inviteLink(code) {
-  return `https://eduspace-murex.vercel.app/invite/${code}`;
+  return `https://aapa.vercel.app/invite/${code}`;
 }
 
 // ── Запросы дружбы ────────────────────────────────────────────────────────────
