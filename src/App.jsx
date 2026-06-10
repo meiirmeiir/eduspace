@@ -299,9 +299,10 @@ function AppInner() {
     if(screen==="plan")       startTourIfNew("plan");
     if(screen==="theory")     startTourIfNew("theory");
     if(screen==="diagnostics") startTourIfNew("diagnostics");
-    if(screen==="practice")   startTourIfNew("practice");
-    if(screen==="daily")      startTourIfNew("daily");
-    if(screen==="intermediate_tests") startTourIfNew("intermediate");
+    // Туры practice и intermediate удалены (академическое наследие, в новом
+    // онбординге не нужны). Тур daily временно отключён — TODO: переосмыслить
+    // для боссов (структура тура сохранена в npcTours.js).
+    // if(screen==="daily")      startTourIfNew("daily");
   },[screen, firebaseUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveQuizProgress=(qs,idx,ans,secName,sec)=>{

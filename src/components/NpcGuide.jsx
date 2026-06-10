@@ -121,15 +121,32 @@ export default function NpcGuide() {
     let observer = null;
     let timeoutId = null;
 
-    // Среди всех совпадений селектора берём первый ВИДИМЫЙ элемент.
+    // Реально ли элемент виден на экране. Недостаточно проверить display/
+    // visibility: drawer-сайдбар уводится за край через transform:translateX(-100%)
+    // при display:flex — для getComputedStyle он «видим», и подсветка ложилась
+    // на оффскрин-элемент (баг мобильной навигации после редизайна).
+    // Поэтому дополнительно: ненулевые размеры + прямоугольник не уведён
+    // ГОРИЗОНТАЛЬНО за вьюпорт. По вертикали НЕ режем — целевой блок может быть
+    // ниже сгиба и доезжает scrollIntoView в applyHighlight.
+    const isReallyVisible = (node) => {
+      const cs = window.getComputedStyle(node);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse') return false;
+      if (parseFloat(cs.opacity || '1') === 0) return false;
+      const r = node.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) return false; // нулевые размеры / скрыт родителем
+      const vw = window.innerWidth || document.documentElement.clientWidth;
+      if (r.right <= 0 || r.left >= vw) return false; // уведён за левый/правый край (drawer)
+      return true;
+    };
+
+    // Среди всех совпадений селектора берём первый РЕАЛЬНО видимый элемент.
     // Это важно для responsive-вёрстки: одна и та же навигация может
     // существовать и в скрытом sidebar, и в bottom-nav на мобильном —
     // нужно подсвечивать ту, что реально видна.
     const findVisible = (selector) => {
       const nodes = document.querySelectorAll(selector);
       for (const node of nodes) {
-        const cs = window.getComputedStyle(node);
-        if (cs.display !== 'none' && cs.visibility !== 'hidden') return node;
+        if (isReallyVisible(node)) return node;
       }
       return null;
     };

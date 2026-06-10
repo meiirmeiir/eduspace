@@ -14,6 +14,9 @@ export const TOURS = {
     },
     {
       selector: '[data-nav-id="plan"]',
+      // На мобайле тот же data-nav-id есть и в оффскрин-сайдбаре, и в bottom-nav —
+      // явно целимся в видимую нижнюю панель (findVisible тоже подстрахует).
+      mobileSelector: '.mobile-bottom-nav [data-nav-id="plan"]',
       message: 'Индивидуальный план обучения — пошаговый маршрут от текущего уровня до цели. Появляется здесь после первой диагностики.',
     },
     {
@@ -68,21 +71,12 @@ export const TOURS = {
       selector: '[data-tour="diag-sections"]',
       message: 'Разделы диагностики — можно пройти конкретный раздел отдельно, чтобы проверить знания по теме.',
     },
-    {
-      selector: '[data-tour="diag-history"]',
-      message: 'История диагностик — все пройденные тесты с результатами и подробным разбором ошибок.',
-    },
+    // Шаг diag-history перенесён в тур profile: блок истории живёт в
+    // ProfileSection (экран профиля), а не на экране #diagnostics.
   ],
-  practice: [
-    {
-      selector: '[data-tour="practice-header"]',
-      message: 'Тренировка навыков — здесь можно отработать конкретный навык с нуля до мастерства за три этапа.',
-    },
-    {
-      selector: '[data-tour="practice-skills"]',
-      message: 'Список навыков для тренировки — выбирай любой из доступных.',
-    },
-  ],
+  // TODO: переосмыслить для боссов — тур daily временно НЕ вызывается
+  // (startTourIfNew("daily") отключён в App.jsx). Структуру оставляем, чтобы
+  // вернуться к ней при добавлении объяснения боссов/ежедневок.
   daily: [
     {
       selector: '[data-tour="daily-header"]',
@@ -93,24 +87,22 @@ export const TOURS = {
       message: 'Очередь на повторение — навыки, которые пора закрепить сегодня. Отвечай на задачи, чтобы сохранить прогресс.',
     },
   ],
-  intermediate: [
-    {
-      selector: '[data-tour="intermediate-header"]',
-      message: 'Промежуточные тесты — проверка знаний по целым разделам. Пройди тест, чтобы получить медаль и разблокировать следующий уровень.',
-    },
-    {
-      selector: '[data-tour="intermediate-sections"]',
-      message: 'Разделы для тестирования — каждый раздел нужно пройти на достаточный балл.',
-    },
-  ],
   profile: [
     {
-      selector: '.profile-card',
+      // Бывший .profile-card снесён при редизайне профиля → целимся в
+      // корневой блок-герой профиля (ProfileSection avatar card).
+      selector: '[data-tour="profile-hero"]',
       message: 'Карточка профиля — аватар, имя и текущая цель обучения. Здесь же можно отредактировать данные.',
     },
     {
       selector: '.profile-stats-grid',
       message: 'Статистика — сколько диагностик пройдено и сколько времени потрачено на обучение.',
+    },
+    {
+      // Перенесён из тура diagnostics: блок истории реально живёт здесь,
+      // в ProfileSection (экран профиля).
+      selector: '[data-tour="diag-history"]',
+      message: 'История диагностик — все пройденные тесты с результатами и подробным разбором ошибок.',
     },
     {
       selector: '[data-tour="change-password"]',

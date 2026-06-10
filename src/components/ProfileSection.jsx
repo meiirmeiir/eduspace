@@ -192,8 +192,10 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
       <div className="profile-layout">
       {/* ═══ ЛЕВАЯ КОЛОНКА (sticky): кто я ═══ */}
       <div className="profile-col-left">
-      {/* Avatar card — вертикальная компоновка для узкой колонки */}
-      <div className="dashboard-section" style={{marginBottom:0}}>
+      {/* Avatar card — вертикальная компоновка для узкой колонки.
+          data-tour="profile-hero" — якорь шага тура profile (бывший .profile-card,
+          снесён при редизайне; см. npcTours.js). */}
+      <div className="dashboard-section" data-tour="profile-hero" style={{marginBottom:0}}>
         <div style={{display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center', gap:12}}>
           {/* Avatar (CSS-frame применяется inline, перекрывая дефолтный gold-border) */}
           <div style={{position:"relative",flexShrink:0}}>
