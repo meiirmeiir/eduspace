@@ -32,3 +32,9 @@ functions/.firebase/
 functions/.env
 .rec-profile/
 _rec-raw/
+
+# UI/UX Pro Max skill (external tooling, not app source)
+.claude/skills/ui-ux-pro-max/
+
+# Claude Code local settings (machine-specific, not source)
+.claude/settings.local.json
