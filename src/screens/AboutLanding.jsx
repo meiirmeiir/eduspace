@@ -1291,6 +1291,7 @@ function DevicesSection({ accent = PURPLE }) {
 //  ЛЕНДИНГ ДЛЯ УЧЕНИКА
 // ══════════════════════════════════════════════════════════════════════════════
 function StudentLanding({ onCta }) {
+  const mobile = useIsMobile();
   const testimonials = [
     { quote: "Раньше математику ненавидел. Теперь захожу ради streak'а и чтобы обогнать друга в лиге. Реально затягивает.", name: "Арман", role: "ученик 7 класса", initial: "А" },
     { quote: "Карта как в игре — видно, какие планеты-навыки ещё закрыты. Хочется открыть все.", name: "Аружан", role: "ученица 6 класса", initial: "А" },
@@ -1324,11 +1325,12 @@ function StudentLanding({ onCta }) {
           </Reveal>
           {/* ЖИВАЯ 3D-планета вместо видео: расцветает из камня при загрузке */}
           <Reveal i={1}>
-            <div style={{ textAlign: "center" }}>
+            <div style={{ textAlign: "center", padding: mobile ? "12px 0 16px" : 0 }}>
               <div style={{ fontSize: 14.5, fontWeight: 600, color: "rgba(255,255,255,0.62)", marginBottom: 16, letterSpacing: "0.2px" }}>
                 Каждый навык — это планета. Освой её — и она расцветёт.
               </div>
-              <PlanetView fromLife={0} toLife={1} size={420} allowMobile />
+              {/* На мобайле планета меньше (250 vs 420): воздух по бокам, не упирается в края */}
+              <PlanetView fromLife={0} toLife={1} size={mobile ? 250 : 420} allowMobile />
             </div>
           </Reveal>
         </div>
