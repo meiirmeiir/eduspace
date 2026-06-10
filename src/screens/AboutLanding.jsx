@@ -98,9 +98,13 @@ function LazyMount({ height, children, rootMargin = "260px" }) {
 }
 
 // ── планета навыка: 3D на десктопе (лениво), статичный градиент на мобильном ──
-function PlanetView({ fromLife, toLife, size = 150 }) {
+//    allowMobile=true — оставить 3D и на мобайле (для одиночных hero-инстансов,
+//    где один канвас безопасен). По умолчанию на мобайле — CSS-градиент, чтобы
+//    несколько 3D-канвасов не тормозили слабые GPU. LazyMount сохраняется в
+//    обоих случаях: канвас монтируется только у вьюпорта и чистит контекст.
+function PlanetView({ fromLife, toLife, size = 150, allowMobile = false }) {
   const mobile = useIsMobile();
-  if (mobile) {
+  if (mobile && !allowMobile) {
     const s = Math.min(size, 240);
     return (
       <div aria-hidden="true" style={{ width: s, height: s, borderRadius: "50%", margin: "0 auto",
@@ -1316,7 +1320,7 @@ function StudentLanding({ onCta }) {
               <div style={{ fontSize: 14.5, fontWeight: 600, color: "rgba(255,255,255,0.62)", marginBottom: 16, letterSpacing: "0.2px" }}>
                 Каждый навык — это планета. Освой её — и она расцветёт.
               </div>
-              <PlanetView fromLife={0} toLife={1} size={420} />
+              <PlanetView fromLife={0} toLife={1} size={420} allowMobile />
             </div>
           </Reveal>
         </div>
