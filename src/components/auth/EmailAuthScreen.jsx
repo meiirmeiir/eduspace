@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   auth,
   createUserWithEmailAndPassword,
@@ -51,6 +51,21 @@ function mapFirebaseError(code) {
   }
 }
 
+// ── Индикатор силы пароля (UI-only: НЕ блокирует отправку, валидацию не режет) ─
+//    Оценка по длине + разнообразию символов (регистр, цифры, символы).
+function passwordStrength(pw) {
+  if (!pw) return null;
+  let s = 0;
+  if (pw.length >= 8)  s++;
+  if (pw.length >= 12) s++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
+  if (/\d/.test(pw))   s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  if (s <= 2) return { level: 1, label: 'Слабый',  color: '#ef4444' };
+  if (s <= 3) return { level: 2, label: 'Средний', color: '#f59e0b' };
+  return        { level: 3, label: 'Сильный', color: '#22c55e' };
+}
+
 // ── Шрифты (EmailAuthScreen рендерится до основного App, поэтому нужны здесь) ─
 const FONTS_STYLE = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
@@ -86,6 +101,21 @@ const FONTS_STYLE = `
   .cta-button.active{opacity:1;box-shadow:0 8px 22px -5px rgba(212,175,55,0.35);}
   .cta-button.active:hover{background:#26263f;}
   .cta-button:disabled{cursor:not-allowed;}
+  /* Вторичная ghost-кнопка «На главную» в тёмной панели — в потоке над вордмарком
+     (без position:absolute, чтобы не перекрывать AAPA на мобайле). Тач-таргет ≥44px. */
+  .auth-back-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;
+    padding:10px 16px;margin-bottom:28px;border-radius:10px;
+    background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.22);
+    color:rgba(255,255,255,0.82);font-family:'Inter',sans-serif;font-size:14px;font-weight:600;
+    cursor:pointer;transition:background 0.15s,border-color 0.15s,color 0.15s;}
+  .auth-back-btn:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.4);color:#fff;}
+  .auth-back-btn:focus-visible{outline:none;border-color:rgba(255,255,255,0.5);color:#fff;
+    box-shadow:0 0 0 3px rgba(212,175,55,0.4);}
+  /* Индикатор силы пароля (регистрация) */
+  .pw-strength{display:flex;align-items:center;gap:10px;margin-top:8px;}
+  .pw-strength-track{display:flex;gap:4px;flex:1;}
+  .pw-strength-seg{height:5px;flex:1;border-radius:99px;background:#e2e8f0;transition:background 0.2s;}
+  .pw-strength-label{font-size:12px;font-weight:700;font-family:'Inter',sans-serif;min-width:56px;text-align:right;}
   @media(max-width:768px){
     .split-layout{flex-direction:column;}
     .split-left{padding:40px 24px;}
@@ -123,6 +153,15 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
   const [resetSent,  setResetSent]        = useState(false);
   const [resetLoading, setResetLoading]   = useState(false);
   const [resetError,   setResetError]     = useState('');
+
+  // Детерминированный якорь: на мобайле при заходе на auth показываем форму
+  // (а не верх тёмной панели с вордмарком AAPA). Десктоп — без скролла.
+  const formPanelRef = useRef(null);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      formPanelRef.current?.scrollIntoView({ block: 'start' });
+    }
+  }, []);
 
   // ── Маска телефона ──────────────────────────────────────────────────────────
   const handlePhone = (e) => {
@@ -300,13 +339,15 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
     <div className="split-layout">
       <style>{FONTS_STYLE}</style>
       {resetModal}
-      {onBack && (
-        <button onClick={onBack} style={{position:'absolute',top:16,left:16,zIndex:1100,background:'rgba(255,255,255,0.12)',backdropFilter:'blur(8px)',border:'1px solid rgba(255,255,255,0.25)',color:'#fff',borderRadius:10,padding:'8px 16px',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:"'Inter',sans-serif"}}>← На главную</button>
-      )}
 
       {/* ── Левая колонка (идентична старому AuthScreen) ── */}
       <div className="split-left">
         <div style={{marginBottom:60}}>
+          {onBack && (
+            <button type="button" onClick={onBack} className="auth-back-btn">
+              <span aria-hidden="true">←</span> На главную
+            </button>
+          )}
           <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:36,color:'#fff',lineHeight:1,letterSpacing:'1px'}}>AAPA</div>
         <div style={{fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:11,color:THEME.accent,letterSpacing:'1px',marginTop:4,textTransform:'uppercase'}}>Ad Astra Per Aspera</div>
         </div>
@@ -323,7 +364,7 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
       </div>
 
       {/* ── Правая колонка ── */}
-      <div className="split-right">
+      <div className="split-right" ref={formPanelRef}>
         <div className="form-card">
 
           {from === 'demo' && (
@@ -349,7 +390,7 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
             <form onSubmit={handleLogin}>
               <div className="input-group">
                 <label className="input-label">Email</label>
-                <input type="email" className="input-field" autoFocus
+                <input type="email" className="input-field"
                   value={loginEmail} onChange={e=>setLoginEmail(e.target.value)}
                   placeholder="example@mail.com" autoComplete="email" required/>
               </div>
@@ -450,6 +491,20 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
                 <input type="password" className="input-field"
                   value={regPassword} onChange={e=>setRegPassword(e.target.value)}
                   placeholder="Минимум 8 символов, буква и цифра" autoComplete="new-password" required/>
+                {regPassword && (() => {
+                  const ps = passwordStrength(regPassword);
+                  return (
+                    <div className="pw-strength" aria-live="polite">
+                      <div className="pw-strength-track">
+                        {[1,2,3].map(i => (
+                          <span key={i} className="pw-strength-seg"
+                            style={i <= ps.level ? { background: ps.color } : undefined}/>
+                        ))}
+                      </div>
+                      <span className="pw-strength-label" style={{ color: ps.color }}>{ps.label}</span>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="input-group">
                 <label className="input-label">Повторите пароль</label>
