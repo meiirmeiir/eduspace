@@ -151,7 +151,7 @@ export default function NpcGuide() {
       return null;
     };
 
-    if (npcState.visible && npcState.selector && npcState.tourActive) {
+    if (npcState.visible && npcState.selector && (npcState.tourActive || npcState.spotlight)) {
       const selector = npcState.selector;
       const el = findVisible(selector);
       if (el) {
@@ -182,7 +182,7 @@ export default function NpcGuide() {
         highlightedRef.current = null;
       }
     };
-  }, [npcState.visible, npcState.selector, npcState.tourActive]);
+  }, [npcState.visible, npcState.selector, npcState.tourActive, npcState.spotlight]);
 
   // ── Гейты рендера — ПОСЛЕ всех хуков (Rules of Hooks) ──
   // Раньше эти `return null` стояли ВЫШЕ useEffect-подсветки, из-за чего число
@@ -199,7 +199,7 @@ export default function NpcGuide() {
 
   return (
     <>
-      {isTour && <div className="npc-overlay" />}
+      {(isTour || npcState.spotlight) && <div className="npc-overlay" />}
 
       <div className="npc-panel assistant-widget">
         <div className="npc-panel-inner npc-fadein assistant-text">

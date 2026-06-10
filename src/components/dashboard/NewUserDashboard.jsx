@@ -22,7 +22,7 @@ export default function NewUserDashboard({ user, diagPause, onStart }) {
 
   return (
     <div style={{ maxWidth: 760, margin: '4vh auto 0', padding: '0 8px' }}>
-      <div className="dashboard-section" style={{
+      <div className="dashboard-section" data-tour="onboard-diag-cta" style={{
         padding: 'clamp(36px, 6vw, 64px) clamp(24px, 5vw, 56px)',
         textAlign: 'center', position: 'relative', overflow: 'hidden',
         background: `linear-gradient(150deg, ${THEME.primary} 0%, #1e1b4b 60%, #312e81 100%)`,

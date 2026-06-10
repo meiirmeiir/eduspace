@@ -17,11 +17,15 @@ function applyName(message, name) {
 
 function resolveMessage(key, name) {
   if (!key) return '';
-  if (Array.isArray(dialogues[key])) return applyName(getRandomFrom(dialogues[key]), name);
+  const entry = dialogues[key];
+  if (Array.isArray(entry)) return applyName(getRandomFrom(entry), name);
+  // Одиночные строковые ключи (onboard_diag / onboard_skillmap и т.п.).
+  if (typeof entry === 'string') return applyName(entry, name);
   if (key.startsWith('intros.')) {
     const topic = key.slice(7);
     return applyName(dialogues.intros?.[topic] ?? '', name);
   }
+  // Фолбэк: ключа в словаре нет — трактуем сам key как литеральный текст.
   return applyName(key, name);
 }
 
@@ -61,7 +65,7 @@ export function setNpcEnabled(uid, enabled) {
 export function NpcProvider({ children }) {
   const { profile, firebaseUser } = useAuth();
   const uid = firebaseUser?.uid;
-  const [state, setState] = useState({ visible: false, message: '', selector: null, tourActive: false });
+  const [state, setState] = useState({ visible: false, message: '', selector: null, tourActive: false, spotlight: false });
   const timerRef = useRef(null);
   const tourRef = useRef({ steps: [], idx: 0, screenKey: '', onComplete: null });
 
@@ -76,12 +80,17 @@ export function NpcProvider({ children }) {
     } catch {}
   }, [uid, profile?.npcToursSeen]);
 
-  const showNpcMessage = useCallback((key, durationMs = 0) => {
+  // showNpcMessage(key, durationMs, options)
+  //   options.selector — если задан, помощник подсвечивает этот элемент
+  //   (spotlight: затемнение фона + рамка, как в турах, но без шагов/кнопок
+  //   «Далее»). Используется онбординг-репликами onboard_diag/onboard_skillmap.
+  const showNpcMessage = useCallback((key, durationMs = 0, options = {}) => {
     if (!isNpcEnabled(uid)) return;
     const message = resolveMessage(key, profile?.firstName);
     if (!message) return;
     if (timerRef.current) clearTimeout(timerRef.current);
-    setState({ visible: true, message, selector: null, tourActive: false });
+    const selector = options.selector || null;
+    setState({ visible: true, message, selector, tourActive: false, spotlight: !!selector });
     if (durationMs > 0) {
       timerRef.current = setTimeout(() => {
         setState(s => ({ ...s, visible: false }));
@@ -91,7 +100,7 @@ export function NpcProvider({ children }) {
 
   const hideNpc = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setState({ visible: false, message: '', selector: null, tourActive: false });
+    setState({ visible: false, message: '', selector: null, tourActive: false, spotlight: false });
     tourRef.current = { steps: [], idx: 0, screenKey: '', onComplete: null };
   }, []);
 

@@ -188,8 +188,29 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
   // тур уже пройден) — чтобы не конкурировать с туром за state помощника.
   useEffect(()=>{
     const uid = firebaseUser?.uid;
-    if (!uid || !profile?.onboardingDone) return;
+    if (!uid || !profile?.onboardingDone || !user) return;
     const greetedKey = `aapa_npc_greeted_${uid}`;
+    // ── Новый юзер (диагностика ещё не пройдена) ──────────────────────────
+    // Онбординг-реплика Пикселя, ведущая на диагностику, со spotlight на блок
+    // Умной Диагностики ([data-tour="smart-diag"], рендерится при !smartDiagDone).
+    // Однократно — тот же greeted-флаг, что и обычное приветствие. Общий
+    // dashboard-тур/greetings для новичка пока не запускаем (фокус на диагностике).
+    if (!user.smartDiagDone) {
+      try {
+        if (!localStorage.getItem(greetedKey)) {
+          // Spotlight на CTA NewUserDashboard (диагностика). Прежний якорь
+          // smart-diag после рефактора не рендерится для нового юзера (stage="new").
+          showNpcMessage("onboard_diag", 14000, { selector: '[data-tour="onboard-diag-cta"]' });
+          localStorage.setItem(greetedKey, "1");
+        }
+      } catch {}
+      return;
+    }
+    // ── Существующий юзер ────────────────────────────────────────────────
+    // Если уже приветствовали (в т.ч. новичка onboard_diag выше) — не дублируем
+    // dashboard-тур/greetings после прохождения диагностики.
+    try { if (localStorage.getItem(greetedKey)) return; } catch {}
+    // Прежнее поведение: dashboard-тур, затем обычное greetings.
     const showGreeting = () => {
       try {
         if (!localStorage.getItem(greetedKey)) {
@@ -200,7 +221,9 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
     };
     const tourWillFire = startTourIfNew("dashboard", showGreeting);
     if (!tourWillFire) showGreeting();
-  },[firebaseUser?.uid, profile?.onboardingDone]); // eslint-disable-line react-hooks/exhaustive-deps
+    // user?.smartDiagDone в deps — чтобы эффект отработал, когда user догрузится
+    // позже uid/onboardingDone (иначе onboard_diag мог не показаться из-за гонки).
+  },[firebaseUser?.uid, profile?.onboardingDone, user?.smartDiagDone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-deactivate when learning period expires
   useEffect(()=>{

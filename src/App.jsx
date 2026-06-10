@@ -296,7 +296,27 @@ function AppInner() {
   // NpcContext получит uid, и markTourSeen запишет в legacy-ключ).
   useEffect(()=>{
     if(!firebaseUser?.uid) return;
-    if(screen==="plan")       startTourIfNew("plan");
+    if(screen==="plan"){
+      // Онбординг: первый заход на план ПОСЛЕ пройденной диагностики — Пиксель
+      // показывает карту навыков со spotlight на [data-tour="plan-graph"].
+      // Однократно (флаг aapa_npc_skillmap_{uid}). В этот заход общий plan-тур
+      // не запускаем, чтобы не конкурировать; он покажется при следующем визите.
+      const uid=firebaseUser?.uid;
+      const skillmapKey=uid?`aapa_npc_skillmap_${uid}`:null;
+      let shownSkillmap=false;
+      if(uid && user?.smartDiagDone){
+        try{
+          if(!localStorage.getItem(skillmapKey)){
+            // небольшая задержка — дать карте модулей отрисоваться (подсветка
+            // дождётся элемента через MutationObserver, но так надёжнее).
+            setTimeout(()=>showNpcMessage("onboard_skillmap",14000,{selector:'[data-tour="plan-graph"]'}),700);
+            localStorage.setItem(skillmapKey,"1");
+            shownSkillmap=true;
+          }
+        }catch{}
+      }
+      if(!shownSkillmap) startTourIfNew("plan");
+    }
     if(screen==="theory")     startTourIfNew("theory");
     if(screen==="diagnostics") startTourIfNew("diagnostics");
     // Туры practice и intermediate удалены (академическое наследие, в новом
