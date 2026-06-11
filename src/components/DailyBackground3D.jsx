@@ -50,7 +50,7 @@ export default function DailyBackground3D({ isDark = true }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    let renderer, scene, camera, frameId, clock, ro;
+    let renderer, scene, camera, frameId, clock, ro, resizeTimer;
     let cancelled = false;
     const mount = mountRef.current;
     if (!mount) return;
@@ -68,8 +68,14 @@ export default function DailyBackground3D({ isDark = true }) {
       catch (e) { if (!cancelled) setFailed(true); return; }
       // Чуть скромнее боевой сцены: фон не должен жрать GPU.
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2));
-      renderer.setSize(W, H);
-      mount.appendChild(renderer.domElement);
+      renderer.setSize(W, H, false);                  // false → НЕ трогаем CSS-размер канваса
+      // Канвас всегда заполняет контейнер (inset:0) через CSS 100%. Когда высота
+      // вьюпорта «дышит» от адресной строки iOS, CSS просто растягивает уже
+      // отрисованный кадр — без переразмера буфера, т.е. без clear/reproject и без
+      // мигания планеты.
+      const cv = renderer.domElement;
+      cv.style.width = '100%'; cv.style.height = '100%'; cv.style.display = 'block';
+      mount.appendChild(cv);
 
       scene = new THREE.Scene();
       // Глубина как в BattleScene3D, но мягче (дальние звёзды слегка тонут в темноте).
@@ -183,11 +189,30 @@ export default function DailyBackground3D({ isDark = true }) {
       const atmo = new THREE.Mesh(atmoGeo, atmoMat);
       planetGroup.add(atmo);
 
+      // ResizeObserver, устойчивый к «дыханию» вьюпорта iOS. На мобайле адресная
+      // строка при скролле постоянно меняет ВЫСОТУ (ширина та же). Раньше это
+      // дёргало setSize + camera.aspect на каждый кадр → офф-центровая планета
+      // мигала. Теперь height-only изменения в пределах полосы адресной строки
+      // игнорируем (CSS 100% и так держит канвас заполненным); реальные ресайзы
+      // (поворот экрана, ресайз окна) применяем один раз, с дебаунсом.
+      let lastW = W, lastH = H;
+      const ADDR_BAND = 160;   // высота адресной строки iOS ≈ 60–150px
+      const applyResize = () => {
+        if (!renderer || !mount) return;
+        const nW = vw(), nH = vh();
+        if (nW === lastW && nH === lastH) return;
+        lastW = nW; lastH = nH; W = nW; H = nH;
+        renderer.setSize(W, H, false);
+        camera.aspect = W / H; camera.updateProjectionMatrix();
+      };
       ro = new ResizeObserver(() => {
         if (!renderer || !mount) return;
-        W = vw(); H = vh();
-        renderer.setSize(W, H);
-        camera.aspect = W / H; camera.updateProjectionMatrix();
+        const nW = vw(), nH = vh();
+        // iOS-«дыхание»: ширина та же, высота сменилась в пределах полосы адресной
+        // строки → НЕ пересоздаём (иначе мигание при скролле).
+        if (isMobile && nW === lastW && Math.abs(nH - lastH) <= ADDR_BAND) return;
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(applyResize, 150);
       });
       ro.observe(mount);
 
@@ -209,6 +234,7 @@ export default function DailyBackground3D({ isDark = true }) {
     return () => {
       cancelled = true;
       if (frameId) cancelAnimationFrame(frameId);
+      if (resizeTimer) clearTimeout(resizeTimer);
       if (ro) ro.disconnect();
       geos.forEach((g) => g.dispose && g.dispose());
       mats.forEach((m) => m.dispose && m.dispose());
@@ -227,7 +253,13 @@ export default function DailyBackground3D({ isDark = true }) {
     : 'radial-gradient(ellipse at 28% 22%, #0c1330 0%, #070b18 62%, #04060e 100%)';
 
   return (
-    <div aria-hidden="true" style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: base }}>
+    <div aria-hidden="true" style={{
+      position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: base,
+      // Отдельный стабильный композиционный слой: iOS меньше репейнтит фон при
+      // скролле (динамическая адресная строка не дёргает слой) → меньше мерцания.
+      transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)',
+      backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
+    }}>
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
       {/* Скрим читаемости: затемняет к центру/низу, где карточка и мелкий текст,
           оставляя планету вверху-слева яркой. Поверх канваса, под контентом. */}
