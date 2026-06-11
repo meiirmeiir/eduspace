@@ -45,7 +45,7 @@ const SOFT_ATMO_FRAG = `
     gl_FragColor = vec4(ATMO, band * sun * uIntensity);
   }`;
 
-export default function DailyBackground3D({ isDark = true, progress = 0, boostSeq = 0, glitchSeq = 0 }) {
+export default function DailyBackground3D({ isDark = true, progress = 0, boostSeq = 0, glitchSeq = 0, isLast = false, arrivalBurstSeq = 0 }) {
   const mountRef = useRef(null);
   const boostFlashRef = useRef(null);
   const glitchFlashRef = useRef(null);
@@ -56,9 +56,13 @@ export default function DailyBackground3D({ isDark = true, progress = 0, boostSe
   const progressRef = useRef(progress);
   const boostSeqRef = useRef(boostSeq);
   const glitchSeqRef = useRef(glitchSeq);
+  const isLastRef = useRef(isLast);
+  const arrivalSeqRef = useRef(arrivalBurstSeq);
   useEffect(() => { progressRef.current = Math.max(0, Math.min(1, progress)); }, [progress]);
   useEffect(() => { boostSeqRef.current = boostSeq; }, [boostSeq]);
   useEffect(() => { glitchSeqRef.current = glitchSeq; }, [glitchSeq]);
+  useEffect(() => { isLastRef.current = isLast; }, [isLast]);
+  useEffect(() => { arrivalSeqRef.current = arrivalBurstSeq; }, [arrivalBurstSeq]);
 
   useEffect(() => {
     let renderer, scene, camera, frameId, clock, ro, resizeTimer;
@@ -190,14 +194,16 @@ export default function DailyBackground3D({ isDark = true, progress = 0, boostSe
       // мировые координаты -2.0,2.4 / -3.4,2.0 при z=-9).
       const lerp = (a, b, t) => a + (b - a) * t;
       const tanHalfFov = Math.tan((55 * Math.PI / 180) / 2);
-      const Z_FAR = -9, Z_NEAR = -4.4;
+      const Z_FAR = -9, Z_NEAR = -4.4, Z_ARRIVAL = -3.4;   // последняя задача — ближе, чем когда-либо
       const NDX_FAR = isMobile ? -0.92 : -0.45, NDX_NEAR = isMobile ? -0.30 : -0.52;
       const NDY_FAR = isMobile ?  0.51 : 0.43,  NDY_NEAR = isMobile ?  1.00 : 0.74;
-      const BOOST_DUR = 0.7, BOOST_DZ = 0.9;    // верный ответ: короткий рывок ближе
-      const GLITCH_DUR = 0.45, SHAKE = 0.05;    // неверный: лёгкая тряска, БЕЗ отката
-      let dispProg = progressRef.current;       // дисплейная доля, плавно догоняет цель
+      const BOOST_DUR = 0.7, BOOST_DZ = 0.9;     // верный ответ: короткий рывок ближе
+      const GLITCH_DUR = 0.45, SHAKE = 0.05;     // неверный: лёгкая тряска, БЕЗ отката
+      const ARRIVAL_DUR = 1.4, ARRIVAL_DZ = 1.3; // финал: сильный бело-голубой bloom + рывок
+      let dispProg = progressRef.current;        // дисплейная доля, плавно догоняет цель
       let seenBoost = boostSeqRef.current, boostStart = -1;
       let seenGlitch = glitchSeqRef.current, glitchStart = -1;
+      let seenArrival = arrivalSeqRef.current, arrivalStart = -1;
 
       const planetGeo = new THREE.SphereGeometry(1, 48, 48); geos.push(planetGeo);
       const planetMat = new THREE.ShaderMaterial({ uniforms, vertexShader: PLANET_VERT, fragmentShader: PLANET_FRAG, fog: false }); mats.push(planetMat);
@@ -259,24 +265,34 @@ export default function DailyBackground3D({ isDark = true, progress = 0, boostSe
         if (boostStart >= 0) { const e = t - boostStart; if (e < BOOST_DUR) boost = Math.sin(e / BOOST_DUR * Math.PI); else boostStart = -1; }
         let glitch = 0;
         if (glitchStart >= 0) { const e = t - glitchStart; if (e < GLITCH_DUR) glitch = 1 - e / GLITCH_DUR; else glitchStart = -1; }
+        if (arrivalSeqRef.current !== seenArrival) { seenArrival = arrivalSeqRef.current; arrivalStart = t; }
+        let arrival = 0;
+        if (arrivalStart >= 0) { const e = t - arrivalStart; if (e < ARRIVAL_DUR) arrival = Math.sin(e / ARRIVAL_DUR * Math.PI); else arrivalStart = -1; }
 
         // ── Плавный lerp дисплейной доли к целевой (смена задачи — не скачком) ──
         dispProg += (progressRef.current - dispProg) * Math.min(1, dt * 2.5);
 
-        // ── Дистанция + якорь по доле; буст добавляет короткий рывок ближе ──
-        // easeIn (pow 1.4): начало далеко/спокойно, к концу сессии — заметнее «налёт».
+        // ── Дистанция + якорь по доле; на последней задаче — ближе всего (Z_ARRIVAL).
+        // easeIn (pow 1.4): начало далеко/спокойно, к концу — заметнее «налёт». ──
         const e = Math.pow(dispProg, 1.4);
-        const z = lerp(Z_FAR, Z_NEAR, e) + BOOST_DZ * boost;
-        const ndcX = lerp(NDX_FAR, NDX_NEAR, e);
-        const ndcY = lerp(NDY_FAR, NDY_NEAR, e);
+        const isLastNow = isLastRef.current;
+        const eUsed = isLastNow ? Math.min(1, e + 0.18) : e;   // финал подтягивается к самому близкому
+        const zNear = isLastNow ? Z_ARRIVAL : Z_NEAR;
+        const z = lerp(Z_FAR, zNear, eUsed) + BOOST_DZ * boost + ARRIVAL_DZ * arrival;
+        const ndcX = lerp(NDX_FAR, NDX_NEAR, eUsed);
+        const ndcY = lerp(NDY_FAR, NDY_NEAR, eUsed);
         const halfH = Math.abs(z) * tanHalfFov;
         const halfW = halfH * camera.aspect;
         planetGroup.position.set(ndcX * halfW, ndcY * halfH, z);
 
+        // Атмосфера: на финале плотнее/ярче; arrival-burst — кульминационный bloom.
+        atmoUniforms.uIntensity.value = (isLastNow ? 1.5 : 1.05) + arrival * 2.4;
+
         // ── Сбой: лёгкая тряска камеры (без отдаления) + красный блик ──
         camera.position.x = glitch ? Math.sin(t * 72) * SHAKE * glitch : 0;
         camera.position.y = glitch ? Math.cos(t * 64) * SHAKE * glitch : 0;
-        if (boostFlashRef.current)  boostFlashRef.current.style.opacity  = (boost * 0.42).toFixed(3);
+        // Бело-голубая вспышка: обычный буст слабее, arrival (финал) — сильнее/ярче.
+        if (boostFlashRef.current)  boostFlashRef.current.style.opacity  = Math.max(boost * 0.42, arrival * 0.78).toFixed(3);
         if (glitchFlashRef.current) glitchFlashRef.current.style.opacity = (glitch * 0.5).toFixed(3);
 
         starUniforms.uTime.value = t;

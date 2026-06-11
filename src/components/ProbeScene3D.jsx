@@ -54,7 +54,7 @@ const CABLE_LEN = 0.78;
 // Центр капсулы при висе на тросе: низ дрона (−0.07) − трос − радиус.
 const PROBE_HANG_DY = 0.07 + CABLE_LEN + 0.5;
 
-export default function ProbeScene3D({ tier = 'standard', state = 'delivering', freeze = null, onLanded, onOpenComplete, fallback = null, width = 360, height = 280 }) {
+export default function ProbeScene3D({ tier = 'standard', state = 'delivering', freeze = null, skipDelivery = false, onLanded, onOpenComplete, fallback = null, width = 360, height = 280 }) {
   const mountRef = useRef(null);
   const [failed, setFailed] = useState(false);
   const stateRef = useRef(state); stateRef.current = state;
@@ -315,6 +315,14 @@ export default function ProbeScene3D({ tier = 'standard', state = 'delivering', 
         innerLight.intensity = T.innerI;
         spawnLoot(true);
         lootSpawned = true; completeFired = true; landedFired = true;
+      } else if (skipDelivery) {
+        // Кат-сцена уже доставила зонд дроном → стартуем УЖЕ приземлённым (без
+        // повторной доставки) и сразу готовы к открытию. Open-ветка не меняется.
+        phase = 'landed'; landedAt = 0;
+        drone.visible = false;
+        probe.position.set(0, PROBE_REST_Y, 0);
+        landedFired = true;
+        onLandedRef.current?.();
       } else {
         drone.position.set(3.4, 3.6, 0);
         probe.position.set(3.4, 3.6 - PROBE_HANG_DY, 0);

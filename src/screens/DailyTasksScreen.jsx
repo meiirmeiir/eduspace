@@ -13,6 +13,8 @@ import AppTopbar from "../components/AppTopbar.jsx";
 import Boss3D from "../components/Boss3D.jsx";
 import BattleScene3D from "../components/BattleScene3D.jsx";
 import DailyBackground3D from "../components/DailyBackground3D.jsx";
+import ArrivalPlanet3D from "../components/ArrivalPlanet3D.jsx";
+import ArrivalCutscene3D from "../components/ArrivalCutscene3D.jsx";
 import ProbeScene3D from "../components/ProbeScene3D.jsx";
 import Character3D from "../components/Character3D.jsx";
 import { computePlayerHp } from "../lib/shopItems.js";
@@ -69,6 +71,13 @@ function plural(n, forms) {
 // Флаг отката живого 3D-фона мирного режима: true = Three.js космос+планета,
 // false = прежний CSS-градиент (BG). В бою фон не рендерится в любом случае.
 const DAILY_BG_3D = true;
+// Флаг отката «Прибытия»: true = hero-планета на результатах + arrival-bloom финала
+// + seam-вспышка; false = прежний экран результатов (фолбэк — эмодзи 🏆), ничего не падает.
+const DAILY_ARRIVAL = true;
+// Флаг кат-сцены прибытия (слоёный откат): DAILY_ARRIVAL on + DAILY_CUTSCENE on →
+// полноэкранная кат-сцена (с фолбэком на статику при reduced-motion/WebGL-fail);
+// DAILY_CUTSCENE off → статичная hero-планета (Шаг 3); DAILY_ARRIVAL off → 🏆.
+const DAILY_CUTSCENE = true;
 // Палитра AAPA для CTA (как на авторизации): тёмный фон + золотой текст.
 const BTN_DARK = { background:'#1a1a2e', color:'#fbbf24', border:'1px solid rgba(251,191,36,0.4)' };
 const BTN_GOLD = { background:'linear-gradient(90deg,#fbbf24,#f59e0b)', color:'#1a1a2e', border:'none' };
@@ -157,6 +166,22 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   // Сигналы для фон-планеты (мирный режим): верный → буст приближения, неверный → сбой.
   const [bgBoostSeq,  setBgBoostSeq]  = useState(0);
   const [bgGlitchSeq, setBgGlitchSeq] = useState(0);
+  // Прибытие: верный ответ на ПОСЛЕДНЕЙ задаче → кульминационный bloom фона; флаг
+  // celebrate переносит триумф в seam-вспышку и hero-планету на результатах.
+  const [arrivalBurstSeq, setArrivalBurstSeq] = useState(0);
+  const [arrivalCelebrate, setArrivalCelebrate] = useState(false);
+  // Кат-сцена прибытия: проигралась ли до конца / упала ли (WebGL-fail).
+  const [cutsceneDone, setCutsceneDone] = useState(false);
+  const [cutsceneFailed, setCutsceneFailed] = useState(false);
+  const prefersReducedMotion = useRef(typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false).current;
+  // Полная версия — первый запуск за день (localStorage), иначе короче. Метку дня
+  // ставим в onDone (только когда кат-сцена реально проиграла).
+  const arrivalFullRef = useRef(null);
+  if (arrivalFullRef.current === null) {
+    try { arrivalFullRef.current = !localStorage.getItem(`aapa_arrival_${getAlmatyDateStr(0)}`); }
+    catch { arrivalFullRef.current = true; }
+  }
 
   const bossBonusAwardedRef = useRef(false);
   // HP героя в бою = база 3 + бонусы надетого снаряжения (Этап 2C).
@@ -260,6 +285,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     setAnswers(a => [...a, isCorrect]);        // сегмент прогресс-бара: зелёный/красный
     if (isCorrect) {
       setBgBoostSeq(n => n + 1);   // фон: рывок приближения к планете + вспышка
+      if (qIdx === queue.length - 1) setArrivalBurstSeq(n => n + 1); // финал верный → кульминация
       setCorrect(p => new Set([...p, current.skillId]));
       setLastWrongWasDanger(false);
       const nextStreak = streak + 1;
@@ -359,6 +385,8 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         addCrystals(user.uid, 5, 'boss_win');
         addXp(user.uid, 20, 'boss_win', user);
       }
+      // Прибытие: финал верный → перенести триумф в seam-вспышку и hero-планету.
+      setArrivalCelebrate(answers.length ? !!answers[answers.length - 1] : false);
       await saveSession();
       onRankRefresh?.();
       setSaving(false);
@@ -684,6 +712,19 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       standard: { name:'Грузовой зонд',    note:null,              accent:'#fb923c', body:'linear-gradient(180deg,#cbd5e1,#8b95a5)' },
     }[probeTier];
     const card = { background: isDarkUi ? THEME.surface : '#ffffff', border:`1px solid ${THEME.border}`, borderRadius:14 };
+
+    // ── Пути прибытия (слоёный откат) ──
+    const perf = totalCount > 0 ? correctCount / totalCount : 0;        // 0..1 для градиента интенсивности
+    const cutsceneAvail = DAILY_ARRIVAL && DAILY_CUTSCENE && !bossActive && !prefersReducedMotion;
+    const cutscenePlaying  = cutsceneAvail && !cutsceneFailed && !cutsceneDone;   // оверлей активен
+    const cutsceneResolved = cutsceneAvail && !cutsceneFailed && cutsceneDone;    // эстафета передана
+    const showStaticHero = DAILY_ARRIVAL && (!cutsceneAvail || cutsceneFailed);   // hero-планета Шага 3
+    const probeShouldMount = !cutscenePlaying;        // зонд НЕ монтируем, пока кат-сцена активна (≤1 контекст)
+    const probeSkipDelivery = cutsceneResolved;       // кат-сцена уже «привезла» → зонд стартует приземлённым
+    const fogBackdrop = cutsceneAvail && !cutsceneFailed;  // туманный задник секции награды (без 2-го контекста)
+    const showSeamFlash = DAILY_ARRIVAL && arrivalCelebrate && (!cutsceneAvail || cutsceneFailed); // маска Шага 3 — только статик-путь
+    const onCutsceneDone = () => { try { localStorage.setItem(`aapa_arrival_${getAlmatyDateStr(0)}`, '1'); } catch { /* noop */ } setCutsceneDone(true); };
+
     return (
       <div className="page-themed" style={{ minHeight:'100vh', background: isDarkUi
         ? 'linear-gradient(180deg, #131b36 0%, #1a1d3f 40%, #0f172a 100%)'
@@ -691,7 +732,29 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         <style>{`
           @keyframes lootPop { 0% { transform:scale(0.6); opacity:0; } 60% { transform:scale(1.12); opacity:1; } 100% { transform:scale(1); opacity:1; } }
           @keyframes confettiFall { 0% { transform:translateY(-50px) rotate(0deg); opacity:1; } 100% { transform:translateY(105vh) rotate(560deg); opacity:0.5; } }
+          @keyframes arrivalFlash { 0% { opacity:1; } 22% { opacity:0.9; } 100% { opacity:0; } }
         `}</style>
+
+        {/* Seam-вспышка прибытия (ТОЛЬКО статик-путь — в кат-сцене remount маскирует
+            её собственное bloom-открытие, дублировать не нужно). */}
+        {showSeamFlash && (
+          <div aria-hidden="true" style={{
+            position:'fixed', inset:0, zIndex:60, pointerEvents:'none',
+            background:'radial-gradient(ellipse at 50% 42%, rgba(220,240,255,0.95) 0%, rgba(150,205,255,0.7) 35%, rgba(120,180,255,0) 72%)',
+            animation:'arrivalFlash 0.95s ease-out both',
+          }}/>
+        )}
+
+        {/* Полноэкранная кат-сцена прибытия (свой контекст). Пока активна — зонд-секция
+            НЕ монтирует ProbeScene3D (≤1 контекст). На onDone → эстафета секции награды. */}
+        {cutscenePlaying && (
+          <ArrivalCutscene3D
+            perf={perf}
+            full={arrivalFullRef.current}
+            onDone={onCutsceneDone}
+            onFail={() => setCutsceneFailed(true)}
+          />
+        )}
 
         {/* CSS-конфетти при PERFECT (лёгкие частички, один проход) */}
         {isPerfect && (
@@ -710,9 +773,16 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
 
         <AppTopbar title="📝 Ежедневные задачи" onBack={onBack} user={user} />
         <div style={{ maxWidth:560, margin:'36px auto', padding:'0 24px 60px' }}>
-          {/* a) Заголовок */}
+          {/* a) Заголовок. Статик-путь → hero-планета (трофей). Кат-сцена-путь → планету
+              НЕ дублируем (она была кат-сценой), только заголовок. Флаг off → эмодзи. */}
           <div style={{ textAlign:'center', marginBottom:18 }}>
-            <div style={{ fontSize:52, marginBottom:10 }}>{degradedCount > 0 ? '⚠️' : '🏆'}</div>
+            {showStaticHero ? (
+              <div style={{ marginBottom:6 }}>
+                <ArrivalPlanet3D size={190} celebrate={arrivalCelebrate && degradedCount === 0} />
+              </div>
+            ) : !DAILY_ARRIVAL ? (
+              <div style={{ fontSize:52, marginBottom:10 }}>{degradedCount > 0 ? '⚠️' : '🏆'}</div>
+            ) : null}
             <h2 style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:24, color:THEME.primary, marginBottom:6 }}>Миссия выполнена!</h2>
             {isPerfect
               ? <p style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:'#d4a017', textShadow: isDarkUi ? '0 0 14px rgba(251,191,36,0.5)' : 'none' }}>PERFECT! {correctCount} из {totalCount} ✨</p>
@@ -764,13 +834,18 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
             </div>
           </div>
 
-          {/* d) Грузовой зонд с лутом — доставка дроном (3D) */}
-          <div style={{ ...card, padding:'18px 18px 20px', marginBottom:14, textAlign:'center' }}>
-            <div style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:THEME.textLight }}>Твоя награда</div>
+          {/* d) Грузовой зонд с лутом — доставка дроном (3D). В кат-сцене-пути секция
+              получает туманный задник (стык void↔туман), а зонд монтируется только
+              после кат-сцены (skipDelivery → уже приземлён, без двойной доставки). */}
+          <div style={{ ...card, padding:'18px 18px 20px', marginBottom:14, textAlign:'center',
+            ...(fogBackdrop ? { background:'linear-gradient(180deg, rgba(201,214,234,0.55) 0%, rgba(186,200,222,0.32) 100%)', border:'1px solid rgba(201,214,234,0.45)' } : null) }}>
+            <div style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color: fogBackdrop ? '#33405a' : THEME.textLight }}>Твоя награда</div>
             {/* 3D-сцена: дрон → сброс → отлёт → капсула; CSS-капсула — фолбэк без WebGL */}
+            {probeShouldMount ? (
             <ProbeScene3D
               tier={probeTier}
               state={probeOpened ? 'open' : 'delivering'}
+              skipDelivery={probeSkipDelivery}
               onLanded={() => setProbeLanded(true)}
               onOpenComplete={() => setProbeAnimDone(true)}
               width={360}
@@ -791,6 +866,9 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
                 </div>
               }
             />
+            ) : (
+              <div style={{ height:280 }} aria-hidden="true" />
+            )}
             {/* Название тира — под капсулой */}
             <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:14, color:THEME.text, marginTop:6 }}>
               {PROBE.name}{PROBE.note && <span style={{ fontSize:11.5, fontWeight:700, color:isDarkUi?'#fbbf24':'#b45309' }}> · {PROBE.note}</span>}
@@ -892,6 +970,8 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
           progress={queue.length ? qIdx / queue.length : 0}
           boostSeq={bgBoostSeq}
           glitchSeq={bgGlitchSeq}
+          isLast={queue.length > 0 && qIdx === queue.length - 1}
+          arrivalBurstSeq={arrivalBurstSeq}
         />
       )}
       {/* Анимации геймификации (combo, XP-флоат, HP-бар) + hover вариантов */}
