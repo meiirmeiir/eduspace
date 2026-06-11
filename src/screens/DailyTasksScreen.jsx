@@ -12,6 +12,7 @@ import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
 import Boss3D from "../components/Boss3D.jsx";
 import BattleScene3D from "../components/BattleScene3D.jsx";
+import DailyBackground3D from "../components/DailyBackground3D.jsx";
 import ProbeScene3D from "../components/ProbeScene3D.jsx";
 import Character3D from "../components/Character3D.jsx";
 import { computePlayerHp } from "../lib/shopItems.js";
@@ -65,6 +66,9 @@ function plural(n, forms) {
   if (b === 1) return forms[0];
   return forms[2];
 }
+// Флаг отката живого 3D-фона мирного режима: true = Three.js космос+планета,
+// false = прежний CSS-градиент (BG). В бою фон не рендерится в любом случае.
+const DAILY_BG_3D = true;
 // Палитра AAPA для CTA (как на авторизации): тёмный фон + золотой текст.
 const BTN_DARK = { background:'#1a1a2e', color:'#fbbf24', border:'1px solid rgba(251,191,36,0.4)' };
 const BTN_GOLD = { background:'linear-gradient(90deg,#fbbf24,#f59e0b)', color:'#1a1a2e', border:'none' };
@@ -151,15 +155,6 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const [attackSeq,  setAttackSeq]  = useState(0); // ++ при верном ответе → лазер персонажа
   const [hitSeq,     setHitSeq]     = useState(0); // ++ при настоящей ошибке → вздрагивание
 
-  // ── Герой-компаньон у карточки задачи: idle / реакция на ответ ──
-  const [companionAnim, setCompanionAnim] = useState('idle');
-  const companionTimerRef = useRef(null);
-  const reactCompanion = (anim, ms = 1400) => {
-    if (companionTimerRef.current) clearTimeout(companionTimerRef.current);
-    setCompanionAnim(anim);
-    companionTimerRef.current = setTimeout(() => setCompanionAnim('idle'), ms);
-  };
-  useEffect(() => () => { if (companionTimerRef.current) clearTimeout(companionTimerRef.current); }, []);
   const bossBonusAwardedRef = useRef(false);
   // HP героя в бою = база 3 + бонусы надетого снаряжения (Этап 2C).
   const maxPlayerHp = computePlayerHp(user?.equipped, user?.gender);
@@ -260,9 +255,6 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     const isCorrect = current.task.correct === optIdx;
     sessionAnswersRef.current.push(isCorrect); // для recentAnswers (accuracy-достижение)
     setAnswers(a => [...a, isCorrect]);        // сегмент прогресс-бара: зелёный/красный
-    // Герой-компаньон: прыжок/взмах радости либо вздрагивание (короткая
-    // реакция → idle). Паттерны по приоритету: база Jump/Death, наряд Wave/HitRecieve.
-    reactCompanion(isCorrect ? 'jump|wave' : 'hitrecieve|death', isCorrect ? 2000 : 1300);
     if (isCorrect) {
       setCorrect(p => new Set([...p, current.skillId]));
       setLastWrongWasDanger(false);
@@ -886,7 +878,10 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
 
 
   return (
-    <div className="page-themed" style={{ minHeight:'100vh', background:BG }}>
+    <div className="page-themed" style={{ minHeight:'100vh', background:BG, position:'relative' }}>
+      {/* Живой 3D-фон мирного режима (космос+планета). В бою — НЕ рендерим (свой
+          WebGL-контекст у BattleScene3D); откат на CSS-градиент — DAILY_BG_3D=false. */}
+      {DAILY_BG_3D && !bossActive && <DailyBackground3D isDark={isDarkUi} />}
       {/* Анимации геймификации (combo, XP-флоат, HP-бар) + hover вариантов */}
       <style>{`
         @keyframes xpFloatUp { 0% { opacity:0; transform:translateY(8px); } 15% { opacity:1; transform:translateY(0); } 70% { opacity:1; } 100% { opacity:0; transform:translateY(-26px); } }
@@ -899,8 +894,6 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         @keyframes hpShake { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-4px); } 50% { transform:translateX(4px); } 75% { transform:translateX(-2px); } }
         .daily-opt { transition: all 0.15s ease; cursor:pointer; }
         .daily-opt:not(:disabled):hover { border-color:#fbbf24 !important; background:${isDarkUi ? 'rgba(251,191,36,0.08)' : 'rgba(251,191,36,0.07)'} !important; transform:translateY(-1px); }
-        .daily-companion { flex:0 0 188px; align-self:flex-end; pointer-events:none; }
-        @media (max-width: 760px) { .daily-companion { display:none; } }
       `}</style>
 
       {/* 💎 PERFECT COMBO ×5 — оверлей по центру на ~1 сек */}
@@ -1002,7 +995,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         );
       })()}
 
-      <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+      <nav data-inner-nav style={{ position:'relative', zIndex:1, background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Logo size={28}/>
         <div style={{ display:'flex', alignItems:'center', gap:14 }}>
           {/* Заработано за сессию (live; начисление batch'ем в конце) */}
@@ -1021,7 +1014,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         <button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Выйти</button>
       </nav>
 
-      <div style={{ maxWidth:800, margin:'0 auto', padding:'24px 20px 60px' }}>
+      <div style={{ position:'relative', zIndex:1, maxWidth:800, margin:'0 auto', padding:'24px 20px 60px' }}>
         {/* ── Покемон-арена боя (HP боссa/игрока — оверлеями внутри сцены) ── */}
         {bossActive && (
           <>
@@ -1082,8 +1075,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
           </div>
         )}
 
-        {/* Карточка задачи + герой-компаньон справа (реагирует на ответы) */}
-        <div style={{ display:'flex', gap:14, alignItems:'flex-end' }}>
+        {/* Карточка задачи */}
         <div className="theme-card" style={{
           position:'relative', flex:'1 1 auto', minWidth:0,
           background: isDarkUi ? THEME.surface : '#fffdf8',
@@ -1163,23 +1155,6 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
               {qIdx < queue.length-1 ? 'Следующая задача →' : saving ? 'Сохраняем...' : 'Завершить миссию'}
             </button>
           )}
-        </div>
-
-        {/* Герой-компаньон: idle; верный ответ → прыжок, ошибка → вздрагивание.
-            Скрыт на мобиле (≤760px), клики не перехватывает. В бою НЕ рендерим —
-            герой уже показан внутри BattleScene3D (иначе дублирование персонажа). */}
-        {!bossActive && (
-        <div className="daily-companion">
-          <Character3D
-            gender={user?.gender || 'male'}
-            equipped={user?.equipped || {}}
-            height={230}
-            autoSpin={0}
-            zoomable={false}
-            animation={companionAnim}
-          />
-        </div>
-        )}
         </div>
       </div>
     </div>

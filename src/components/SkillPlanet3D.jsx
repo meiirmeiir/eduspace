@@ -11,7 +11,9 @@ import { loadThree } from '../lib/loadThree.js';
 // текущему life (анимация перехода — отдельная часть). Фолбэк — CSS-круг.
 
 // ── Ashima 3D simplex noise + fbm (для обоих фрагментных шейдеров) ──
-const NOISE_GLSL = `
+// Экспортируются для переиспользования в DailyBackground3D (тот же «mastered»-вид
+// планеты в фоне ежедневок); поведение SkillPlanet3D не меняется.
+export const NOISE_GLSL = `
 vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
 vec4 mod289(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
 vec4 permute(vec4 x){return mod289(((x*34.0)+1.0)*x);}
@@ -38,7 +40,7 @@ float snoise(vec3 v){
 float fbm(vec3 p){ float f=0.0,a=0.5; for(int i=0;i<4;i++){ f+=a*snoise(p); p*=2.02; a*=0.5; } return f*0.5+0.5; }
 `;
 
-const PLANET_VERT = `
+export const PLANET_VERT = `
 varying vec3 vPos; varying vec3 vNormalW; varying vec3 vViewDir;
 void main(){
   vPos = position;
@@ -48,7 +50,7 @@ void main(){
   gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);
 }`;
 
-const PLANET_FRAG = NOISE_GLSL + `
+export const PLANET_FRAG = NOISE_GLSL + `
 uniform float uLife; uniform vec3 uSunDir; uniform float uAmbient;
 varying vec3 vPos; varying vec3 vNormalW; varying vec3 vViewDir;
 const vec3 DEAD_ROCK=vec3(0.32,0.27,0.23);
@@ -78,7 +80,7 @@ void main(){
   gl_FragColor=vec4(surface*light,1.0);
 }`;
 
-const CLOUD_FRAG = NOISE_GLSL + `
+export const CLOUD_FRAG = NOISE_GLSL + `
 uniform float uLife; uniform vec3 uSunDir; uniform float uAmbient;
 varying vec3 vPos; varying vec3 vNormalW; varying vec3 vViewDir;
 void main(){
@@ -93,7 +95,7 @@ void main(){
   gl_FragColor=vec4(vec3(1.0)*light,a);
 }`;
 
-const ATMO_VERT = `
+export const ATMO_VERT = `
 varying vec3 vNormalW; varying vec3 vViewDir;
 void main(){
   vNormalW = normalize(mat3(modelMatrix)*normal);
@@ -102,7 +104,7 @@ void main(){
   gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);
 }`;
 
-const ATMO_FRAG = `
+export const ATMO_FRAG = `
 uniform float uLife; uniform vec3 uSunDir; uniform float uBloom;
 varying vec3 vNormalW; varying vec3 vViewDir;
 const vec3 ATMO=vec3(0.40,0.70,1.0);
