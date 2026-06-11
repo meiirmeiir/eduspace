@@ -330,8 +330,9 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         streak3AwardedRef.current = true;
         addPoints(user.uid, 'daily_streak_3', user);
       }
-      // ── Бой: урон боссу (косметика поверх; учёбу не трогает) ──
-      if (bossActive) {
+      // ── Бой: урон боссу (косметика поверх; учёбу не трогает). Только пока
+      // исход не зафиксирован — после win/lose бой замирает, HP босса заморожен. ──
+      if (bossActive && battleResult === null) {
         const dmg = Math.min(bossMax, Math.ceil(bossMax / Math.max(1, queue.length - 2)));
         setBossHp(h => {
           const nh = Math.max(0, h - dmg);
@@ -345,25 +346,27 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
       setBgGlitchSeq(n => n + 1);   // фон: лёгкая тряска/красный блик (без отката назад)
       setStreak(0);      // combo сбрасывается
       setXpFloat(null);  // убрать всплывашку прошлого ответа
+      // skillLives (деградация навыка) — учебная механика, независима от боя.
       const curLives = skillLives[current.skillId] ?? 2;
       if (curLives <= 0) {
         // No lives left for this skill — degrade it
         setDegraded(p => new Set([...p, current.skillId]));
         setLastWrongWasDanger(true);
-        // ── Бой: контратака босса только за «настоящую» ошибку (деградация) ──
-        if (bossActive) {
-          setPlayerHp(p => {
-            const np = Math.max(0, p - 1);
-            if (np <= 0) setBattleResult(r => r || 'lose');
-            return np;
-          });
-          setPlayerHit(true); setHitSeq(n => n + 1); // персонаж вздрагивает (встречный выстрел босса)
-          setTimeout(() => setPlayerHit(false), 600);
-        }
       } else {
         setWrong(p => new Set([...p, current.skillId]));
         setSkillLives(prev => ({ ...prev, [current.skillId]: curLives - 1 }));
         setLastWrongWasDanger(false);
+      }
+      // ── Бой: контратака босса за ЛЮБОЙ неверный ответ, пока исход не
+      // зафиксирован. После win/lose бой замирает — HP игрока заморожен. ──
+      if (bossActive && battleResult === null) {
+        setPlayerHp(p => {
+          const np = Math.max(0, p - 1);
+          if (np <= 0) setBattleResult(r => r || 'lose');
+          return np;
+        });
+        setPlayerHit(true); setHitSeq(n => n + 1); // персонаж вздрагивает (встречный выстрел босса)
+        setTimeout(() => setPlayerHit(false), 600);
       }
     }
   };
@@ -813,7 +816,8 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
             )}
           </div>
 
-          {/* Исход боя с боссом (механика не менялась) */}
+          {/* Исход боя с боссом — три раздельных итога (win / lose / escape).
+             Анимированную сцену исхода — отдельным заходом позже; пока текст + базовое оформление. */}
           {bossActive && battleResult === 'win' && (
             <div style={{ background:'linear-gradient(135deg, rgba(212,175,55,0.14), rgba(102,178,255,0.10))', border:'1px solid rgba(212,175,55,0.5)', borderRadius:14, padding:'16px 18px', marginBottom:14, display:'flex', alignItems:'center', gap:14 }}>
               <div style={{ width:120, flexShrink:0 }}><Boss3D bossId={bossId} hpPct={10} shake={false} height={100} /></div>
@@ -823,7 +827,16 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
               </div>
             </div>
           )}
-          {bossActive && battleResult !== 'win' && (
+          {bossActive && battleResult === 'lose' && (
+            <div style={{ background:'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(99,102,241,0.08))', border:'1px solid rgba(239,68,68,0.45)', borderRadius:14, padding:'16px 18px', marginBottom:14, display:'flex', alignItems:'center', gap:14 }}>
+              <div style={{ width:120, flexShrink:0 }}><Boss3D bossId={bossId} hpPct={100} shake={false} height={100} /></div>
+              <div>
+                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:16, color:'#ef4444' }}>💥 Босс одолел тебя</div>
+                <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.textLight, marginTop:2 }}>Но это не зря: <b style={{ color:'#22c55e' }}>все награды за ответы засчитаны</b>, а каждая ошибка — шаг к мастерству. Реванш в другой раз!</div>
+              </div>
+            </div>
+          )}
+          {bossActive && !battleResult && (
             <div style={{ background:'rgba(99,102,241,0.06)', border:`1px solid ${THEME.border}`, borderRadius:14, padding:'14px 18px', marginBottom:14, textAlign:'center' }}>
               <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:700, fontSize:15, color:THEME.primary }}>Босс ушёл, но ты всё равно прокачался 💪</div>
               <div style={{ fontFamily:"'Inter',sans-serif", fontSize:13, color:THEME.textLight, marginTop:3 }}>Все награды за ответы засчитаны. Попробуй снова в другой раз!</div>
