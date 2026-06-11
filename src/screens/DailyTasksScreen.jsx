@@ -267,7 +267,20 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         setQueue(shuf(items)); // interleave skills
         // Босс — редкое событие-сюрприз: ролл детерминирован по дню (стабилен в течение дня).
         const roll = bossRollFor(user?.uid, getAlmatyDateStr(0));
-        if (roll.active) { const b = bossForGrade(user?.details || user?.grade); setBossActive(true); setBossId(b.id); setBossHp(b.hp); setPlayerHp(maxPlayerHp); setBattleResult(null); setBossIntroPhase('intro'); }
+        // VS-интро (bossIntroPhase) ставится НЕ здесь, а при входе в бой (клик «Начать
+        // миссию»), иначе 3-сек таймер intro→battle истекает на стартовом экране →
+        // интро пропускается. Тут — только bossActive/bossId (гейт арены с загрузки).
+        if (roll.active) { const b = bossForGrade(user?.details || user?.grade); setBossActive(true); setBossId(b.id); setBossHp(b.hp); setPlayerHp(maxPlayerHp); setBattleResult(null); }
+        // ╔═══ DEV ONLY — УДАЛИТЬ ПЕРЕД КОММИТОМ (тест боя на устройстве) ═══════════════╗
+        // Форсит бой с заданным боссом В ОБХОД вероятности bossRollFor (реальный спавн
+        // НЕ меняется). Источник: ?devboss=dragon (shadow/ninja/demon) в URL — пишется
+        // в localStorage и далее берётся оттуда. Выкл: ?devboss=off или localStorage.removeItem.
+        try {
+          const _q = new URLSearchParams(window.location.search).get('devboss'); if (_q) localStorage.setItem('devboss', _q);
+          const _v = localStorage.getItem('devboss');
+          if (_v && _v !== 'off' && _v !== '0') { const _b = bossById(_v); setBossActive(true); setBossId(_b.id); setBossHp(_b.hp); setPlayerHp(maxPlayerHp); setBattleResult(null); } // intro ставится на входе в бой (как штатный путь)
+        } catch { /* dev */ }
+        // ╚═════════════════════════════════════════════════════════════════════════════╝
         setPhase('intro'); // экран старта миссии перед первой задачей
       } catch(e) { console.error(e); setPhase('empty'); }
     };
@@ -672,7 +685,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
               : <>🔥 Реши сегодня — начни серию дней и получи множитель XP!</>}
           </div>
 
-          <button onClick={() => setPhase('playing')}
+          <button onClick={() => { if (bossActive) setBossIntroPhase('intro'); setPhase('playing'); }}
             style={{ ...BTN_GOLD, borderRadius:14, padding:'16px 52px', fontFamily:"'Montserrat',sans-serif", fontWeight:800, fontSize:18, cursor:'pointer', boxShadow:'0 0 26px rgba(251,191,36,0.45)' }}>
             Начать миссию →
           </button>
