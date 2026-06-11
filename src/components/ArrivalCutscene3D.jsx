@@ -43,18 +43,25 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const easeInOut = (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 const easeOut = (x) => 1 - Math.pow(1 - x, 3);
 
-// Софт-облако (canvas-текстура): рыхлый радиальный пух для billboard-тумана/облаков.
+// Софт-облако (canvas-текстура): ОДИН мягкий радиальный пух с плавным спадом альфы
+// до 0 ЗАДОЛГО до края канваса → гарантированно прозрачная граница (нет прямоугольного
+// billboard-шва). Без авто-мипмапов + линейная фильтрация: на iOS Safari мипмапы
+// текстуры с альфой дают цветные крапинки (magenta/cyan/yellow) на дальних спрайтах.
 function makeCloudTex(THREE) {
-  const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
+  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
   const x = c.getContext('2d');
-  for (let i = 0; i < 7; i++) {
-    const r = 18 + Math.abs(Math.sin(i * 12.9898) * 43);
-    const cx = S / 2 + Math.sin(i * 2.1) * 26, cy = S / 2 + Math.cos(i * 1.7) * 26;
-    const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
-    g.addColorStop(0, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-    x.fillStyle = g; x.fillRect(0, 0, S, S);
-  }
-  const t = new THREE.CanvasTexture(c); return t;
+  const g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S * 0.48);
+  g.addColorStop(0.00, 'rgba(255,255,255,0.80)');  // мягкое ядро (не плотное)
+  g.addColorStop(0.35, 'rgba(255,255,255,0.40)');
+  g.addColorStop(0.70, 'rgba(255,255,255,0.10)');
+  g.addColorStop(1.00, 'rgba(255,255,255,0)');      // полный 0 до края → прозрачная граница
+  x.fillStyle = g; x.fillRect(0, 0, S, S);
+  const t = new THREE.CanvasTexture(c);
+  t.generateMipmaps = false;
+  t.minFilter = THREE.LinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  t.needsUpdate = true;
+  return t;
 }
 
 export default function ArrivalCutscene3D({ perf = 1, full = true, onDone, onFail }) {
@@ -234,8 +241,10 @@ export default function ArrivalCutscene3D({ perf = 1, full = true, onDone, onFai
           const ft = t - t3;                                   // время в тумане
           // Белизна спадает → туман проявляется
           const reveal = clamp01(ft / 0.5);
-          // дрейф тумана + появление
-          puffs.forEach((p) => { p.m.opacity = (0.5 + 0.25 * I) * reveal * (0.7 + 0.3 * Math.sin(t * p.drift + p.ph)); p.s.position.x = p.base.x + Math.sin(t * p.drift + p.ph) * 0.4; p.s.position.y = p.base.y + Math.cos(t * p.drift * 0.7 + p.ph) * 0.25; });
+          // дрейф тумана + появление. Альфа СИЛЬНО ниже прежней (была 0.5-0.75 ×
+          // 14-22 нахлёста = забеливание) → мягкая дымка-атмосфера ВОКРУГ, не пелена
+          // ПОВЕРХ: зонд/площадка/дрон остаются хорошо видны. Плотность под I-веером.
+          puffs.forEach((p) => { p.m.opacity = (0.10 + 0.08 * I) * reveal * (0.7 + 0.3 * Math.sin(t * p.drift + p.ph)); p.s.position.x = p.base.x + Math.sin(t * p.drift + p.ph) * 0.4; p.s.position.y = p.base.y + Math.cos(t * p.drift * 0.7 + p.ph) * 0.25; });
           padRing.material.emissiveIntensity = (0.5 + 0.4 * I) * (0.6 + 0.4 * Math.sin(t * 2.2)) * reveal;
           // Маска: пик белизны спадает (1 → 0.22) → остаётся лёгкая туман-вуаль.
           if (ft < 0.5) setMask(1 - reveal * 0.78, WHITE_BG);
