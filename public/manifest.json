@@ -1,0 +1,14 @@
+{
+  "name": "AAPA",
+  "short_name": "AAPA",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A2463",
+  "theme_color": "#0A2463",
+  "start_url": "/",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
