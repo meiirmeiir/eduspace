@@ -145,11 +145,16 @@ export default function ArrivalCutscene3D({ perf = 1, full = true, onDone, onFai
       // ── FOG-набор: туман (billboard-спрайты) + площадка + зонд + дрон ──
       const fog = new THREE.Group(); fog.visible = false; scene.add(fog);
       const FOG_COL = new THREE.Color(0xc9d6ea);
-      // Рассеянный свет
-      fog.add(new THREE.AmbientLight(0xdfe8f5, 0.7));
+      // Рассеянный свет. Понижено: высокий ambient заливал светлый корпус зонда в
+      // белое (без envMap diffuse быстро уходит в clip). Меньше ambient + умеренный
+      // directional → у зонда возвращается градиент/объём и металлик-вид.
+      fog.add(new THREE.AmbientLight(0xdfe8f5, 0.32));
       const warm = new THREE.Color().setRGB(1.0, 0.86 + 0.1 * I, 0.66 + 0.2 * I);
-      const keyL = new THREE.DirectionalLight(warm.getHex(), 0.8 + 0.5 * I); keyL.position.set(2, 4, 3); fog.add(keyL);
-      const padGlow = new THREE.PointLight(0x6fc8ff, 0.6 + 0.7 * I, 9); padGlow.position.set(0, 0.6, 0); fog.add(padGlow);
+      const keyL = new THREE.DirectionalLight(warm.getHex(), 0.55 + 0.28 * I); keyL.position.set(2, 4, 3); fog.add(keyL);
+      // Свечение площадки — у самого пола (было y=0.6, практически ВНУТРИ зонда →
+      // заливал корпус). Опущено к кольцу + слабее/короче радиус: подсветка пола/кольца
+      // сохраняется, но корпус зонда больше не пересвечивает.
+      const padGlow = new THREE.PointLight(0x6fc8ff, 0.32 + 0.38 * I, 4.5); padGlow.position.set(0, 0.1, 0); fog.add(padGlow);
       // Туманные клубы вокруг камеры (ЕДИНЫЙ слой)
       const fogN = isMobile ? 14 : 22; const puffs = [];
       const fogMatBase = { alphaMap: cloudTex, transparent: true, depthWrite: false, blending: THREE.NormalBlending };
@@ -171,7 +176,9 @@ export default function ArrivalCutscene3D({ perf = 1, full = true, onDone, onFai
       // Зонд (кинематографичная капсула — те же пропорции, что ProbeScene3D)
       const probe = new THREE.Group(); fog.add(probe);
       const R = 0.5, LEN = 1.4;
-      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xc7d2e0, metalness: 0.6, roughness: 0.35 }); mats.push(bodyMat);
+      // Корпус темнее/чуть шершавее (без envMap светлый цвет легко уходил в белое) →
+      // серо-металлик с объёмом, ближе к виду ProbeScene3D. Только зонд кат-сцены.
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0x9aa6b6, metalness: 0.55, roughness: 0.45 }); mats.push(bodyMat);
       const hullGeo = new THREE.CylinderGeometry(R, R, LEN, 22); hullGeo.rotateZ(Math.PI / 2); geos.push(hullGeo);
       probe.add(new THREE.Mesh(hullGeo, bodyMat));
       [-1, 1].forEach((s) => { const cg = new THREE.SphereGeometry(R, 16, 12); geos.push(cg); const c = new THREE.Mesh(cg, bodyMat); c.position.x = s * LEN / 2; c.scale.set(0.55, 1, 1); probe.add(c); });
@@ -239,6 +246,7 @@ export default function ArrivalCutscene3D({ perf = 1, full = true, onDone, onFai
           // FOG: выныривание, дрон опускает зонд, финал
           if (curPhase !== 1) {
             curPhase = 1; space.visible = false; fog.visible = true;
+            diveCloud.visible = false; diveMat.opacity = 0;     // погасить additive-облако входа (иначе яркое пятно за зондом)
             camera.position.set(0, 1.5, 4.6); camera.lookAt(0, 0.7, 0);
             setMask(1, WHITE_BG);                               // держим белизну до раскрытия тумана
           }
