@@ -1106,7 +1106,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         <button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Выйти</button>
       </nav>
 
-      <div style={{ position:'relative', zIndex:1, maxWidth:800, margin:'0 auto', padding:'24px 20px 60px' }}>
+      <div style={{ position:'relative', zIndex:1, maxWidth:800, margin:'0 auto', padding: revealed ? '24px 20px 92px' : '24px 20px 60px' }}>
         {/* ── Покемон-арена боя (HP боссa/игрока — оверлеями внутри сцены) ── */}
         {bossActive && (
           <>
@@ -1241,14 +1241,21 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
               💡 <LatexText text={task.explanation}/>
             </div>
           )}
-          {revealed && (
-            <button onClick={handleNext} disabled={saving}
-              style={{ ...BTN_DARK, marginTop:16, width:'100%', borderRadius:10, padding:'13px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
-              {qIdx < queue.length-1 ? 'Следующая задача →' : saving ? 'Сохраняем...' : 'Завершить миссию'}
-            </button>
-          )}
         </div>
       </div>
+
+      {/* Sticky «Следующая задача» — прибита внизу ПОСЛЕ ответа (над таб-баром на
+          мобайле: та же safe-area-математика, что у .assistant-widget). Хендлер
+          прежний (handleNext: следующая задача / на последней → done). До ответа
+          не рендерится — контент во всю высоту, как раньше. */}
+      {revealed && (
+        <div className="daily-next-bar">
+          <button onClick={handleNext} disabled={saving}
+            style={{ ...BTN_DARK, borderRadius:10, padding:'14px', fontSize:14, fontWeight:700, cursor:'pointer', boxShadow:'0 6px 24px rgba(10,25,47,0.35)' }}>
+            {qIdx < queue.length-1 ? 'Следующая задача →' : saving ? 'Сохраняем...' : 'Завершить миссию'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

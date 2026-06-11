@@ -543,6 +543,25 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-theme="dark"] .mbn-item { color:#8b949e !important; }
 [data-theme="dark"] .mbn-item.active { color:#f0f6fc !important; }
 
+/* Sticky-кнопка «Следующая задача» (фаза playing ежедневок). На мобайле сидит
+   НАД таб-баром той же safe-area-математикой, что .assistant-widget (72px = таб-бар
+   ~56 + зазор); на десктопе таб-бара нет (display:none) → у нижнего края. Бар
+   прозрачный и не перехватывает тапы — тап-таргет только сама кнопка. */
+.daily-next-bar {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  z-index: 70;
+  display: flex;
+  justify-content: center;
+  padding: 0 20px;
+  pointer-events: none;
+}
+.daily-next-bar > button { pointer-events: auto; width: 100%; max-width: 760px; }
+@media (max-width: 768px) {
+  .daily-next-bar { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+}
+
 /* ── ⌘K / Ctrl+K command palette ───────────────────────────── */
 .cmdk-overlay {
   position:fixed; inset:0;
