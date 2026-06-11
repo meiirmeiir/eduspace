@@ -35,6 +35,22 @@ function makeGlowCanvas(rgb) {
   ctx.fillStyle = g; ctx.fillRect(0, 0, S, S); return c;
 }
 
+// Флаг визуала арены v2 (свет/контровой + платформа + плотное инстансированное
+// окружение + blob-тени). false → прежняя арена (свет/грунт/окружение как было).
+const BATTLE_ARENA_V2 = true;
+
+// Мягкая blob-тень (canvas-радиал, чёрный→прозрачный) под бойцами — дёшево, вместо
+// дорогого shadowMap. Возвращает THREE-текстуру (как alpha/диффуз тёмного пятна).
+function makeBlobTex(THREE) {
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(0.5, 'rgba(0,0,0,0.26)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g; x.fillRect(0, 0, S, S);
+  const t = new THREE.CanvasTexture(c); t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter;
+  return t;
+}
+
 export default function BattleScene3D({ equipped = {}, gender = 'male', bossId = 'shadow', bossHp = 100, maxHp, attackSeq = 0, hitSeq = 0, playerHp = 3, playerMaxHp = 3, playerName = 'Ты', hud = true, height = 320 }) {
   const mountRef = useRef(null);
   const bossOvRef = useRef(null);   // HP-плашка босса (позиционируется под моделью)
@@ -110,6 +126,13 @@ export default function BattleScene3D({ equipped = {}, gender = 'male', bossId =
       scene.add(new THREE.HemisphereLight(0x1a1a4a, 0x2a1a0a, 0.3));    // небо/земля
       const keyL = new THREE.DirectionalLight(0xffffff, 1.3); keyL.position.set(5, 10, 5); scene.add(keyL); // key сверху-спереди
       const bossRim = new THREE.PointLight(0xff5a2b, 0.6, 24); bossRim.position.set(BOSS.x + 0.8, 2.2, BOSS.z - 1.4); scene.add(bossRim); // красный контровой за боссом
+      // ── V2: холодный контровой (rim/back) сзади-сверху — очерчивает силуэт бойцов
+      //    краевым светом, читает ТЁМНЫХ боссов на тёмном фоне, НЕ пересвечивая
+      //    светлых (грани, не фронтальная заливка → сумрак сохраняется). ──
+      if (BATTLE_ARENA_V2) {
+        const rimL = new THREE.DirectionalLight(0x93b7ff, 1.25); rimL.position.set(-3.5, 6.5, -10); scene.add(rimL);
+        const rimL2 = new THREE.DirectionalLight(0x6f86c8, 0.55); rimL2.position.set(4.5, 5.0, -9); scene.add(rimL2);
+      }
 
       // ── Звёзды: мелкие точки с мягким glow (canvas-текстура), additive ──
       const sc = document.createElement('canvas'); sc.width = sc.height = 32;
@@ -140,34 +163,90 @@ export default function BattleScene3D({ equipped = {}, gender = 'male', bossId =
       ground.rotation.x = -Math.PI / 2; ground.position.y = 0;
       scene.add(ground);
 
-      // ── Ленивое окружение (GLB через кеш): скалы-амфитеатр + трава ──
-      const fit = (m, targetMax) => { const b = new THREE.Box3().setFromObject(m); const sz = new THREE.Vector3(); b.getSize(sz); const mx = Math.max(sz.x, sz.y, sz.z) || 1; m.scale.setScalar(targetMax / mx); };
-      const onGround = (m, x, z, ry = 0) => { m.rotation.y = ry; const b = new THREE.Box3().setFromObject(m); m.position.set(x, -b.min.y, z); }; // нижней гранью на y=0
-      const trackMats = (m) => m.traverse((o) => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((mm) => clonedMats.push(mm)); });
-      const ROCKS = ['/models/environment/rock1.glb', '/models/environment/rock2.glb', '/models/environment/rock3.glb'];
-      const addEnv = (url, place) => loadBossModel(url).then(({ gltf }) => {
-        if (cancelled || !scene) return;
-        const m = cloneCharacterScene(THREE, gltf); place(m); trackMats(m); scene.add(m);
-      }).catch(() => { /* окружение не критично */ });
-      const addRock = (s, x, z, ry) => addEnv(ROCKS[((Math.round(x * 7 + z * 3) % 3) + 3) % 3], (m) => { fit(m, s); onGround(m, x, z, ry); });
+      // ── V2: боевая ПЛАТФОРМА (каменный диск в тон скал) + приглушённое сине-
+      //    фиолетовое кольцо (low emissive, не неон). Верх диска на y=0 → бойцы (y=0)
+      //    стоят на нём, НЕ сдвинуты; polygonOffset от z-fight с грунтом. + blob-тени
+      //    под бойцами (дёшево, вместо дорогого shadowMap). ──
+      if (BATTLE_ARENA_V2) {
+        const padGeo = new THREE.CylinderGeometry(3.3, 3.55, 0.16, 40); geos.push(padGeo);
+        const padMat = new THREE.MeshStandardMaterial({ color: 0x3a332e, roughness: 0.9, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); mats.push(padMat);
+        const pad = new THREE.Mesh(padGeo, padMat); pad.position.y = -0.08; scene.add(pad);
+        const ringGeo = new THREE.TorusGeometry(3.34, 0.05, 8, 48); ringGeo.rotateX(Math.PI / 2); geos.push(ringGeo);
+        const ringMat = new THREE.MeshStandardMaterial({ color: 0x35306a, emissive: 0x4a44b4, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.2 }); mats.push(ringMat);
+        const ring = new THREE.Mesh(ringGeo, ringMat); ring.position.y = 0.02; scene.add(ring);
+        const blobTex = makeBlobTex(THREE); texs.push(blobTex);
+        const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, opacity: 0.6, fog: false }); mats.push(blobMat);
+        [PLAYER, BOSS].forEach((p) => {
+          const bg = new THREE.PlaneGeometry(2.4, 2.4); bg.rotateX(-Math.PI / 2); geos.push(bg);
+          const blob = new THREE.Mesh(bg, blobMat); blob.position.set(p.x, 0.015, p.z); blob.renderOrder = 2; scene.add(blob);
+        });
+      }
 
-      // Амфитеатр скал ПОЛУКРУГОМ за ареной (центр между бойцами — открыт).
-      // Дальний ряд — крупные «горы» (3–5), средний (1.5–2.5), ближний — мелкие (0.5–1).
-      addRock(4.6, -7.5, -7.0, 0.4); addRock(5.0, -3.5, -8.0, 1.7); addRock(4.2, 0.0, -8.3, 0.9);
-      addRock(4.8,  3.8, -7.8, 2.6); addRock(4.4,  7.8, -6.8, 0.2);                          // дальние горы
-      addRock(2.4, -6.0, -5.0, 1.1); addRock(2.0, -2.2, -5.6, 2.9); addRock(2.6, 2.0, -5.8, 0.6);
-      addRock(2.2,  5.6, -5.2, 1.9);                                                          // средний ряд
-      addRock(0.9, -4.6, -3.2, 0.8); addRock(0.7, 4.4, -3.4, 2.2);                            // ближе к арене
-      addRock(0.6, PLAYER.x - 1.5, PLAYER.z + 0.5, 1.3); addRock(0.5, BOSS.x + 1.3, BOSS.z + 0.6, 2.4); // мелкие у бойцов
-      // Трава между скалами и рядом с бойцами
-      addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.5);  onGround(m, PLAYER.x - 0.9, PLAYER.z + 0.9, 0.4); });
-      addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.4);  onGround(m, PLAYER.x + 0.8, PLAYER.z - 0.5, 1.9); });
-      addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.45); onGround(m, BOSS.x - 1.0, BOSS.z + 0.5, 2.7); });
-      addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.5);  onGround(m, 0.2, 1.6, 0.9); });
-      addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.4);  onGround(m, -3.5, -2.2, 1.3); });
-      addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.45); onGround(m, 3.0, -2.6, 0.5); });
-      addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.35); onGround(m, -1.0, -1.0, 2.1); });
-      addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.4);  onGround(m, 1.4, 0.2, 1.5); });
+      // ── Окружение: скалы + трава ──
+      const ROCKS = ['/models/environment/rock1.glb', '/models/environment/rock2.glb', '/models/environment/rock3.glb'];
+
+      if (BATTLE_ARENA_V2) {
+        // ── V2: ПЛОТНОЕ окружение через InstancedMesh (геометрия из GLB, 1 draw-call
+        //    на тип) — десятки камней/травы без роста draw calls. [size, x, z, ry]. ──
+        const ROCK_P = [
+          [4.6,-7.5,-7.0,0.4],[5.0,-3.5,-8.0,1.7],[4.2,0.0,-8.3,0.9],[4.8,3.8,-7.8,2.6],[4.4,7.8,-6.8,0.2],
+          [2.4,-6.0,-5.0,1.1],[2.0,-2.2,-5.6,2.9],[2.6,2.0,-5.8,0.6],[2.2,5.6,-5.2,1.9],
+          [0.9,-4.6,-3.2,0.8],[0.7,4.4,-3.4,2.2],
+          [0.6,PLAYER.x-1.5,PLAYER.z+0.5,1.3],[0.5,BOSS.x+1.3,BOSS.z+0.6,2.4],
+          // уплотнение: дальний задний ряд + боковые гряды + средний план (за платформой)
+          [5.2,-9.6,-9.0,1.2],[4.0,-6.0,-9.4,0.5],[4.6,6.2,-9.1,2.0],[3.6,9.4,-8.0,1.5],[3.2,-9.8,-7.4,2.7],
+          [1.9,-8.2,-4.4,0.3],[1.7,7.4,-4.0,1.1],[1.5,-7.6,-2.4,2.4],[1.3,6.8,-2.2,0.9],
+          [0.9,-6.4,-1.0,1.8],[0.8,6.2,-0.8,0.4],[1.0,8.8,-5.6,2.1],[0.95,-9.0,-5.8,1.6],
+          [0.55,-5.2,1.2,1.0],[0.5,5.4,1.0,2.5],
+        ];
+        const GRASS_P = [
+          [0.5,PLAYER.x-0.9,PLAYER.z+0.9,0.4],[0.4,PLAYER.x+0.8,PLAYER.z-0.5,1.9],[0.45,BOSS.x-1.0,BOSS.z+0.5,2.7],
+          [0.5,0.2,1.6,0.9],[0.4,-3.5,-2.2,1.3],[0.45,3.0,-2.6,0.5],[0.35,-1.0,-1.0,2.1],[0.4,1.4,0.2,1.5],
+          [0.4,-3.9,2.0,0.7],[0.35,3.7,2.2,1.2],[0.5,-4.6,-0.5,2.4],[0.45,4.7,-0.6,0.3],
+          [0.4,-2.0,2.6,1.8],[0.38,2.2,2.8,0.6],[0.42,0.0,3.0,1.1],[0.36,-5.4,-3.0,2.0],[0.4,5.0,-3.2,0.9],[0.34,-0.5,-3.6,1.5],
+        ];
+        // Геометрия+материал из первого меша GLB (локальный трансформ запечён) → InstancedMesh.
+        const mkInstanced = (gltf, placements) => {
+          if (cancelled || !scene || !placements.length) return;
+          gltf.scene.updateMatrixWorld(true);
+          let mesh = null; gltf.scene.traverse((o) => { if (!mesh && o.isMesh) mesh = o; });
+          if (!mesh) return;
+          const geo = mesh.geometry.clone(); geo.applyMatrix4(mesh.matrixWorld); geo.computeBoundingBox(); geos.push(geo);
+          const bb = geo.boundingBox; const sz = new THREE.Vector3(); bb.getSize(sz); const maxDim = Math.max(sz.x, sz.y, sz.z) || 1;
+          const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material).clone(); mats.push(mat);
+          const inst = new THREE.InstancedMesh(geo, mat, placements.length);
+          const d = new THREE.Object3D();
+          placements.forEach((p, i) => { const s = p[0] / maxDim; d.position.set(p[1], -bb.min.y * s, p[2]); d.rotation.set(0, p[3], 0); d.scale.setScalar(s); d.updateMatrix(); inst.setMatrixAt(i, d.matrix); });
+          inst.instanceMatrix.needsUpdate = true; scene.add(inst);
+        };
+        const rockBuckets = [[], [], []]; ROCK_P.forEach((p, i) => rockBuckets[i % 3].push(p));
+        Promise.all(ROCKS.map((u) => loadBossModel(u))).then((res) => { if (cancelled || !scene) return; res.forEach(({ gltf }, t) => mkInstanced(gltf, rockBuckets[t])); }).catch(() => { /* env не критично */ });
+        loadBossModel('/models/environment/grass.glb').then(({ gltf }) => mkInstanced(gltf, GRASS_P)).catch(() => { /* env не критично */ });
+      } else {
+        // ── Прежнее окружение (GLB-клоны, НЕ инстансировано) ──
+        const fit = (m, targetMax) => { const b = new THREE.Box3().setFromObject(m); const sz = new THREE.Vector3(); b.getSize(sz); const mx = Math.max(sz.x, sz.y, sz.z) || 1; m.scale.setScalar(targetMax / mx); };
+        const onGround = (m, x, z, ry = 0) => { m.rotation.y = ry; const b = new THREE.Box3().setFromObject(m); m.position.set(x, -b.min.y, z); };
+        const trackMats = (m) => m.traverse((o) => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((mm) => clonedMats.push(mm)); });
+        const addEnv = (url, place) => loadBossModel(url).then(({ gltf }) => {
+          if (cancelled || !scene) return;
+          const m = cloneCharacterScene(THREE, gltf); place(m); trackMats(m); scene.add(m);
+        }).catch(() => { /* окружение не критично */ });
+        const addRock = (s, x, z, ry) => addEnv(ROCKS[((Math.round(x * 7 + z * 3) % 3) + 3) % 3], (m) => { fit(m, s); onGround(m, x, z, ry); });
+        addRock(4.6, -7.5, -7.0, 0.4); addRock(5.0, -3.5, -8.0, 1.7); addRock(4.2, 0.0, -8.3, 0.9);
+        addRock(4.8,  3.8, -7.8, 2.6); addRock(4.4,  7.8, -6.8, 0.2);
+        addRock(2.4, -6.0, -5.0, 1.1); addRock(2.0, -2.2, -5.6, 2.9); addRock(2.6, 2.0, -5.8, 0.6);
+        addRock(2.2,  5.6, -5.2, 1.9);
+        addRock(0.9, -4.6, -3.2, 0.8); addRock(0.7, 4.4, -3.4, 2.2);
+        addRock(0.6, PLAYER.x - 1.5, PLAYER.z + 0.5, 1.3); addRock(0.5, BOSS.x + 1.3, BOSS.z + 0.6, 2.4);
+        addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.5);  onGround(m, PLAYER.x - 0.9, PLAYER.z + 0.9, 0.4); });
+        addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.4);  onGround(m, PLAYER.x + 0.8, PLAYER.z - 0.5, 1.9); });
+        addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.45); onGround(m, BOSS.x - 1.0, BOSS.z + 0.5, 2.7); });
+        addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.5);  onGround(m, 0.2, 1.6, 0.9); });
+        addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.4);  onGround(m, -3.5, -2.2, 1.3); });
+        addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.45); onGround(m, 3.0, -2.6, 0.5); });
+        addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.35); onGround(m, -1.0, -1.0, 2.1); });
+        addEnv('/models/environment/grass.glb', (m) => { fit(m, 0.4);  onGround(m, 1.4, 0.2, 1.5); });
+      }
 
       // ── Игрок (слева-снизу, ближе к камере) ──
       const hero = new THREE.Group();
