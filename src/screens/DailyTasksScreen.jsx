@@ -154,6 +154,9 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   const [bossIntroPhase, setBossIntroPhase] = useState(null); // 'intro' | 'battle' | null
   const [attackSeq,  setAttackSeq]  = useState(0); // ++ при верном ответе → лазер персонажа
   const [hitSeq,     setHitSeq]     = useState(0); // ++ при настоящей ошибке → вздрагивание
+  // Сигналы для фон-планеты (мирный режим): верный → буст приближения, неверный → сбой.
+  const [bgBoostSeq,  setBgBoostSeq]  = useState(0);
+  const [bgGlitchSeq, setBgGlitchSeq] = useState(0);
 
   const bossBonusAwardedRef = useRef(false);
   // HP героя в бою = база 3 + бонусы надетого снаряжения (Этап 2C).
@@ -256,6 +259,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     sessionAnswersRef.current.push(isCorrect); // для recentAnswers (accuracy-достижение)
     setAnswers(a => [...a, isCorrect]);        // сегмент прогресс-бара: зелёный/красный
     if (isCorrect) {
+      setBgBoostSeq(n => n + 1);   // фон: рывок приближения к планете + вспышка
       setCorrect(p => new Set([...p, current.skillId]));
       setLastWrongWasDanger(false);
       const nextStreak = streak + 1;
@@ -299,6 +303,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         setTimeout(() => { setDmgMsg(null); }, 700);
       }
     } else {
+      setBgGlitchSeq(n => n + 1);   // фон: лёгкая тряска/красный блик (без отката назад)
       setStreak(0);      // combo сбрасывается
       setXpFloat(null);  // убрать всплывашку прошлого ответа
       const curLives = skillLives[current.skillId] ?? 2;
@@ -881,7 +886,14 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
     <div className="page-themed" style={{ minHeight:'100vh', background:BG, position:'relative' }}>
       {/* Живой 3D-фон мирного режима (космос+планета). В бою — НЕ рендерим (свой
           WebGL-контекст у BattleScene3D); откат на CSS-градиент — DAILY_BG_3D=false. */}
-      {DAILY_BG_3D && !bossActive && <DailyBackground3D isDark={isDarkUi} />}
+      {DAILY_BG_3D && !bossActive && (
+        <DailyBackground3D
+          isDark={isDarkUi}
+          progress={queue.length ? qIdx / queue.length : 0}
+          boostSeq={bgBoostSeq}
+          glitchSeq={bgGlitchSeq}
+        />
+      )}
       {/* Анимации геймификации (combo, XP-флоат, HP-бар) + hover вариантов */}
       <style>{`
         @keyframes xpFloatUp { 0% { opacity:0; transform:translateY(8px); } 15% { opacity:1; transform:translateY(0); } 70% { opacity:1; } 100% { opacity:0; transform:translateY(-26px); } }

@@ -45,9 +45,20 @@ const SOFT_ATMO_FRAG = `
     gl_FragColor = vec4(ATMO, band * sun * uIntensity);
   }`;
 
-export default function DailyBackground3D({ isDark = true }) {
+export default function DailyBackground3D({ isDark = true, progress = 0, boostSeq = 0, glitchSeq = 0 }) {
   const mountRef = useRef(null);
+  const boostFlashRef = useRef(null);
+  const glitchFlashRef = useRef(null);
   const [failed, setFailed] = useState(false);
+
+  // Доля прохождения и импульсы ответов читаются rAF-циклом через ref'ы → смена
+  // задачи НЕ пересоздаёт сцену (меняется только позиция/дистанция планеты).
+  const progressRef = useRef(progress);
+  const boostSeqRef = useRef(boostSeq);
+  const glitchSeqRef = useRef(glitchSeq);
+  useEffect(() => { progressRef.current = Math.max(0, Math.min(1, progress)); }, [progress]);
+  useEffect(() => { boostSeqRef.current = boostSeq; }, [boostSeq]);
+  useEffect(() => { glitchSeqRef.current = glitchSeq; }, [glitchSeq]);
 
   useEffect(() => {
     let renderer, scene, camera, frameId, clock, ro, resizeTimer;
@@ -163,12 +174,30 @@ export default function DailyBackground3D({ isDark = true }) {
         uAmbient: { value: 0.16 },
       };
       const planetGroup = new THREE.Group();
-      // Смещение к верхне-левому краю и вдаль (НЕ прямо за центром, где текст).
-      planetGroup.position.set(isMobile ? -2.0 : -3.4, isMobile ? 2.4 : 2.0, -9);
       const PR = isMobile ? 1.5 : 1.9;
       planetGroup.scale.setScalar(PR);
       planetGroup.rotation.z = 0.35;
       scene.add(planetGroup);
+
+      // ── Траектория «полёта к планете» по ДОЛЕ прохождения (progress 0..1) ──
+      // Позиция задаётся в нормализованных экранных координатах (ndc) и переводится
+      // в мир через FOV+aspect → планета НЕ уходит из кадра и адаптируется к ширине
+      // экрана. По мере progress: дистанция сокращается (z: FAR→NEAR, планета
+      // крупнеет), а якорь поднимается к ВЕРХНЕМУ краю и чуть вбок — растущая
+      // планета заполняет верх/поля, проходя МИМО карточки (на узком мобайле не
+      // наезжает на текст). Финальное «прибытие» — отдельный шаг (NEAR не вплотную).
+      // progress=0 воспроизводит прежний прод-вид (углы FAR подобраны под старые
+      // мировые координаты -2.0,2.4 / -3.4,2.0 при z=-9).
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const tanHalfFov = Math.tan((55 * Math.PI / 180) / 2);
+      const Z_FAR = -9, Z_NEAR = -4.4;
+      const NDX_FAR = isMobile ? -0.92 : -0.45, NDX_NEAR = isMobile ? -0.30 : -0.52;
+      const NDY_FAR = isMobile ?  0.51 : 0.43,  NDY_NEAR = isMobile ?  1.00 : 0.74;
+      const BOOST_DUR = 0.7, BOOST_DZ = 0.9;    // верный ответ: короткий рывок ближе
+      const GLITCH_DUR = 0.45, SHAKE = 0.05;    // неверный: лёгкая тряска, БЕЗ отката
+      let dispProg = progressRef.current;       // дисплейная доля, плавно догоняет цель
+      let seenBoost = boostSeqRef.current, boostStart = -1;
+      let seenGlitch = glitchSeqRef.current, glitchStart = -1;
 
       const planetGeo = new THREE.SphereGeometry(1, 48, 48); geos.push(planetGeo);
       const planetMat = new THREE.ShaderMaterial({ uniforms, vertexShader: PLANET_VERT, fragmentShader: PLANET_FRAG, fog: false }); mats.push(planetMat);
@@ -217,9 +246,39 @@ export default function DailyBackground3D({ isDark = true }) {
       ro.observe(mount);
 
       clock = new THREE.Clock();
+      let last = 0;
       const animate = () => {
         frameId = requestAnimationFrame(animate);
         const t = clock.getElapsedTime();
+        const dt = Math.min(t - last, 0.05); last = t;
+
+        // ── Импульсы ответов (через ref, без пересоздания сцены) ──
+        if (boostSeqRef.current !== seenBoost)   { seenBoost = boostSeqRef.current;   boostStart = t; }
+        if (glitchSeqRef.current !== seenGlitch) { seenGlitch = glitchSeqRef.current; glitchStart = t; }
+        let boost = 0;
+        if (boostStart >= 0) { const e = t - boostStart; if (e < BOOST_DUR) boost = Math.sin(e / BOOST_DUR * Math.PI); else boostStart = -1; }
+        let glitch = 0;
+        if (glitchStart >= 0) { const e = t - glitchStart; if (e < GLITCH_DUR) glitch = 1 - e / GLITCH_DUR; else glitchStart = -1; }
+
+        // ── Плавный lerp дисплейной доли к целевой (смена задачи — не скачком) ──
+        dispProg += (progressRef.current - dispProg) * Math.min(1, dt * 2.5);
+
+        // ── Дистанция + якорь по доле; буст добавляет короткий рывок ближе ──
+        // easeIn (pow 1.4): начало далеко/спокойно, к концу сессии — заметнее «налёт».
+        const e = Math.pow(dispProg, 1.4);
+        const z = lerp(Z_FAR, Z_NEAR, e) + BOOST_DZ * boost;
+        const ndcX = lerp(NDX_FAR, NDX_NEAR, e);
+        const ndcY = lerp(NDY_FAR, NDY_NEAR, e);
+        const halfH = Math.abs(z) * tanHalfFov;
+        const halfW = halfH * camera.aspect;
+        planetGroup.position.set(ndcX * halfW, ndcY * halfH, z);
+
+        // ── Сбой: лёгкая тряска камеры (без отдаления) + красный блик ──
+        camera.position.x = glitch ? Math.sin(t * 72) * SHAKE * glitch : 0;
+        camera.position.y = glitch ? Math.cos(t * 64) * SHAKE * glitch : 0;
+        if (boostFlashRef.current)  boostFlashRef.current.style.opacity  = (boost * 0.42).toFixed(3);
+        if (glitchFlashRef.current) glitchFlashRef.current.style.opacity = (glitch * 0.5).toFixed(3);
+
         starUniforms.uTime.value = t;
         // Тонкое движение: звёзды очень медленно плывут, планета чуть вращается.
         stars.rotation.y = t * 0.006;
@@ -269,6 +328,16 @@ export default function DailyBackground3D({ isDark = true }) {
           background: 'linear-gradient(180deg, rgba(4,6,14,0.10) 0%, rgba(4,6,14,0.38) 45%, rgba(4,6,14,0.62) 100%)',
         }} />
       )}
+      {/* Импульсы ответов (opacity управляется rAF-циклом через ref): верный ответ →
+          короткая голубая вспышка у планеты; неверный → красный блик по краям. */}
+      <div ref={boostFlashRef} aria-hidden="true" style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0, willChange: 'opacity',
+        background: 'radial-gradient(ellipse at 28% 22%, rgba(130,205,255,0.6) 0%, rgba(130,205,255,0) 55%)',
+      }} />
+      <div ref={glitchFlashRef} aria-hidden="true" style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0, willChange: 'opacity',
+        background: 'radial-gradient(ellipse at 50% 50%, rgba(255,50,50,0) 38%, rgba(255,40,40,0.55) 100%)',
+      }} />
     </div>
   );
 }
