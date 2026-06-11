@@ -197,7 +197,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
   // Интро-анимация (VS-экран, ~3с) → переход в боевую фазу.
   useEffect(() => {
     if (bossIntroPhase !== 'intro') return;
-    const id = setTimeout(() => setBossIntroPhase('battle'), 3000);
+    const id = setTimeout(() => setBossIntroPhase('battle'), 5000);
     return () => clearTimeout(id);
   }, [bossIntroPhase]);
 
@@ -1025,7 +1025,7 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
           return <span key={i} style={{ position:'absolute', left:left+'%', bottom:'-4%', width:sz, height:sz, borderRadius:'50%', background:c, boxShadow:`0 0 6px ${c}`, opacity:0, animation:`vs-rise ${dur}s linear ${delay}s infinite` }}/>;
         });
         return (
-        <div style={{ position:'fixed', inset:0, zIndex:200, overflow:'hidden', animation:'vs-fade 3s ease forwards' }}>
+        <div style={{ position:'fixed', inset:0, zIndex:200, overflow:'hidden', animation:'vs-fade 5s ease forwards' }}>
           <style>{`
             @keyframes vs-fade{0%{opacity:0}7%{opacity:1}90%{opacity:1}100%{opacity:0}}
             @keyframes vs-shake{0%,9%{transform:translate(0,0)}10%{transform:translate(-3px,2px)}12%{transform:translate(3px,-2px)}14%{transform:translate(-3px,-2px)}16%{transform:translate(2px,3px)}18%{transform:translate(-2px,2px)}20%{transform:translate(3px,-1px)}23%,100%{transform:translate(0,0)}}
@@ -1043,58 +1043,61 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
             @keyframes vs-shock{0%,50%{opacity:0;transform:translate(-50%,-50%) scale(0)}52%{opacity:0.9}64%{opacity:0;transform:translate(-50%,-50%) scale(3)}100%{opacity:0}}
             @keyframes vs-ray{0%,50%{opacity:0;transform:scaleX(0)}54%{opacity:1}55%{transform:scaleX(1)}66%{opacity:0;transform:scaleX(1.25)}100%{opacity:0}}
             @keyframes vs-rise{0%{transform:translateY(0);opacity:0}12%{opacity:0.9}88%{opacity:0.6}100%{transform:translateY(-46vh);opacity:0}}
+            @media (max-width: 600px){
+              .vs-name-text{ font-size:30px !important; white-space:normal !important; max-width:56vw; line-height:1.05; }
+            }
           `}</style>
 
           {/* сцена со screen-shake при появлении босса */}
-          <div style={{ position:'absolute', inset:0, animation:'vs-shake 3s ease forwards' }}>
+          <div style={{ position:'absolute', inset:0, animation:'vs-shake 5s ease forwards' }}>
 
             {/* ВЕРХ — территория босса */}
-            <div style={{ position:'absolute', top:0, left:0, right:0, height:'50%', overflow:'hidden', animation:'vs-top 3s ease forwards' }}>
+            <div style={{ position:'absolute', top:0, left:0, right:0, height:'50%', overflow:'hidden', animation:'vs-top 5s ease forwards' }}>
               <div style={{ position:'absolute', inset:0, zIndex:0, background:'linear-gradient(135deg,#1a0a0a,#3a0a2a)', boxShadow:'inset 0 0 120px 10px rgba(0,0,0,0.6)', animation:'vs-pulse 2s ease-in-out infinite' }}/>
               {sparks(['#ff6b35','#ffae42','#ff3b3b'], 20, 17)}
-              <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none', boxShadow:'inset 0 0 80px 6px rgba(255,0,0,0.45)', animation:'vs-redflash 3s ease forwards' }}/>
-              <div style={{ position:'absolute', top:'30%', left:'7%', transform:'translateY(-50%)', textAlign:'left', zIndex:3, animation:'vs-name 3s ease forwards' }}>
-                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:54, color:'#fff', textShadow:'0 0 24px rgba(255,60,80,0.75), 0 2px 10px rgba(0,0,0,0.85)', whiteSpace:'nowrap' }}>{bossName}</div>
+              <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none', boxShadow:'inset 0 0 80px 6px rgba(255,0,0,0.45)', animation:'vs-redflash 5s ease forwards' }}/>
+              <div style={{ position:'absolute', top:'30%', left:'7%', transform:'translateY(-50%)', textAlign:'left', zIndex:3, animation:'vs-name 5s ease forwards' }}>
+                <div className="vs-name-text" style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:54, color:'#fff', textShadow:'0 0 24px rgba(255,60,80,0.75), 0 2px 10px rgba(0,0,0,0.85)', whiteSpace:'nowrap' }}>{bossName}</div>
                 <div style={{ fontFamily:"'Inter',sans-serif", fontSize:16, color:'rgba(255,200,200,0.9)', marginTop:8 }}>Tier {bossDef.tier} · {bossDef.hp} HP{bossDef.description ? ` · ${bossDef.description}` : ''}</div>
               </div>
-              <div style={{ position:'absolute', top:Math.round(-modelH*0.05), right:'-4%', width:modelH, height:modelH, zIndex:2, filter:'drop-shadow(0 0 40px rgba(255,60,60,0.5))', animation:'vs-boss-slide 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.3s both' }}>
+              <div style={{ position:'absolute', top:Math.round(-modelH*0.05), right:'7%', width:modelH, height:modelH, zIndex:2, filter:'drop-shadow(0 0 40px rgba(255,60,60,0.5))', animation:'vs-boss-slide 1.4s cubic-bezier(0.22,0.61,0.36,1) 0.4s both' }}>
                 <Boss3D bossId={bossId} hpPct={100} height={modelH}/>
               </div>
             </div>
 
             {/* НИЗ — территория игрока */}
-            <div style={{ position:'absolute', bottom:0, left:0, right:0, height:'50%', overflow:'hidden', animation:'vs-bottom 3s ease forwards' }}>
+            <div style={{ position:'absolute', bottom:0, left:0, right:0, height:'50%', overflow:'hidden', animation:'vs-bottom 5s ease forwards' }}>
               <div style={{ position:'absolute', inset:0, zIndex:0, background:'linear-gradient(135deg,#0a0a2a,#0a1a3a)', boxShadow:'inset 0 0 120px 10px rgba(0,0,0,0.6)', animation:'vs-pulse 2s ease-in-out infinite' }}/>
               {sparks(['#60a5fa','#7dd3fc','#a5b4fc'], 20, 41)}
-              <div style={{ position:'absolute', top:Math.round(-modelH*0.12), left:'-6%', width:modelH, height:modelH, zIndex:2, filter:'drop-shadow(0 0 36px rgba(96,165,250,0.5))', animation:'vs-player-slide 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.5s both' }}>
+              <div style={{ position:'absolute', top:Math.round(-modelH*0.12), left:'7%', width:modelH, height:modelH, zIndex:2, filter:'drop-shadow(0 0 36px rgba(96,165,250,0.5))', animation:'vs-player-slide 1.4s cubic-bezier(0.22,0.61,0.36,1) 0.6s both' }}>
                 <Character3D gender={user?.gender || 'male'} equipped={user?.equipped} height={modelH} autoSpin={0} animation="idle"/>
               </div>
-              <div style={{ position:'absolute', top:'40%', right:'7%', transform:'translateY(-50%)', textAlign:'right', zIndex:3, animation:'vs-name 3s ease forwards' }}>
-                <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:54, color:'#fff', textShadow:'0 0 24px rgba(96,165,250,0.75), 0 2px 10px rgba(0,0,0,0.85)', whiteSpace:'nowrap' }}>{pName}</div>
+              <div style={{ position:'absolute', top:'40%', right:'7%', transform:'translateY(-50%)', textAlign:'right', zIndex:3, animation:'vs-name 5s ease forwards' }}>
+                <div className="vs-name-text" style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:54, color:'#fff', textShadow:'0 0 24px rgba(96,165,250,0.75), 0 2px 10px rgba(0,0,0,0.85)', whiteSpace:'nowrap' }}>{pName}</div>
                 <div style={{ fontFamily:"'Inter',sans-serif", fontSize:16, color:'rgba(200,220,255,0.9)', marginTop:8 }}>Уровень {pLevel}</div>
               </div>
             </div>
 
             {/* Огненно-энергетический разделитель (бегущий градиент) */}
-            <div style={{ position:'absolute', top:'50%', left:0, right:0, height:4, zIndex:4, transformOrigin:'center', background:'linear-gradient(90deg, #fbbf24, #ff3b3b, #fbbf24, #ff3b3b, #fbbf24)', backgroundSize:'200% 100%', boxShadow:'0 0 22px rgba(251,191,36,0.95), 0 0 10px rgba(255,60,60,0.8)', animation:'vs-line-appear 3s ease forwards, vs-line-flow 1.1s linear infinite' }}/>
+            <div style={{ position:'absolute', top:'50%', left:0, right:0, height:4, zIndex:4, transformOrigin:'center', background:'linear-gradient(90deg, #fbbf24, #ff3b3b, #fbbf24, #ff3b3b, #fbbf24)', backgroundSize:'200% 100%', boxShadow:'0 0 22px rgba(251,191,36,0.95), 0 0 10px rgba(255,60,60,0.8)', animation:'vs-line-appear 5s ease forwards, vs-line-flow 1.1s linear infinite' }}/>
 
             {/* Ударная волна + лучи из центра (момент VS) */}
-            <div style={{ position:'absolute', top:'50%', left:'50%', width:120, height:120, marginLeft:-60, marginTop:-60, borderRadius:'50%', border:'4px solid rgba(251,191,36,0.9)', zIndex:6, pointerEvents:'none', animation:'vs-shock 3s ease forwards' }}/>
+            <div style={{ position:'absolute', top:'50%', left:'50%', width:120, height:120, marginLeft:-60, marginTop:-60, borderRadius:'50%', border:'4px solid rgba(251,191,36,0.9)', zIndex:6, pointerEvents:'none', animation:'vs-shock 5s ease forwards' }}/>
             <div style={{ position:'absolute', top:'50%', left:'50%', zIndex:6, pointerEvents:'none' }}>
               {Array.from({ length: 8 }).map((_, i) => (
                 <span key={i} style={{ position:'absolute', left:0, top:0, transform:`rotate(${i*45}deg)`, transformOrigin:'0 0' }}>
-                  <span style={{ display:'block', width:90, height:3, marginTop:-1.5, transformOrigin:'0 50%', background:'linear-gradient(90deg, rgba(251,191,36,0.95), rgba(255,150,0,0))', animation:'vs-ray 3s ease forwards' }}/>
+                  <span style={{ display:'block', width:90, height:3, marginTop:-1.5, transformOrigin:'0 50%', background:'linear-gradient(90deg, rgba(251,191,36,0.95), rgba(255,150,0,0))', animation:'vs-ray 5s ease forwards' }}/>
                 </span>
               ))}
             </div>
 
             {/* VS — удар scale */}
-            <div style={{ position:'absolute', top:'50%', left:'50%', zIndex:7, animation:'vs-badge 3s ease forwards' }}>
+            <div style={{ position:'absolute', top:'50%', left:'50%', zIndex:7, animation:'vs-badge 5s ease forwards' }}>
               <div style={{ fontFamily:"'Montserrat',sans-serif", fontWeight:900, fontSize:96, color:'#fbbf24', textShadow:'0 0 30px rgba(251,191,36,0.95), 0 0 60px rgba(255,120,0,0.6), 0 4px 12px rgba(0,0,0,0.8)', WebkitTextStroke:'2px rgba(0,0,0,0.35)' }}>VS</div>
             </div>
 
             {/* Белая вспышка на весь экран в момент VS */}
-            <div style={{ position:'absolute', inset:0, zIndex:8, background:'#fff', opacity:0, pointerEvents:'none', animation:'vs-white 3s ease forwards' }}/>
+            <div style={{ position:'absolute', inset:0, zIndex:8, background:'#fff', opacity:0, pointerEvents:'none', animation:'vs-white 5s ease forwards' }}/>
           </div>
         </div>
         );
