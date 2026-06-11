@@ -43,18 +43,21 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const easeInOut = (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 const easeOut = (x) => 1 - Math.pow(1 - x, 3);
 
-// Софт-облако (canvas-текстура): ОДИН мягкий радиальный пух с плавным спадом альфы
-// до 0 ЗАДОЛГО до края канваса → гарантированно прозрачная граница (нет прямоугольного
-// billboard-шва). Без авто-мипмапов + линейная фильтрация: на iOS Safari мипмапы
-// текстуры с альфой дают цветные крапинки (magenta/cyan/yellow) на дальних спрайтах.
+// Софт-облако как ALPHA-КАРТА: canvas ПОЛНОСТЬЮ НЕПРОЗРАЧНЫЙ, мягкий grayscale-радиал
+// (центр бел → край чёрн) = профиль АЛЬФЫ. Подключается через material.alphaMap, а цвет
+// спрайта берётся ТОЛЬКО из material.color (монохром бело-голубой). У текстуры нет ни
+// альфа-канала, ни цвета → на iOS Safari НЕТ цветного RGB-мусора из полупрозрачных
+// пикселей (главная причина цветных крапин; десктоп его игнорировал, iOS подмешивал).
+// Граница чёрная (alpha 0) → нет прямоугольного billboard-шва. Без мипмапов + линейная.
 function makeCloudTex(THREE) {
   const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
   const x = c.getContext('2d');
+  x.fillStyle = '#000'; x.fillRect(0, 0, S, S);          // непрозрачная чёрная база (= alpha 0)
   const g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S * 0.48);
-  g.addColorStop(0.00, 'rgba(255,255,255,0.80)');  // мягкое ядро (не плотное)
-  g.addColorStop(0.35, 'rgba(255,255,255,0.40)');
+  g.addColorStop(0.00, 'rgba(255,255,255,1)');           // центр → бел (alpha 1)
+  g.addColorStop(0.35, 'rgba(255,255,255,0.45)');        // поверх чёрного → серый (плавно)
   g.addColorStop(0.70, 'rgba(255,255,255,0.10)');
-  g.addColorStop(1.00, 'rgba(255,255,255,0)');      // полный 0 до края → прозрачная граница
+  g.addColorStop(1.00, 'rgba(255,255,255,0)');           // край → остаётся чёрным (alpha 0)
   x.fillStyle = g; x.fillRect(0, 0, S, S);
   const t = new THREE.CanvasTexture(c);
   t.generateMipmaps = false;
@@ -135,7 +138,8 @@ export default function ArrivalCutscene3D({ perf = 1, full = true, onDone, onFai
 
       // ── Облачный «набегающий» спрайт у порога входа (продаёт ныряние) ──
       const cloudTex = makeCloudTex(THREE); texs.push(cloudTex);
-      const diveMat = new THREE.SpriteMaterial({ map: cloudTex, color: 0xdfe9ff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }); mats.push(diveMat);
+      // alphaMap (не map) → цвет только из material.color (монохром), без RGB-мусора на iOS.
+      const diveMat = new THREE.SpriteMaterial({ alphaMap: cloudTex, color: 0xdfe9ff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }); mats.push(diveMat);
       const diveCloud = new THREE.Sprite(diveMat); diveCloud.scale.set(0, 0, 1); scene.add(diveCloud);
 
       // ── FOG-набор: туман (billboard-спрайты) + площадка + зонд + дрон ──
@@ -148,7 +152,7 @@ export default function ArrivalCutscene3D({ perf = 1, full = true, onDone, onFai
       const padGlow = new THREE.PointLight(0x6fc8ff, 0.6 + 0.7 * I, 9); padGlow.position.set(0, 0.6, 0); fog.add(padGlow);
       // Туманные клубы вокруг камеры (ЕДИНЫЙ слой)
       const fogN = isMobile ? 14 : 22; const puffs = [];
-      const fogMatBase = { map: cloudTex, transparent: true, depthWrite: false, blending: THREE.NormalBlending };
+      const fogMatBase = { alphaMap: cloudTex, transparent: true, depthWrite: false, blending: THREE.NormalBlending };
       for (let i = 0; i < fogN; i++) {
         const m = new THREE.SpriteMaterial({ ...fogMatBase, color: FOG_COL, opacity: 0.0 }); mats.push(m);
         const s = new THREE.Sprite(m);
