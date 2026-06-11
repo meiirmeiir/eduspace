@@ -1149,7 +1149,7 @@ function BossBattleSection() {
                   style={{ width: "100%", height: 220, objectFit: "cover", borderRadius: 14, display: "block" }} />
               ) : (
                 <LazyMount height={220}>
-                  <BattleScene3D equipped={setToEquipped("astronaut-m")} bossType="dragon" bossHp={hp} attackSeq={hit} hitSeq={0} height={220} />
+                  <BattleScene3D equipped={setToEquipped("astronaut-m")} bossId="dragon" bossHp={hp} attackSeq={hit} hitSeq={0} height={220} />
                 </LazyMount>
               )}
               {/* всплывающий урон (на мобиле «−17» уже в статичном кадре).
