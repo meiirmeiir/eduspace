@@ -7226,16 +7226,41 @@ ID навыка: "${sktSkillId||'[укажи skill_id]'}"
             try{
               const parsed=JSON.parse(sktJsonText.trim());
               let data={};
-              if(Array.isArray(parsed)) data={[sktLevel]:parsed};
-              else data=parsed;
-              if(!data.skill_id) data.skill_id=sktSkillId;
+              let isSingleLevel=false;
+              if(Array.isArray(parsed)){
+                // Дозаливка одного уровня: голый массив задач → оборачиваем в выбранный уровень.
+                // У массива нет встроенного skill_id (нет идентичности), адрес = выбранный навык.
+                data={[sktLevel]:parsed};
+                isSingleLevel=true;
+              } else {
+                data=parsed;
+              }
+              // ── БАРЬЕР 1+2: адрес записи берём из data.skill_id (поле файла), НЕ из выбора UI.
+              // Для полного/объектного банка skill_id обязателен и должен совпадать с выбранным навыком —
+              // иначе «банк под не тот skillId». Расхождение блокируем, не пишем молча.
+              let targetId;
+              if(isSingleLevel){
+                targetId=sktSkillId; // у голого массива идентичности нет — пишем под выбранный навык
+                if(!data.skill_id) data.skill_id=sktSkillId;
+              } else {
+                if(!data.skill_id||data.skill_id!==sktSkillId){
+                  alert('⛔ Привязка не совпадает — запись отменена.\n\nJSON сгенерирован для: '+(data.skill_id||'(skill_id отсутствует)')+'\nВыбран навык: '+sktSkillId+'\n\nПроверь, тот ли банк вставлен для выбранного навыка.');
+                  setSktSaving(false);
+                  return;
+                }
+                targetId=data.skill_id; // адрес из файла, не из выбора UI
+              }
               if(!data.skill_name) data.skill_name=sktSkillName;
-              await setDoc(doc(db,'skillTasks',sktSkillId),data,{merge:true});
-              const existing=sktEntries.find(e=>e.id===sktSkillId);
-              const updated={id:sktSkillId,...data};
-              setSktEntries(existing?sktEntries.map(e=>e.id===sktSkillId?updated:e):[...sktEntries,updated]);
+              // ── БАРЬЕР 4: полный банк (есть a И b И c) → полная замена БЕЗ merge,
+              // чтобы остатки старого/чужого банка не примешались. merge — только для дозаливки одного уровня.
+              const isFullBank=Array.isArray(data.a)&&Array.isArray(data.b)&&Array.isArray(data.c);
+              if(isFullBank) await setDoc(doc(db,'skillTasks',targetId),data);
+              else           await setDoc(doc(db,'skillTasks',targetId),data,{merge:true});
+              const existing=sktEntries.find(e=>e.id===targetId);
+              const updated={id:targetId,...data};
+              setSktEntries(existing?sktEntries.map(e=>e.id===targetId?updated:e):[...sktEntries,updated]);
               setSktJsonText('');
-              alert('✓ Задачи сохранены!');
+              alert('✓ Задачи сохранены'+(isFullBank?' (полный банк — замена)':' (уровень '+sktLevel.toUpperCase()+' — дозалив)')+' → '+targetId);
             }catch(e){alert('Ошибка: '+e.message);}
             setSktSaving(false);
           };
