@@ -869,7 +869,7 @@ function ParentLanding({ onCta }) {
             <Lead style={{ marginBottom: 18, maxWidth: 480 }}>
               <strong style={{ color: "#fff" }}>40 000 задач · 307 навыков · 5–11 класс.</strong> Платформа находит слабые места и ведёт ребёнка по точному маршруту — за <strong style={{ color: GOLD, whiteSpace: "nowrap" }}>2000 ₸/мес</strong>, дешевле часа репетитора.
             </Lead>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
+            <div className="al-hero-cta" style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
               <button className="al-btn-primary" style={{ fontSize: 16, padding: "17px 32px" }} onClick={onCta}>Попробовать бесплатно →</button>
             </div>
             <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 16 }}>Первая диагностика бесплатно · Без банковской карты</p>
@@ -1317,7 +1317,7 @@ function StudentLanding({ onCta }) {
             <Lead style={{ marginBottom: 18, maxWidth: 480 }}>
               Не учебник, а приключение. <strong style={{ color: "#fff" }}>Карта навыков, кристаллы, лидерборд и NPC-гид</strong> — учись так, будто играешь.
             </Lead>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
+            <div className="al-hero-cta" style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
               <button className="al-btn-primary" onClick={onCta}
                 style={{ background: `linear-gradient(135deg,${PURPLE},#7c3aed)`, color: "#fff", fontSize: 16, padding: "17px 32px" }}>Начать приключение →</button>
             </div>
@@ -1477,6 +1477,9 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
         @media(max-width:880px){
           .al-grid-2,.al-grid-3,.al-grid-4{grid-template-columns:1fr!important;}
           .al-perks{grid-template-columns:1fr!important;}
+          /* CTA-кнопка hero — центрируем ТОЛЬКО кнопку на мобайле; заголовок,
+             подзаголовок и подпись под кнопкой остаются слева (отдельные блоки). */
+          .al-hero-cta{justify-content:center;}
           /* overflow-x:clip вместо hidden — клипит горизонталь, но НЕ создаёт
              scroll-контейнер, поэтому position:sticky шапки на мобайле работает
              (overflow-x:hidden у body И корня его ломал). Десктоп — без изменений
