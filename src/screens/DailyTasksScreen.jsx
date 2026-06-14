@@ -425,6 +425,28 @@ export default function DailyTasksScreen({ user, onBack, onOpenDiagnostics, onVi
         updates[`skills.${skillId}.next_review_date`] = getAlmatyDateStr(1);
       }
     }
+    // ── Кумулятивный счётчик задач ПО НАВЫКУ из ежедневок (для родительского
+    // отчёта: зоны точности + правило «>10»). По-задачно: answers[i] ↔ queue[i].
+    // Read-modify-write (FieldValue.increment недоступен в REST-обёртке), значения
+    // кладём dotted-path в тот же updates → SRS-поля навыка не затрагиваются. ──
+    const skillTally = {}; // skillId -> { a: attempts, c: correct }
+    for (let i = 0; i < answers.length; i++) {
+      const sid = queue[i]?.skillId;
+      if (!sid) continue;
+      (skillTally[sid] ??= { a: 0, c: 0 }).a++;
+      if (answers[i]) skillTally[sid].c++;
+    }
+    if (Object.keys(skillTally).length) {
+      try {
+        const mSnap = await getDoc(doc(db, 'skillMastery', user.uid));
+        const mSkills = mSnap.exists() ? (mSnap.data().skills || {}) : {};
+        for (const [sid, t] of Object.entries(skillTally)) {
+          const cur = mSkills[sid] || {};
+          updates[`skills.${sid}.dailyAttempts`] = (Number(cur.dailyAttempts) || 0) + t.a;
+          updates[`skills.${sid}.dailyCorrect`]  = (Number(cur.dailyCorrect)  || 0) + t.c;
+        }
+      } catch (e) { console.error('dailyAttempts/dailyCorrect tally:', e); }
+    }
     if (Object.keys(updates).length) {
       try { await updateDoc(doc(db, 'skillMastery', user.uid), updates); }
       catch(e) { console.error(e); }
