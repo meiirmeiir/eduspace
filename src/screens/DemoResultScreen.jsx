@@ -40,23 +40,30 @@ function MiniSkillMap({ accent, weakCount, strongCount }) {
     return arr;
   }, [weakCount, strongCount]);
 
-  const color = (k) => k === "mastered" ? GREEN : k === "weak" ? RED : k === "progress" ? accent : "rgba(255,255,255,0.12)";
+  // Реальные PNG-рендеры планет (SkillPlanet3D, прозрачный фон) вместо абстрактных квадратов.
+  const PLANET = {
+    mastered: "/previews/planets/mastered.png",   // освоено — цветущий мир
+    progress: "/previews/planets/progress.png",   // в процессе — зеленеет
+    weak:     "/previews/planets/available.png",  // пробел — доступный к проработке навык
+    locked:   "/previews/planets/locked.png",     // закрыто — мёртвая скала
+  };
+  const GLOW = { mastered: GREEN, progress: accent, weak: RED, locked: null }; // лёгкое свечение по статусу
 
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(10,1fr)", gap: 9, maxWidth: 360, margin: "0 auto" }} className="dr-map">
         {tiles.map((k, i) => (
-          <motion.div key={i}
+          <motion.img key={i} src={PLANET[k]} alt="" loading="lazy"
             initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.012, duration: 0.3, ease }}
-            style={{ aspectRatio: "1", borderRadius: 7, background: color(k),
-              boxShadow: k !== "locked" ? `0 0 12px ${color(k)}55` : "none" }} />
+            style={{ width: "100%", aspectRatio: "1", objectFit: "contain", display: "block",
+              filter: GLOW[k] ? `drop-shadow(0 0 6px ${GLOW[k]}66)` : "none" }} />
         ))}
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 18, flexWrap: "wrap", marginTop: 18, fontSize: 12.5, color: "rgba(255,255,255,0.55)" }}>
-        {[["Освоено", GREEN], ["В процессе", accent], ["Пробел", RED], ["Закрыто", "rgba(255,255,255,0.18)"]].map(([l, c]) => (
+        {[["Освоено", "mastered"], ["В процессе", "progress"], ["Пробел", "weak"], ["Закрыто", "locked"]].map(([l, k]) => (
           <span key={l} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-            <span style={{ width: 11, height: 11, borderRadius: 4, background: c, display: "inline-block" }} />{l}
+            <img src={PLANET[k]} alt="" style={{ width: 16, height: 16, objectFit: "contain", display: "inline-block" }} />{l}
           </span>
         ))}
       </div>
