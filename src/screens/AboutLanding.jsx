@@ -1100,8 +1100,8 @@ function BossBattleSection() {
   // staticBoss=true → старый статичный фоллбэк; false → живая 3D-сцена (GLB).
   const staticBoss = mobile && !BOSS_MOBILE_3D;
   const [active, setActive] = useState(false);
-  // Статичный кадр снят на ~66 HP; живая сцена стартует со 100 (полный цикл боя).
-  const startHp = staticBoss ? 66 : 100;
+  // Статичный кадр снят на ~66 HP; живая сцена стартует со 160 (полный HP дракона).
+  const startHp = staticBoss ? 66 : 160;
   const [hp, setHp] = useState(startHp);
   const hpRef = useRef(startHp);
   const [hit, setHit] = useState(0); // = attackSeq для BattleScene3D (выпад героя + лазер)
@@ -1118,8 +1118,8 @@ function BossBattleSection() {
   useEffect(() => {
     if (!active) return;
     const id = setInterval(() => {
-      if (hpRef.current <= 0) { hpRef.current = 100; setHp(100); setDefeated(false); return; }
-      hpRef.current = Math.max(0, hpRef.current - 17);
+      if (hpRef.current <= 0) { hpRef.current = 160; setHp(160); setDefeated(false); return; }
+      hpRef.current = Math.max(0, hpRef.current - 20);
       setHp(hpRef.current);
       setHit((c) => c + 1);
       if (hpRef.current <= 0) setDefeated(true);
@@ -1135,6 +1135,9 @@ function BossBattleSection() {
           <H2>Сразись с боссом</H2>
           <Lead>
             В ежедневных задачах тебя ждут битвы с боссами. Решай правильно — наноси урон. Промахнулся — теряешь HP. Экипировка из магазина добавляет здоровья.
+          </Lead>
+          <Lead style={{ marginTop: 14, fontSize: 15, color: "rgba(255,255,255,0.55)" }}>
+            У каждого босса свой запас HP — чем сильнее враг, тем больше урон за верный ответ.
           </Lead>
         </Reveal>
         <Reveal i={1}>
@@ -1152,9 +1155,9 @@ function BossBattleSection() {
                   <BattleScene3D equipped={setToEquipped("astronaut-m")} bossId="dragon" bossHp={hp} attackSeq={hit} hitSeq={0} height={220} />
                 </LazyMount>
               )}
-              {/* всплывающий урон (на мобиле «−17» уже в статичном кадре).
+              {/* всплывающий урон (на мобиле «−20» уже в статичном кадре).
                   Без AnimatePresence: exit предыдущего флоата перекрывался с
-                  enter нового → два «−17» одновременно. Один motion.div с
+                  enter нового → два «−20» одновременно. Один motion.div с
                   keyframes сам затухает к концу такта. */}
               {hit > 0 && !defeated && !staticBoss && (
                 <motion.div key={hit}
@@ -1163,7 +1166,7 @@ function BossBattleSection() {
                   transition={{ duration: 1.1, times: [0, 0.18, 0.7, 1], ease: "easeOut" }}
                   style={{ position: "absolute", top: 28, right: "22%", fontWeight: 900, fontSize: 26, color: "#fbbf24",
                     textShadow: "0 2px 10px rgba(0,0,0,0.6)", pointerEvents: "none" }}>
-                  −17
+                  −20
                 </motion.div>
               )}
               {defeated && (
@@ -1175,7 +1178,7 @@ function BossBattleSection() {
               )}
             </div>
             <div style={{ marginTop: 14, fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.5)" }}>
-              ✅ Правильный ответ — <span style={{ color: "#fbbf24" }}>−17 HP боссу</span> · ❌ ошибка — урон тебе
+              ✅ Правильный ответ — <span style={{ color: "#fbbf24" }}>−20 HP боссу</span> · ❌ ошибка — урон тебе
             </div>
           </div>
         </Reveal>
