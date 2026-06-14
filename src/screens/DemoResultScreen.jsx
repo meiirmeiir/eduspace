@@ -140,7 +140,7 @@ export default function DemoResultScreen({ result, onRegister, onRestart, onExit
         <Card i={3} style={{ marginBottom: 16 }}>
           <div style={{ textAlign: "center", marginBottom: 22 }}>
             <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.4px", marginBottom: 6 }}>Карта навыков</div>
-            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", margin: 0 }}>Это лишь фрагмент — полная карта откроет <strong style={{ color: "#fff" }}>307 навыков</strong></p>
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", margin: 0 }}>Это лишь фрагмент — в программе <strong style={{ color: "#fff" }}>307 навыков</strong> 5–11 класса</p>
           </div>
           <MiniSkillMap accent={accent} weakCount={Math.max(weakTopics.length, 1)} strongCount={Math.max(strongTopics.length, 1)} />
         </Card>
@@ -149,7 +149,7 @@ export default function DemoResultScreen({ result, onRegister, onRestart, onExit
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32, duration: 0.6, ease }}
           style={{ borderRadius: 22, border: `2px solid ${accent}`, background: `linear-gradient(160deg,${accent}16,transparent)`, padding: "clamp(28px,5vw,40px) clamp(22px,4vw,36px)", textAlign: "center", marginTop: 8 }}>
           <div style={{ fontSize: "clamp(22px,4vw,30px)", fontWeight: 800, letterSpacing: "-0.6px", lineHeight: 1.2, marginBottom: 12 }}>
-            Хочешь полный план из <span style={{ color: accent }}>307 навыков</span>?
+            <span style={{ color: accent }}>307 навыков</span> программы — твой персональный маршрут по уровню и пробелам
           </div>
           <p style={{ fontSize: 15, color: "rgba(255,255,255,0.65)", lineHeight: 1.6, maxWidth: 440, margin: "0 auto 26px" }}>
             Зарегистрируйся — сохраним результаты этой диагностики, подсветим пробелы и построим персональный маршрут.
