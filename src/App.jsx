@@ -1355,8 +1355,9 @@ function AppInner() {
       {screen==="public_profile"&&publicProfileUid&&<PublicProfileScreen uid={publicProfileUid} onBack={closePublicProfile}/>}
       {screen==="shop"&&<ShopScreen user={user} onBack={()=>goBack()} onUpdateUser={handleUpdateUser} onGoDaily={()=>navigate("daily")}/>}
       {/* Bottom-nav: only on screens where the user is browsing,
-          not while taking a test or onboarding. */}
-      {["dashboard","theory","daily","plan","practice","diagnostics","leaderboard"].includes(screen) && (
+          not while taking a test or onboarding. Родителю НЕ показываем —
+          это ученическая навигация (План/Задачи/…), у родителя нет такого контекста. */}
+      {["dashboard","theory","daily","plan","practice","diagnostics","leaderboard"].includes(screen) && !(profile?.role==='parent'||user?.role==='parent') && (
         <MobileBottomNav
           active={screen==="dashboard" ? (dashSection==="profile" ? "profile" : "dashboard") : screen}
           dailyStatus={!masteryStatus.hasMastered ? 'locked' : (masteryStatus.hasDueToday ? 'due' : (masteryStatus.completedToday ? 'done' : null))}

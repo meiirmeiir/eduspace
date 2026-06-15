@@ -1,46 +1,48 @@
 // Дашборд по ребёнку (Шаг 6, редизайн) — под-вью ParentScreen. READ-ONLY.
-// Блоки: шапка (publicProfiles+уровень) · сводка (overallPct+сегменты из
-// buildDiagModuleTree) · награды (medals/achievements) · над чем работать+сильные
-// (passRate из by_vertical) · по темам (вертикали) · детали (категории навыков).
-// Доступ к данным ребёнка открыт rules Шага 4; medals/achievements read:isSignedIn.
+// Вердикт + 4 метрики + баланс (хорошо освоено/над чем работать по passRate) +
+// по темам (вертикали). «Подробнее»: рост (линия из progressSnapshots ≥2 точек,
+// иначе заглушка) + точность-зоны + навыки-чипы + карта. Палитра — из темы (light/dark).
+// Доступ к данным ребёнка открыт rules Шага 4. Награды НЕ показываем (игровая
+// мотивация ученика ≠ ответ родителю «есть ли прогресс»).
 import React, { useEffect, useMemo, useState } from "react";
 import { doc, getDoc, getDocs, collection, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
 import { fetchFriendProfiles } from "../lib/friendsUtils.js";
 import { buildDiagModuleTree } from "./diagTree/DiagnosticModuleTree.jsx";
 import { getLevelInfo } from "../lib/levelUtils.js";
-import { ACHIEVEMENTS } from "../lib/achievements.js";
 import { getWeekId } from "../lib/pointsUtils.js";
 import { computeVerdict } from "../lib/parentVerdict.js";
+import ChildMap from "./ChildMap.jsx";
+import { useTheme } from "../ThemeContext.jsx";
 
-// Тёмная космо-палитра (родительский дашборд — всегда тёмный, в духе карты).
-const C = {
-  bg: "#0d1224", card: "#141a2e", cardHi: "#1a2236", border: "rgba(255,255,255,0.08)",
-  text: "#e6edf3", dim: "rgba(230,237,243,0.58)", gold: "#d4af37",
-  green: "#22c55e", yellow: "#f59e0b", red: "#ef4444", blue: "#6366f1", gray: "#64748b",
-};
 const VERTICAL_NAMES = {
   ALGEBRA: "Алгебра", GEOMETRY: "Геометрия", NUMBERS: "Числа", FUNCTIONS: "Функции",
   PROBABILITY: "Вероятность", TRIGONOMETRY: "Тригонометрия", CALCULUS: "Анализ", STATISTICS: "Статистика",
 };
 const vName = v => VERTICAL_NAMES[v] || (v ? v[0] + v.slice(1).toLowerCase() : "Тема");
 const humanizeSkillId = id => !id ? "Навык" : String(id).replace(/[_-]+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-const MEDAL_COLOR = { gold: "#fbbf24", silver: "#cbd5e1", bronze: "#cd7f32" };
-
-function Avatar({ p, size = 56 }) {
-  const initials = ((p?.firstName?.[0] || "") + (p?.lastName?.[0] || "")).toUpperCase() || "?";
-  const base = { width: size, height: size, borderRadius: "50%", border: `2px solid ${C.gold}`, flexShrink: 0 };
-  return p?.avatarUrl
-    ? <img src={p.avatarUrl} alt="" style={{ ...base, objectFit: "cover", display: "block" }} />
-    : <div style={{ ...base, background: "linear-gradient(135deg,#6366f1,#a78bfa)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: size * 0.34 }}>{initials}</div>;
-}
-
-const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: "16px 18px", boxShadow: "0 8px 28px -10px rgba(0,0,0,0.5)" };
 
 export default function ChildReport({ childUid }) {
+  const { theme: THEME, dark } = useTheme();
+  // Палитра дашборда — ИЗ темы проекта (light/dark), не хардкод. Единый синий
+  // акцент (данные) + функциональные цвета с адаптивным оттенком (читаемы на обеих).
+  const C = {
+    bg: THEME.bg, card: THEME.surface,
+    cardHi: dark ? "rgba(255,255,255,0.08)" : "#eef2f7",   // тонкая заливка (треки/чипы)
+    border: THEME.border, text: THEME.text, dim: THEME.textLight,
+    accent: "#3b82f6",
+    green: dark ? "#22c55e" : "#16a34a",
+    amber: dark ? "#f59e0b" : "#d97706",
+    red:   dark ? "#ef4444" : "#dc2626",
+    gray:  THEME.textLight,
+  };
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: "16px 18px",
+    boxShadow: dark ? "0 8px 28px -10px rgba(0,0,0,0.5)" : "0 8px 24px -12px rgba(10,25,47,0.12)" };
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [d, setD] = useState(null);
+  const [showDetails, setShowDetails] = useState(false);   // collapse «Подробнее»
 
   useEffect(() => {
     if (!childUid) return;
@@ -52,17 +54,16 @@ export default function ChildReport({ childUid }) {
         // сбрасывается лениво → ложно «активен» забросившему).
         const thisWeekId = getWeekId();
         const lastWeekId = getWeekId(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
-        const [planSnap, masterySnap, progressSnap, cg, hier, profMap, medalSnap, achSnap, lbThis, lbLast] = await Promise.all([
+        const [planSnap, masterySnap, progressSnap, cg, hier, profMap, lbThis, lbLast, snapsSnap] = await Promise.all([
           getDoc(doc(db, "individualPlans", childUid)),
           getDoc(doc(db, "skillMastery", childUid)),
           getDoc(doc(db, "skillProgress", childUid)),
           getContent("crossGradeLinks"),
           getContent("skillHierarchies"),
           fetchFriendProfiles([childUid]),
-          getDocs(collection(db, `users/${childUid}/medals`)),
-          getDocs(collection(db, `users/${childUid}/achievements`)),
           getDoc(doc(db, "leaderboard", thisWeekId, "entries", childUid)),
           getDoc(doc(db, "leaderboard", lastWeekId, "entries", childUid)),
+          getDocs(collection(db, `progressSnapshots/${childUid}/weeks`)),   // история для графика роста
         ]);
         if (cancelled) return;
         const thisWeekPoints = lbThis.exists() ? Number(lbThis.data()?.points || 0) : 0;
@@ -78,15 +79,9 @@ export default function ChildReport({ childUid }) {
         const skillProgress = progressSnap.exists() ? (progressSnap.data()?.skills || {}) : {};
         const profile = profMap?.[childUid] || {};
 
-        // Сводка из карты модулей
+        // Общий % освоения — средний mastery по модулям карты (buildDiagModuleTree)
         const diag = plan ? buildDiagModuleTree(plan, skillProgress, cg || [], namesMap, mastery) : { modules: [] };
         const mods = diag.modules || [];
-        const seg = {
-          mastered: mods.filter(m => m.mastery >= 100).length,
-          inProgress: mods.filter(m => !m.isLocked && m.mastery > 0 && m.mastery < 100).length,
-          available: mods.filter(m => !m.isLocked && m.mastery === 0).length,
-          locked: mods.filter(m => m.isLocked && m.mastery < 100).length,
-        };
         const overallPct = mods.length ? Math.round(mods.reduce((s, m) => s + Math.min(m.mastery || 0, 100), 0) / mods.length) : 0;
 
         // by_vertical: vertical -> [{id, passRate}]; passRate = диагностика
@@ -137,10 +132,11 @@ export default function ChildReport({ childUid }) {
         }
         zones.sort((a, b) => a.acc - b.acc);
 
-        // Награды
-        const medals = (medalSnap.docs || []).map(x => x.data());
-        const achievements = (achSnap.docs || []).map(x => x.data())
-          .map(a => { const def = ACHIEVEMENTS.find(z => z.id === a.achievementId); return { ...a, icon: def?.icon || "🏅", title: def?.name || a.achievementId }; });
+        // История снимков (для графика роста): сортируем по weekId, берём overallPct
+        const snapshots = (snapsSnap.docs || []).map(x => x.data())
+          .map(s => ({ weekId: s.weekId || "", overallPct: Number(s.overallPct || 0) }))
+          .filter(s => s.weekId)
+          .sort((a, b) => a.weekId.localeCompare(b.weekId));
 
         const level = profile.xp != null ? getLevelInfo(Number(profile.xp) || 0) : null;
 
@@ -156,7 +152,7 @@ export default function ChildReport({ childUid }) {
           totalPoints: Number(profile.totalPoints || 0), masteredCount,
         });
 
-        setD({ profile, hasData: !!plan || Object.keys(mastery).length > 0, overallPct, seg, themes, weak, strong, cats, zones, medals, achievements, level, verdict, thisWeekPoints, lastWeekPoints });
+        setD({ profile, hasData: !!plan || Object.keys(mastery).length > 0, overallPct, themes, weak, strong, cats, zones, snapshots, level, verdict, thisWeekPoints, lastWeekPoints });
       } catch (e) { console.error("[ChildReport] load failed", e?.message || e); if (!cancelled) setError(true); }
       if (!cancelled) setLoading(false);
     })();
@@ -166,9 +162,9 @@ export default function ChildReport({ childUid }) {
   if (loading) return <div style={{ ...card, color: C.dim, textAlign: "center" }}>Загрузка отчёта…</div>;
   if (error) return <div style={{ ...card, color: C.red, textAlign: "center" }}>Не удалось загрузить отчёт.</div>;
 
-  const { profile, hasData, overallPct, seg, themes, weak, strong, cats, zones, medals, achievements, level, verdict, thisWeekPoints, lastWeekPoints } = d;
+  const { profile, hasData, overallPct, themes, weak, strong, cats, zones, snapshots, level, verdict, thisWeekPoints, lastWeekPoints } = d;
   const fullName = `${profile.firstName || ""} ${profile.lastName || ""}`.trim() || "Ребёнок";
-  const VTONE = { green: C.green, yellow: C.yellow, gray: C.gray };
+  const VTONE = { green: C.green, yellow: C.amber, gray: C.gray };
   const vColor = VTONE[verdict?.tone] || C.gray;
   const weekDelta = (thisWeekPoints || 0) - (lastWeekPoints || 0);
 
@@ -191,207 +187,186 @@ export default function ChildReport({ childUid }) {
       ))}
     </div>
   );
-  const SegTile = ({ label, val, color }) => (
-    <div style={{ flex: 1, minWidth: 64, textAlign: "center", background: C.cardHi, borderRadius: 12, padding: "10px 6px" }}>
-      <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 20, color }}>{val}</div>
-      <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{label}</div>
+  // Метрика-плитка: нейтральная цифра (белая), подпись приглушённая. Без цвета-декора.
+  const Metric = ({ value, label, sub }) => (
+    <div style={{ ...card, padding: "20px 20px", display: "flex", flexDirection: "column", gap: 6, minHeight: 104, justifyContent: "center" }}>
+      <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 32, color: C.text, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 12.5, color: C.dim }}>{label}</div>
+      {sub}
     </div>
   );
+  // Чистый донат для % (тонкое кольцо, единый акцент, БЕЗ свечения)
+  const Donut = ({ pct, size = 66 }) => {
+    const r = (size - 7) / 2, circ = 2 * Math.PI * r, off = circ * (1 - Math.min(pct, 100) / 100);
+    return (
+      <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+        <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.cardHi} strokeWidth={6} />
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.accent} strokeWidth={6}
+            strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round" />
+        </svg>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 16, color: C.text }}>{pct}%</div>
+      </div>
+    );
+  };
 
   return (
-    <div style={{ background: C.bg, borderRadius: 18, padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Адаптив: 2 колонки на десктопе, 1 на мобильном. min(100%,…) гасит
-          overflow на узких экранах (классический баг auto-fit minmax). */}
+    <div style={{ background: C.bg, borderRadius: 18, padding: "18px 16px", display: "flex", flexDirection: "column", gap: 18 }}>
       <style>{`
-        .cr-grid { display:grid; gap:14px; align-items:start;
-          grid-template-columns:repeat(auto-fit, minmax(min(100%, 380px), 1fr)); }
+        .cr-metrics { display:grid; gap:14px; grid-template-columns:repeat(auto-fit, minmax(min(100%,150px),1fr)); }
+        .cr-5050 { display:grid; gap:14px; align-items:start; grid-template-columns:1fr 1fr; }
+        .cr-5050 > * { min-width:0; }   /* фикс overflow: иначе длинное имя распирает колонку шире 1fr */
+        @media (max-width:760px){ .cr-5050 { grid-template-columns:1fr; } }
+        /* Темы — плитки auto-fit: 1 тема = компактная плитка, много = ряд (не пустая ширина) */
+        .cr-themes { display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(min(100%,240px),1fr)); }
+        .cr-themes > * { min-width:0; }
       `}</style>
 
-      {/* 0. ВЕРДИКТ-ПЛАШКА — ответ за секунду */}
-      <div style={{ ...card, borderLeft: `4px solid ${vColor}`,
-        background: `linear-gradient(90deg, ${vColor}1f, ${C.card} 55%)`,
-        display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ width: 14, height: 14, borderRadius: "50%", background: vColor, flexShrink: 0,
-          boxShadow: `0 0 12px -1px ${vColor}` }} />
-        <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 17, color: C.text }}>
-          {verdict?.title || "—"}
+      {/* ВЕРДИКТ — тонкая акцентная полоса слева (3px), без заливки/свечения */}
+      <div style={{ ...card, padding: "22px 24px", borderLeft: `3px solid ${vColor}`, display: "flex", flexDirection: "column", gap: 5 }}>
+        <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 20, color: C.text, lineHeight: 1.25 }}>{verdict?.title || "—"}</div>
+        <div style={{ fontSize: 13, color: C.dim }}>
+          {fullName}{profile.details ? ` · ${profile.details}` : ""}{level ? ` · ${level.tier?.name || ""}` : ""}
         </div>
       </div>
 
-      {/* 1. ШАПКА */}
-      <div style={{ ...card, display: "flex", alignItems: "center", gap: 14 }}>
-        <Avatar p={profile} size={60} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 18, color: C.text }}>{fullName}</div>
-          <div style={{ fontSize: 12.5, color: C.dim, marginBottom: 6 }}>
-            {profile.details || ""}{level ? ` · ${level.tier?.name || ""}` : ""}
-            {profile.streak ? `  ·  🔥 ${profile.streak}` : ""}
-          </div>
-          {level && (
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.dim, marginBottom: 3 }}>
-                <span>Ур. {level.level}</span><span>{Number(profile.xp || 0).toLocaleString("ru-RU")} XP</span>
-              </div>
-              <div style={{ height: 6, background: C.cardHi, borderRadius: 99, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${Math.round((level.progress || 0) * 100)}%`, background: level.tier?.color || C.gold }} />
-              </div>
+      {/* 4 МЕТРИКИ — нейтральные; «освоено» = чистый донат. Без фейк «+N% за месяц» */}
+      <div className="cr-metrics">
+        <div style={{ ...card, padding: "18px 20px", display: "flex", alignItems: "center", gap: 14, minHeight: 104 }}>
+          <Donut pct={overallPct} />
+          <div style={{ fontSize: 12.5, color: C.dim }}>Освоено<br />программы</div>
+        </div>
+        <Metric value={cats.mastered.length} label="Навыков освоено" />
+        <Metric value={Number(profile.streak || 0)} label="Дней подряд" />
+        <Metric value={(thisWeekPoints || 0).toLocaleString("ru-RU")} label="Очков за неделю"
+          sub={<div style={{ fontSize: 11.5, fontWeight: 600, color: weekDelta > 0 ? C.green : C.dim }}>
+            {weekDelta > 0 ? `+${weekDelta} к прошлой` : weekDelta < 0 ? `${weekDelta} к прошлой` : "—"}
+          </div>} />
+      </div>
+
+      {/* БАЛАНС: «Хорошо освоено» и «Над чем работать» — РАВНОПРАВНЫЕ блоки 50/50.
+          Родитель видит успехи так же ясно, как зоны роста (без алармизма). */}
+      <div className="cr-5050">
+        <div style={{ ...card, borderLeft: `3px solid ${C.green}` }}>
+          <div style={{ fontWeight: 700, color: C.text, marginBottom: 10 }}>✅ Хорошо освоено</div>
+          {strong.length === 0 ? (
+            <div style={{ fontSize: 13, color: C.dim }}>Сильные темы появятся по мере занятий.</div>
+          ) : strong.slice(0, 3).map(s => (
+            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 7 }}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{s.passRate}%</span>
             </div>
-          )}
+          ))}
+        </div>
+        <div style={{ ...card, borderLeft: `3px solid ${C.amber}` }}>
+          <div style={{ fontWeight: 700, color: C.text, marginBottom: 10 }}>🎯 Над чем работать</div>
+          {weak.length === 0 ? (
+            <div style={{ fontSize: 13, color: C.dim }}>Слабых мест по диагностике не выявлено.</div>
+          ) : weak.slice(0, 3).map(s => (
+            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 7 }}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.amber }}>{s.passRate}%</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* 1.5 АКТИВНОСТЬ ЗА НЕДЕЛЮ (очки из leaderboard, не «рост знаний») */}
-      <div style={{ ...card, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 26, color: C.text, lineHeight: 1 }}>
-            {(thisWeekPoints || 0).toLocaleString("ru-RU")}
-          </div>
-          <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>очков · активность за неделю</div>
-        </div>
-        <div style={{
-          fontSize: 13, fontWeight: 700, padding: "4px 12px", borderRadius: 99,
-          color: weekDelta > 0 ? C.green : weekDelta < 0 ? C.yellow : C.dim,
-          background: weekDelta > 0 ? "rgba(34,197,94,0.12)" : weekDelta < 0 ? "rgba(245,158,11,0.12)" : C.cardHi,
-        }}>
-          {weekDelta > 0 ? `+${weekDelta}` : weekDelta < 0 ? `${weekDelta}` : "±0"} к прошлой неделе
-        </div>
-      </div>
-
-      {/* ─ РАЗДЕЛ «Что освоено» (ось знаний — вторая ось вердикта) ─ */}
-      <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 15, color: C.dim, margin: "4px 2px -2px" }}>📚 Что освоено</div>
-      {/* Средние блоки: 2 колонки на десктопе (сводка, над-чем, темы) */}
-      <div className="cr-grid">
-      {/* 2. СВОДКА: кольцо + сегменты */}
-      <div style={{ ...card, display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-        <div style={{ width: 96, height: 96, borderRadius: "50%", flexShrink: 0,
-          background: `conic-gradient(${C.gold} ${overallPct * 3.6}deg, rgba(255,255,255,0.07) 0deg)`,
-          display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 22px -4px ${C.gold}66` }}>
-          <div style={{ width: 74, height: 74, borderRadius: "50%", background: C.card, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 22, color: C.text }}>{overallPct}%</div>
-            <div style={{ fontSize: 10, color: C.dim }}>освоено</div>
-          </div>
-        </div>
-        <div style={{ flex: 1, minWidth: 200, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <SegTile label="Освоено" val={seg.mastered} color={C.green} />
-          <SegTile label="В работе" val={seg.inProgress} color={C.yellow} />
-          <SegTile label="Доступно" val={seg.available} color={C.blue} />
-          <SegTile label="Закрыто" val={seg.locked} color={C.gray} />
-        </div>
-      </div>
-
-      {/* 4. НАД ЧЕМ РАБОТАТЬ + СИЛЬНЫЕ (по passRate диагностики) */}
-      {(weak.length > 0 || strong.length > 0) && (
-        <div style={card}>
-          <div style={{ fontWeight: 700, color: C.text, marginBottom: 4 }}>🎯 По итогам диагностики</div>
-          {weak.length > 0 && <>
-            <div style={{ fontSize: 12.5, color: C.red, marginTop: 8, fontWeight: 600 }}>Над чем работать</div>
-            {weak.map(s => (
-              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-                <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: C.red }}>{s.passRate}%</span>
-              </div>
-            ))}
-          </>}
-          {strong.length > 0 && <>
-            <div style={{ fontSize: 12.5, color: C.green, marginTop: 12, fontWeight: 600 }}>Сильные стороны</div>
-            {strong.map(s => (
-              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-                <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: C.green }}>{s.passRate}%</span>
-              </div>
-            ))}
-          </>}
-          {/* Зоны точности — отдельно, грациозно */}
-          <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 12, color: C.dim, fontWeight: 600, marginBottom: zones.length ? 6 : 0 }}>Точность по практике</div>
-            {zones.length === 0 ? (
-              <div style={{ fontSize: 12, color: C.dim }}>Появится, когда ребёнок решит больше 10 задач по навыку.</div>
-            ) : zones.map(z => (
-              <div key={z.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: z.acc > 90 ? C.green : z.acc >= 50 ? C.yellow : C.red }} />
-                <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{z.name}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: z.acc > 90 ? C.green : z.acc >= 50 ? C.yellow : C.red }}>{z.acc}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 5. ПО ТЕМАМ */}
-      {themes.length > 0 && (
-        <div style={card}>
-          <div style={{ fontWeight: 700, color: C.text, marginBottom: 10 }}>📚 По темам</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* По темам — плитки auto-fit (1 тема = компактная, много = ряд; без пустой ширины) */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, color: C.text, marginBottom: 12 }}>📚 По темам</div>
+        {themes.length === 0 ? (
+          <div style={{ fontSize: 13, color: C.dim }}>Данных по темам пока нет.</div>
+        ) : (
+          <div className="cr-themes">
             {themes.map(t => {
               const pct = t.total ? Math.round(t.mastered / t.total * 100) : 0;
               return (
-                <div key={t.vert}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-                    <span style={{ color: C.text, fontWeight: 600 }}>{t.name}</span>
-                    <span style={{ color: C.dim }}>{t.mastered}/{t.total} · диагн. {t.avgPass}%</span>
+                <div key={t.vert} style={{ background: C.cardHi, borderRadius: 12, padding: "12px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 13.5, marginBottom: 6 }}>
+                    <span style={{ color: C.text, fontWeight: 700 }}>{t.name}</span>
+                    <span style={{ color: C.text, fontWeight: 700 }}>{pct}%</span>
                   </div>
-                  <div style={{ height: 7, background: C.cardHi, borderRadius: 99, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${C.blue}, ${C.gold})` }} />
+                  <div style={{ height: 7, background: dark ? "rgba(255,255,255,0.10)" : "#e2e8f0", borderRadius: 99, overflow: "hidden", marginBottom: 6 }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: C.accent, borderRadius: 99 }} />
                   </div>
+                  <div style={{ fontSize: 11.5, color: C.dim }}>освоено {t.mastered}/{t.total} · диагностика {t.avgPass}%</div>
                 </div>
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      </div>{/* ── /cr-grid ── */}
+      {/* ПОДРОБНЕЕ ↓ (collapse: рост/награды/зоны/навыки/карта) */}
+      <button type="button" onClick={() => setShowDetails(v => !v)}
+        style={{ ...card, cursor: "pointer", textAlign: "center", color: C.text, fontWeight: 700, fontSize: 14, padding: 13 }}>
+        {showDetails ? "Свернуть ↑" : "Подробнее ↓"}
+      </button>
 
-      {/* 📈 РОСТ ОСВОЕНИЯ — заглушка (реальный график появится с накоплением снимков, Часть 3) */}
-      <div style={{ ...card, display: "flex", alignItems: "center", gap: 14,
-        background: `linear-gradient(90deg, ${C.blue}14, ${C.card} 60%)`, borderStyle: "dashed" }}>
-        <div style={{ fontSize: 30, flexShrink: 0 }}>📈</div>
-        <div>
-          <div style={{ fontWeight: 700, color: C.text, marginBottom: 3 }}>Рост освоения</div>
-          <div style={{ fontSize: 13, color: C.dim, lineHeight: 1.5 }}>
-            Копим данные о прогрессе — график динамики появится примерно через месяц занятий.
+      {showDetails && <>
+        {/* Рост освоения: ≥2 снимков → линия overallPct по неделям; иначе заглушка */}
+        {snapshots.length >= 2 ? (
+          <div style={card}>
+            <div style={{ fontWeight: 700, color: C.text, marginBottom: 12 }}>📈 Рост освоения</div>
+            {(() => {
+              const n = snapshots.length, W = 300, H = 100;
+              const xs = i => (i / (n - 1)) * W;
+              const ys = p => H - (Math.min(Math.max(p, 0), 100) / 100) * H;
+              const pts = snapshots.map((s, i) => `${xs(i).toFixed(1)},${ys(s.overallPct).toFixed(1)}`).join(" ");
+              const first = snapshots[0].overallPct, last = snapshots[n - 1].overallPct, delta = last - first;
+              return (
+                <>
+                  <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 110, display: "block" }}>
+                    <polyline points={pts} fill="none" stroke={C.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                  </svg>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.dim, marginTop: 8 }}>
+                    <span>{snapshots[0].weekId}: {first}%</span>
+                    <span style={{ color: delta > 0 ? C.green : C.dim, fontWeight: 700 }}>{delta > 0 ? `+${delta}` : delta} % за период</span>
+                    <span>{snapshots[n - 1].weekId}: {last}%</span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
-        </div>
-      </div>
+        ) : (
+          <div style={{ ...card, borderStyle: "dashed", display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ fontSize: 26, flexShrink: 0, opacity: 0.7 }}>📈</div>
+            <div>
+              <div style={{ fontWeight: 700, color: C.text, marginBottom: 3 }}>Рост освоения</div>
+              <div style={{ fontSize: 13, color: C.dim, lineHeight: 1.5 }}>График динамики появится через 1-2 недели — копим данные о прогрессе.</div>
+            </div>
+          </div>
+        )}
 
-      {/* ─ РАЗДЕЛ «Подробности» ─ */}
-      <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 800, fontSize: 15, color: C.dim, margin: "4px 2px -2px" }}>🔎 Подробности</div>
-
-      {/* Награды (перенесены из верхней сетки в детали) */}
-      {(medals.length > 0 || achievements.length > 0) && (
+        {/* Точность по практике (зоны) */}
         <div style={card}>
-          <div style={{ fontWeight: 700, color: C.text, marginBottom: 10 }}>🏆 Награды</div>
-          {achievements.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: medals.length ? 10 : 0 }}>
-              {achievements.map((a, i) => (
-                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: C.text, background: C.cardHi, borderRadius: 10, padding: "5px 10px" }}>
-                  <span style={{ fontSize: 15 }}>{a.icon}</span> {a.title}{a.level > 1 ? ` ${a.level}` : ""}
-                </span>
-              ))}
+          <div style={{ fontWeight: 700, color: C.text, marginBottom: 8 }}>🎯 Точность по практике</div>
+          {zones.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: C.dim }}>Появится, когда ребёнок решит больше 10 задач по навыку.</div>
+          ) : zones.map(z => (
+            <div key={z.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: z.acc > 90 ? C.green : z.acc >= 50 ? C.amber : C.red }} />
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{z.name}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: z.acc > 90 ? C.green : z.acc >= 50 ? C.amber : C.red }}>{z.acc}%</span>
             </div>
-          )}
-          {medals.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: C.dim }}>
-              🏅 {medals.length} {medals.length === 1 ? "медаль" : "медалей"}:
-              {["gold", "silver", "bronze"].map(t => {
-                const n = medals.filter(m => m.type === t).length;
-                return n ? <span key={t} style={{ color: MEDAL_COLOR[t], fontWeight: 700 }}>{n} ●</span> : null;
-              })}
-            </div>
-          )}
+          ))}
         </div>
-      )}
 
-      {/* Категории навыков (компактно) */}
-      <div style={card}>
-        <div style={{ fontWeight: 700, color: C.text, marginBottom: 4 }}>
-          📋 Навыки: <span style={{ color: C.green }}>{cats.mastered.length}</span> / <span style={{ color: C.yellow }}>{cats.inProgress.length}</span> / <span style={{ color: C.dim }}>{cats.need.length}</span>
-          <span style={{ fontSize: 11, color: C.dim, fontWeight: 400 }}>  (изучено / в работе / нужно)</span>
+        {/* Навыки-чипы */}
+        <div style={card}>
+          <div style={{ fontWeight: 700, color: C.text, marginBottom: 4 }}>
+            📋 Навыки: <span style={{ color: C.green }}>{cats.mastered.length}</span> / <span style={{ color: C.amber }}>{cats.inProgress.length}</span> / <span style={{ color: C.dim }}>{cats.need.length}</span>
+            <span style={{ fontSize: 11, color: C.dim, fontWeight: 400 }}>  (изучено / в работе / нужно)</span>
+          </div>
+          {cats.inProgress.length > 0 && <><div style={{ fontSize: 12, color: C.amber, marginTop: 8 }}>🔄 В работе</div><SkillChips items={cats.inProgress} dot={C.amber} /></>}
+          {cats.mastered.length > 0 && <><div style={{ fontSize: 12, color: C.green, marginTop: 10 }}>✅ Изучено</div><SkillChips items={cats.mastered} dot={C.green} /></>}
+          {cats.need.length > 0 && <><div style={{ fontSize: 12, color: C.dim, marginTop: 10 }}>📝 Нужно изучить</div><SkillChips items={cats.need} dot={C.gray} /></>}
         </div>
-        {cats.inProgress.length > 0 && <><div style={{ fontSize: 12, color: C.yellow, marginTop: 8 }}>🔄 В работе</div><SkillChips items={cats.inProgress} dot={C.yellow} /></>}
-        {cats.mastered.length > 0 && <><div style={{ fontSize: 12, color: C.green, marginTop: 10 }}>✅ Изучено</div><SkillChips items={cats.mastered} dot={C.green} /></>}
-        {cats.need.length > 0 && <><div style={{ fontSize: 12, color: C.dim, marginTop: 10 }}>📝 Нужно изучить</div><SkillChips items={cats.need} dot={C.gray} /></>}
-      </div>
+
+        {/* Карта модулей (перенесена внутрь «Подробнее») */}
+        <ChildMap childUid={childUid} />
+      </>}
     </div>
   );
 }
