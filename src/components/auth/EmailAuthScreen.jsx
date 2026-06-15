@@ -136,6 +136,7 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
   const [loginPassword, setLoginPassword] = useState('');
 
   // Поля регистрации
+  const [regRole,       setRegRole]       = useState('student'); // 'student' | 'parent' — дефолт student (поведение 1-в-1 как было)
   const [regFirstName,  setRegFirstName]  = useState('');
   const [regLastName,   setRegLastName]   = useState('');
   const [regGender,     setRegGender]     = useState(''); // 'male' | 'female' — пол для 3D-героя
@@ -193,13 +194,14 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
     e.preventDefault();
     setError('');
 
+    const isParent = regRole === 'parent';
     if (!regFirstName.trim())          { setError('Введите имя.');                return; }
     if (!regLastName.trim())           { setError('Введите фамилию.');            return; }
-    if (!regGender)                    { setError('Выберите, кто будет твоим героем.'); return; }
+    if (!isParent && !regGender)       { setError('Выберите, кто будет твоим героем.'); return; }
     if (!phoneOk)                      { setError('Введите корректный номер телефона.'); return; }
-    if (!regGoal)                      { setError('Выберите цель обучения.');     return; }
-    if (!regDetails)                   { setError('Выберите класс или экзамен.'); return; }
-    if (!regRegion)                    { setError('Выберите область.');           return; }
+    if (!isParent && !regGoal)         { setError('Выберите цель обучения.');     return; }
+    if (!isParent && !regDetails)      { setError('Выберите класс или экзамен.'); return; }
+    if (!isParent && !regRegion)       { setError('Выберите область.');           return; }
     if (!emailRe.test(regEmail))       { setError('Некорректный email.');         return; }
     if (!pwdRe.test(regPassword))      { setError('Пароль должен содержать минимум 8 символов, хотя бы одну букву и одну цифру.'); return; }
     if (regPassword !== regConfirm)    { setError('Пароли не совпадают.');        return; }
@@ -212,28 +214,45 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
       const uid = userCredential.user.uid;
 
       // Шаг 2: создать профиль в Firestore users/{uid}
+      // Родитель и ученик пишут РАЗНЫЕ профили: родителю не нужны ученические
+      // поля (герой/цель/класс/регион) и соц-фичи (friendCode/friends).
       const friendCode = genFriendCode();
       try {
-        await setDoc(doc(db, 'users', uid), {
-          uid,
-          email:       regEmail,
-          phone:       phoneNorm(regPhone),
-          firstName:   regFirstName.trim(),
-          lastName:    regLastName.trim(),
-          gender:      regGender,          // 'male' | 'female' — пол 3D-героя
-          goalKey:     regGoal,
-          goal:        REG_GOALS[regGoal],
-          details:     regDetails,
-          region:      regRegion,
-          role:        'student',
-          status:      'trial',
-          friendCode,                       // код приглашения друзей
-          friends:     [],
-          registeredAt: new Date().toISOString(),
-        });
-        // Резолв-индекс кода → uid (для «добавить по коду» / invite-ссылок).
-        // best-effort: при коллизии/фейле FriendsScreen перегенерит через ensureFriendCode.
-        try { await setDoc(doc(db, 'friendCodes', friendCode), { uid }); } catch {}
+        if (isParent) {
+          await setDoc(doc(db, 'users', uid), {
+            uid,
+            email:        regEmail,
+            phone:        phoneNorm(regPhone),
+            firstName:    regFirstName.trim(),
+            lastName:     regLastName.trim(),
+            role:         'parent',
+            childUids:    [],                 // привязанные дети (Шаг 3+)
+            status:       'trial',
+            onboardingDone: true,             // родитель минует ученический онбординг
+            registeredAt: new Date().toISOString(),
+          });
+        } else {
+          await setDoc(doc(db, 'users', uid), {
+            uid,
+            email:       regEmail,
+            phone:       phoneNorm(regPhone),
+            firstName:   regFirstName.trim(),
+            lastName:    regLastName.trim(),
+            gender:      regGender,          // 'male' | 'female' — пол 3D-героя
+            goalKey:     regGoal,
+            goal:        REG_GOALS[regGoal],
+            details:     regDetails,
+            region:      regRegion,
+            role:        'student',
+            status:      'trial',
+            friendCode,                       // код приглашения друзей
+            friends:     [],
+            registeredAt: new Date().toISOString(),
+          });
+          // Резолв-индекс кода → uid (для «добавить по коду» / invite-ссылок).
+          // best-effort: при коллизии/фейле FriendsScreen перегенерит через ensureFriendCode.
+          try { await setDoc(doc(db, 'friendCodes', friendCode), { uid }); } catch {}
+        }
       } catch (fsErr) {
         // TODO: orphaned auth user cleanup
         // Auth-пользователь создан, но профиль не записался.
@@ -245,7 +264,8 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
       // AuthContext подхватит пользователя через onIdTokenChanged.
       // isNewUser → роутинг ведёт нового юзера на онбординг ДЕТЕРМИНИРОВАННО
       // (а не на dashboard через async-редирект, который проигрывал гонку).
-      onSuccess?.({ isNewUser: true });
+      // Родитель онбординг не проходит (onboardingDone:true) → ведём на dashboard.
+      onSuccess?.({ isNewUser: !isParent });
     } catch (err) {
       if (err.message === 'profile_write_failed') {
         setError('Аккаунт создан, но профиль не сохранился. Попробуйте войти — если не получится, зарегистрируйтесь снова.');
@@ -416,6 +436,26 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
           {/* ── Форма регистрации ── */}
           {mode === 'register' && (
             <form onSubmit={handleRegister}>
+              {/* Выбор роли — только на регистрации. Дефолт 'student'. */}
+              <div className="input-group" style={{marginBottom:18}}>
+                <label className="input-label">Кто регистрируется?</label>
+                <div style={{display:'flex', gap:10}}>
+                  {[['student','🎓','Ученик'], ['parent','👨‍👩‍👧','Родитель']].map(([val, emoji, label]) => (
+                    <button key={val} type="button" onClick={()=>{setRegRole(val);setError('');}}
+                      style={{
+                        flex:1, padding:'12px 10px', borderRadius:12, cursor:'pointer',
+                        display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                        fontFamily:"'Inter',sans-serif", fontSize:14.5, fontWeight:700,
+                        background: regRole===val ? 'rgba(212,175,55,0.12)' : 'transparent',
+                        border: regRole===val ? '2px solid #d4af37' : `2px solid ${THEME.border}`,
+                        color: regRole===val ? '#92400e' : THEME.text,
+                        transition:'all 0.15s',
+                      }}>
+                      <span style={{fontSize:20}}>{emoji}</span> {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="form-row">
                 <div className="input-group" style={{marginBottom:0}}>
                   <label className="input-label">Имя</label>
@@ -430,7 +470,8 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
                     autoComplete="family-name" required/>
                 </div>
               </div>
-              {/* Пол — определяет 3D-героя (карточки, не radio) */}
+              {/* Пол — определяет 3D-героя (карточки, не radio). Только ученик. */}
+              {regRole === 'student' && (
               <div className="input-group" style={{marginTop:16, marginBottom:0}}>
                 <label className="input-label">Твой герой</label>
                 <div style={{display:'flex', gap:10}}>
@@ -450,12 +491,15 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
                   ))}
                 </div>
               </div>
+              )}
               <div className="input-group" style={{marginTop:16}}>
                 <label className="input-label">Номер телефона (WhatsApp)</label>
                 <input type="tel" className="input-field"
                   value={regPhone} onChange={handlePhone}
                   placeholder="+7 700 000 00 00" autoComplete="tel" required/>
               </div>
+              {/* Цель / класс / регион — только ученик. */}
+              {regRole === 'student' && (<>
               <div className="input-group">
                 <label className="input-label">Цель обучения</label>
                 <select className="input-field" value={regGoal}
@@ -482,6 +526,7 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
                   {KZ_REGIONS.map(r=><option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
+              </>)}
               <div className="input-group">
                 <label className="input-label">Email</label>
                 <input type="email" className="input-field"
@@ -515,7 +560,7 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
                   placeholder="Повторите пароль..." autoComplete="new-password" required/>
               </div>
               <button type="submit"
-                className={`cta-button ${regFirstName&&regLastName&&phoneOk&&regGoal&&regDetails&&regRegion&&regEmail&&regPassword&&regConfirm?'active':''}`}
+                className={`cta-button ${regFirstName&&regLastName&&phoneOk&&regEmail&&regPassword&&regConfirm&&(regRole==='parent'||(regGender&&regGoal&&regDetails&&regRegion))?'active':''}`}
                 disabled={loading}>
                 {loading ? 'Создаю аккаунт...' : 'Зарегистрироваться →'}
               </button>

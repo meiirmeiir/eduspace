@@ -476,6 +476,7 @@ function AppInner() {
       try{
         const snap=await getDoc(doc(db,"users",uid));
         const data=snap.exists()?snap.data():{};
+        if(data.role==='parent') return;   // родителю квесты не инициализируем (гейт по свежему getDoc, не по стейту)
         const base={...(user||{}),dailyQuests:data.dailyQuests,weeklyQuests:data.weeklyQuests};
         let u=await initDailyQuests(uid,base);
         u=await initWeeklyQuests(uid,u);
@@ -671,6 +672,7 @@ function AppInner() {
   // в профиль: users/{uid}.demoCompleted + initialWeakTopics. Один раз.
   useEffect(()=>{
     if(!profile?.uid) return;
+    if(profile?.role==='parent') return;   // родителю demo-поля не пишем
     let demo;
     try{const raw=localStorage.getItem("demoResult");demo=raw?JSON.parse(raw):null;}catch{}
     if(!demo) return;
