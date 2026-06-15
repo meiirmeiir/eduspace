@@ -15,6 +15,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    // Родитель ребёнка: auth.uid ∈ parentUids ДОКА РЕБЁНКА (вариант B).
+    // childUids родителя НЕ используем для авторизации (self-write обходит).
+    // get() в rules привилегированный — читает parentUids без открытия users/{child}.
+    function isParentOf(studentUid) {
+      return isSignedIn()
+        && request.auth.uid in
+           get(/databases/$(database)/documents/users/$(studentUid)).data.get('parentUids', []);
+    }
+
     // ── Публичные профили (denorm-зеркало users/{uid}) ───────────────────────
     // Пишет только Cloud Function mirrorUserToPublicProfile через Admin SDK
     // (обходит rules). Клиенты только читают.
@@ -33,7 +42,7 @@ service cloud.firestore {
       // разрешён (для покупок в магазине) — нижняя граница только ≥ 0.
       allow update: if isAdmin() || (
                       isOwner(userId)
-                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status'])
+                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'childUids', 'parentUids'])
                       && (
                         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['crystals'])
                         || (
@@ -180,7 +189,7 @@ service cloud.firestore {
 
     // ── Прогресс учеников: ключ = uid ────────────────────────────────────────
     match /skillProgress/{userId} {
-      allow read:   if isOwner(userId) || isAdmin();
+      allow read:   if isOwner(userId) || isAdmin() || isParentOf(userId);
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if false;
@@ -188,7 +197,7 @@ service cloud.firestore {
     }
 
     match /skillMastery/{userId} {
-      allow read:   if isOwner(userId) || isAdmin();
+      allow read:   if isOwner(userId) || isAdmin() || isParentOf(userId);
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if false;
@@ -204,7 +213,7 @@ service cloud.firestore {
     }
 
     match /individualPlans/{userId} {
-      allow read:   if isOwner(userId) || isAdmin();
+      allow read:   if isOwner(userId) || isAdmin() || isParentOf(userId);
       allow create: if isOwner(userId) || isAdmin();
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if false;
