@@ -46,6 +46,10 @@ export default function ParentScreen({ user, onLogout }) {
   const [addBusy, setAddBusy] = useState(false);
   const [addResult, setAddResult] = useState(null);
 
+  // отвязка
+  const [unlinkBusy, setUnlinkBusy] = useState(false);
+  const [unlinkResult, setUnlinkResult] = useState(null);
+
   // Свежий список детей: читаем users/{parentUid} напрямую (profile в AuthContext
   // отстаёт — после привязки Cloud Function обновляет childUids в Firestore, а не в стейте).
   const reloadChildren = React.useCallback(async () => {
@@ -97,6 +101,39 @@ export default function ParentScreen({ user, onLogout }) {
     setAddBusy(false);
   };
 
+  // Отвязка ребёнка — через Cloud Function (self-write childUids/parentUids
+  // заблокирован rules Шага 4). addDoc parentUnlinkRequests + опрос статуса.
+  const handleUnlink = async (childUid, childName) => {
+    if (unlinkBusy) return;
+    if (!window.confirm(`Отвязать ${childName}? Вы перестанете видеть его прогресс.`)) return;
+    if (!parentUid || !childUid) return;
+    setUnlinkResult(null);
+    setUnlinkBusy(true);
+    try {
+      const ref = await addDoc(collection(db, "parentUnlinkRequests"), {
+        parentUid, childUid, status: "pending", createdAt: new Date().toISOString(),
+      });
+      let done = false;
+      for (let i = 0; i < 12; i++) {
+        await new Promise(r => setTimeout(r, 1500));
+        const snap = await getDoc(doc(db, "parentUnlinkRequests", ref.id));
+        const st = snap.exists() ? snap.data()?.status : null;
+        if (st && st !== "pending") { done = st === "done"; break; }
+      }
+      if (done) {
+        await reloadChildren();
+        setView("list");
+        setSelectedChildUid(null);
+      } else {
+        setUnlinkResult("Не удалось отвязать — попробуйте ещё раз.");
+      }
+    } catch (e) {
+      console.error("[parent] unlink failed", e?.message || e);
+      setUnlinkResult("Ошибка отвязки. Попробуйте ещё раз.");
+    }
+    setUnlinkBusy(false);
+  };
+
   const card = {
     background: THEME.surface, borderRadius: 18, padding: "18px 20px",
     boxShadow: "0 8px 28px -8px rgba(10,25,47,0.12), 0 2px 8px rgba(10,25,47,0.05)",
@@ -130,6 +167,17 @@ export default function ParentScreen({ user, onLogout }) {
           <div style={{ fontSize: 30, marginBottom: 8 }}>🗺️</div>
           <div style={{ fontWeight: 700, color: THEME.text, marginBottom: 4 }}>Карта модулей</div>
           <div style={{ fontSize: 13.5 }}>Появится здесь (Шаг 7).</div>
+        </div>
+        {/* Отвязка ребёнка (через Cloud Function) */}
+        <div style={{ marginTop: 24, textAlign: "center" }}>
+          {unlinkResult && (
+            <div style={{ marginBottom: 10, fontSize: 13, color: "#dc2626" }}>{unlinkResult}</div>
+          )}
+          <button type="button" onClick={() => handleUnlink(selectedChildUid, name)} disabled={unlinkBusy}
+            style={{ background: "none", border: "none", color: "#dc2626", fontSize: 13, fontWeight: 600,
+              textDecoration: "underline", cursor: unlinkBusy ? "wait" : "pointer", opacity: unlinkBusy ? 0.6 : 1 }}>
+            {unlinkBusy ? "Отвязываю…" : "Отвязать ребёнка"}
+          </button>
         </div>
       </div></div>
     );

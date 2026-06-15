@@ -150,6 +150,20 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Запросы отвязки родителя: parentUnlinkRequests/{autoId} ──────────────
+    // Родитель создаёт запрос {parentUid, childUid, status:'pending'}. Связь
+    // снимает Cloud Function onParentUnlinkRequestWritten (arrayRemove обе
+    // стороны, Admin SDK). self-write childUids/parentUids заблокирован (Шаг 4),
+    // поэтому отвязка идёт только через Function.
+    match /parentUnlinkRequests/{reqId} {
+      allow read:   if isSignedIn() && resource.data.parentUid == request.auth.uid;
+      allow create: if isSignedIn()
+                    && request.resource.data.parentUid == request.auth.uid
+                    && request.resource.data.childUid is string
+                    && request.resource.data.status == 'pending';
+      allow update, delete: if false;   // только Cloud Function (Admin SDK)
+    }
+
     // ── Медали (субколлекция users/{uid}/medals/{medalId}) ──────────────────
     // Пишет только Cloud Function awardWeeklyMedals (Admin SDK обходит rules).
     // Читают — все залогиненные (медали отображаются в публичном профиле).

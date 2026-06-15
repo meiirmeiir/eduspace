@@ -249,6 +249,36 @@ exports.onParentLinkRequestWritten = onDocumentWritten(
   }
 );
 
+// ── Cloud Function: отвязка ребёнка от родителя ──────────────────────────────
+// Родитель пишет parentUnlinkRequests/{id} = { parentUid, childUid, status:'pending' }.
+// Admin SDK убирает связь с обеих сторон (self-write childUids/parentUids
+// заблокирован rules Шага 4). Безопасно: arrayRemove удаляет ТОЛЬКО значения,
+// привязанные к запросчику (childUid из ЕГО childUids; parentUid=ЕГО uid из
+// parentUids ребёнка) → чужую связь снять нельзя, мимо = no-op.
+// Идемпотентно: только status:'pending'; повторный arrayRemove = no-op.
+exports.onParentUnlinkRequestWritten = onDocumentWritten(
+  { document: 'parentUnlinkRequests/{reqId}', region: 'us-central1', memory: '256MiB' },
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) return;
+    const a = after.data() || {};
+    if (a.status !== 'pending') return;        // гасит ретриггер
+    const ref = after.ref;
+    const parentUid = a.parentUid;
+    const childUid = a.childUid;
+    if (!parentUid || !childUid) {
+      await ref.set({ status: 'invalid', reason: 'missing_fields' }, { merge: true });
+      return;
+    }
+    const batch = db.batch();
+    batch.set(db.collection('users').doc(parentUid), { childUids:  FieldValue.arrayRemove(childUid)  }, { merge: true });
+    batch.set(db.collection('users').doc(childUid),  { parentUids: FieldValue.arrayRemove(parentUid) }, { merge: true });
+    batch.set(ref, { status: 'done', unlinkedAt: new Date().toISOString() }, { merge: true });
+    await batch.commit();
+    logger.info('parent unlinked', { parentUid, childUid, reqId: event.params.reqId });
+  }
+);
+
 // ── Достижения по освоению навыков: scholar (1/5/15) + master (весь план) ────
 exports.onSkillMasteryWrite = onDocumentWritten(
   { document: 'skillMastery/{uid}', region: 'us-central1', memory: '256MiB' },
