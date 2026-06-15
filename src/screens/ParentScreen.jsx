@@ -11,6 +11,7 @@ import { addDoc, collection, doc, getDoc, db } from "../firestore-rest.js";
 import { fetchFriendProfiles } from "../lib/friendsUtils.js";
 import { parseParentCode } from "../lib/parentLinkUtils.js";
 import ChildReport from "../components/ChildReport.jsx";
+import ChildMap from "../components/ChildMap.jsx";
 
 const RESULT_MSG = {
   linked:         { ok: true,  text: "✓ Привязка успешна — ребёнок добавлен." },
@@ -162,10 +163,8 @@ export default function ParentScreen({ user, onLogout }) {
         <div style={{ marginBottom: 14 }}>
           <ChildReport childUid={selectedChildUid} />
         </div>
-        <div style={{ ...card, textAlign: "center", color: THEME.textLight }}>
-          <div style={{ fontSize: 30, marginBottom: 8 }}>🗺️</div>
-          <div style={{ fontWeight: 700, color: THEME.text, marginBottom: 4 }}>Карта модулей</div>
-          <div style={{ fontSize: 13.5 }}>Появится здесь (Шаг 7).</div>
+        <div style={{ marginBottom: 14 }}>
+          <ChildMap childUid={selectedChildUid} />
         </div>
         {/* Отвязка ребёнка (через Cloud Function) */}
         <div style={{ marginTop: 24, textAlign: "center" }}>

@@ -330,7 +330,7 @@ const DIAG_MOD_NODE_TYPES = { diagModuleNode: CustomNode, diagFloorLabel: DiagFl
 const DIAG_MOD_EDGE_TYPES = { diagModuleEdge: MagicEdge };
 
 // ── DiagModulePopup ────────────────────────────────────────────────────────────
-function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery = {} }) {
+function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery = {}, readOnly = false }) {
   const { theme: THEME } = useTheme();
   const { firebaseUser } = useAuth();
   const uid = firebaseUser?.uid || 'anon';
@@ -369,7 +369,7 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSkillId, selStages, mod.isLocked, uid]);
   useEffect(() => {
-    if (!selSkill) return;
+    if (!selSkill || readOnly) return; // readOnly (родитель смотрит карту ребёнка) — не писать localStorage
     try { localStorage.setItem(`aapa_planet_seen_${uid}_${selSkill.id}`, String(selStages)); } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSkillId]);
@@ -439,7 +439,7 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
                     </div>
                   </div>
                 )}
-                {sk.mastery < 100 && (
+                {!readOnly && sk.mastery < 100 && (
                   <button
                     onClick={(e) => { e.stopPropagation(); if(!anyDisabled) { onClose(); if(onStartTraining) onStartTraining(sk.id, sk.name); } }}
                     disabled={anyDisabled}
@@ -463,7 +463,7 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
 // ── DiagnosticModuleTree ───────────────────────────────────────────────────────
 // focusRequest: { id, n } — внешняя просьба отцентрировать карту на модуле
 // (n — счётчик, чтобы повторный клик по тому же модулю снова срабатывал).
-function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {}, focusRequest = null }) {
+function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {}, focusRequest = null, readOnly = false }) {
   const [rfNodes, setRFNodes, onNodesChange] = useNodesState([]);
   const [rfEdges, setRFEdges, onEdgesChange] = useEdgesState([]);
   const [popup, setPopup] = useState(null);
@@ -550,7 +550,7 @@ function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {}, fo
         .diag-map-wrap .react-flow__controls-button svg { fill:#fff; }
         .diag-map-wrap .react-flow__controls-button:hover { background:rgba(255,255,255,0.22); }
       `}</style>
-      {popup && <DiagModulePopup module={popup} onClose={() => setPopup(null)} onStartTraining={onStartTraining} skillMastery={skillMastery}/>}
+      {popup && <DiagModulePopup module={popup} onClose={() => setPopup(null)} onStartTraining={onStartTraining} skillMastery={skillMastery} readOnly={readOnly}/>}
     </div>
   );
 }
