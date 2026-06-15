@@ -182,7 +182,7 @@ export default function ChildReport({ childUid }) {
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
       {items.map(s => (
         <span key={s.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: C.text, background: C.cardHi, borderRadius: 999, padding: "4px 10px" }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: dot }} /> {s.name}
+          <span style={{ width: 7, height: 7, flexShrink: 0, borderRadius: "50%", background: dot }} /> {s.name}
         </span>
       ))}
     </div>
@@ -233,9 +233,10 @@ export default function ChildReport({ childUid }) {
 
       {/* 4 МЕТРИКИ — нейтральные; «освоено» = чистый донат. Без фейк «+N% за месяц» */}
       <div className="cr-metrics">
-        <div style={{ ...card, padding: "18px 20px", display: "flex", alignItems: "center", gap: 14, minHeight: 104 }}>
+        <div style={{ ...card, padding: "18px 20px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, minHeight: 104 }}>
           <Donut pct={overallPct} />
-          <div style={{ fontSize: 12.5, color: C.dim }}>Освоено<br />программы</div>
+          {/* minWidth:0 + flexWrap: на узкой плитке (2 кол. × ~156px) подпись переносится под донат, не вылезает за край */}
+          <div style={{ fontSize: 12.5, color: C.dim, minWidth: 0, lineHeight: 1.3, overflowWrap: "break-word" }}>Освоено программы</div>
         </div>
         <Metric value={cats.mastered.length} label="Навыков освоено" />
         <Metric value={Number(profile.streak || 0)} label="Дней подряд" />
@@ -253,9 +254,10 @@ export default function ChildReport({ childUid }) {
           {strong.length === 0 ? (
             <div style={{ fontSize: 13, color: C.dim }}>Сильные темы появятся по мере занятий.</div>
           ) : strong.slice(0, 3).map(s => (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 7 }}>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{s.passRate}%</span>
+            <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 7 }}>
+              {/* 2 строки вместо 1+ellipsis: на мобильном родитель читает название; процент держится у верха (flex-start) */}
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: C.text, lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{s.name}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, color: C.green }}>{s.passRate}%</span>
             </div>
           ))}
         </div>
@@ -264,9 +266,10 @@ export default function ChildReport({ childUid }) {
           {weak.length === 0 ? (
             <div style={{ fontSize: 13, color: C.dim }}>Слабых мест по диагностике не выявлено.</div>
           ) : weak.slice(0, 3).map(s => (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 7 }}>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: C.amber }}>{s.passRate}%</span>
+            <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 7 }}>
+              {/* 2 строки вместо 1+ellipsis: на мобильном родитель читает название; процент держится у верха (flex-start) */}
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: C.text, lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{s.name}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, color: C.amber }}>{s.passRate}%</span>
             </div>
           ))}
         </div>
@@ -346,7 +349,7 @@ export default function ChildReport({ childUid }) {
             <div style={{ fontSize: 12.5, color: C.dim }}>Появится, когда ребёнок решит больше 10 задач по навыку.</div>
           ) : zones.map(z => (
             <div key={z.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: z.acc > 90 ? C.green : z.acc >= 50 ? C.amber : C.red }} />
+              <span style={{ width: 8, height: 8, flexShrink: 0, borderRadius: "50%", background: z.acc > 90 ? C.green : z.acc >= 50 ? C.amber : C.red }} />
               <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{z.name}</span>
               <span style={{ fontSize: 12.5, fontWeight: 700, color: z.acc > 90 ? C.green : z.acc >= 50 ? C.amber : C.red }}>{z.acc}%</span>
             </div>
