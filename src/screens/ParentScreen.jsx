@@ -10,6 +10,7 @@ import { useTheme } from "../ThemeContext.jsx";
 import { addDoc, collection, doc, getDoc, db } from "../firestore-rest.js";
 import { fetchFriendProfiles } from "../lib/friendsUtils.js";
 import { parseParentCode } from "../lib/parentLinkUtils.js";
+import ChildReport from "../components/ChildReport.jsx";
 
 const RESULT_MSG = {
   linked:         { ok: true,  text: "✓ Привязка успешна — ребёнок добавлен." },
@@ -158,10 +159,8 @@ export default function ParentScreen({ user, onLogout }) {
             {cp.details && <div style={{ fontSize: 13, color: THEME.textLight }}>{cp.details}{cp.region ? ` · ${cp.region}` : ""}</div>}
           </div>
         </div>
-        <div style={{ ...card, marginBottom: 14, textAlign: "center", color: THEME.textLight }}>
-          <div style={{ fontSize: 30, marginBottom: 8 }}>📊</div>
-          <div style={{ fontWeight: 700, color: THEME.text, marginBottom: 4 }}>Отчёт по навыкам</div>
-          <div style={{ fontSize: 13.5 }}>Появится здесь (Шаг 6).</div>
+        <div style={{ marginBottom: 14 }}>
+          <ChildReport childUid={selectedChildUid} />
         </div>
         <div style={{ ...card, textAlign: "center", color: THEME.textLight }}>
           <div style={{ fontSize: 30, marginBottom: 8 }}>🗺️</div>
