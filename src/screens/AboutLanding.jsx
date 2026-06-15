@@ -425,7 +425,7 @@ function PriceSection({ onCta, accent = GOLD, perks, ctaText }) {
 const BLUE = "#60a5fa";   // отчёты/аналитика
 const GREEN = "#34d399";  // безопасность
 
-// ── Мокап еженедельного отчёта родителя (hero-ноутбук, секция отчёта, слайд) ──
+// ── Мокап отчёта в кабинете родителя (hero-ноутбук, секция отчёта, слайд) ──
 function ParentReportCard({ compact = false }) {
   const f = (n) => compact ? n * 0.78 : n; // компактный масштаб для маленьких экранов
   const topics = [["Дроби", 78], ["Уравнения", 64], ["Геометрия", 41]];
@@ -437,7 +437,7 @@ function ParentReportCard({ compact = false }) {
       </div>
       <div style={{ fontSize: f(11.5), color: "rgba(255,255,255,0.55)", marginBottom: f(12) }}>Аружан · 6 класс</div>
       <div style={{ display: "flex", gap: f(10), marginBottom: f(14) }}>
-        {[["47", "задач за неделю"], ["+12", "к прошлой"], ["+18%", "рост за месяц"]].map(([n, l], i) => (
+        {[["57%", "освоено программы"], ["12", "навыков освоено"], ["320", "очков за неделю"]].map(([n, l], i) => (
           <div key={l} style={{ flex: 1, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: f(10), padding: `${f(8)}px ${f(10)}px` }}>
             <div style={{ fontSize: f(17), fontWeight: 800, color: i === 2 ? GREEN : "#fff", lineHeight: 1 }}>{n}</div>
             <div style={{ fontSize: f(9.5), color: "rgba(255,255,255,0.45)", marginTop: f(4) }}>{l}</div>
@@ -466,7 +466,7 @@ function ParentHeroVisual() {
   return (
     <Reveal i={1}>
       <div style={{ position: "relative", maxWidth: 560, margin: "0 auto", paddingBottom: 44, paddingRight: 24 }}>
-        <DeviceFrame kind="laptop" label="Отчёт родителя"><ParentReportCard compact /></DeviceFrame>
+        <DeviceFrame kind="laptop" label="Кабинет родителя"><ParentReportCard compact /></DeviceFrame>
         <div style={{ position: "absolute", right: -6, bottom: 0, width: "25%", zIndex: 2, filter: "drop-shadow(0 18px 36px rgba(0,0,0,0.6))" }}>
           <DeviceFrame kind="phone" img={devicePhoneImg} label="Кабинет ребёнка" />
         </div>
@@ -482,15 +482,16 @@ function ParentHeroVisual() {
 // ── «Что увидите вы»: ноутбук с отчётом + объяснение ──────────────────────────
 function ParentReportSection() {
   const points = [
-    ["📬", "Приходит на email каждое воскресенье"],
+    ["📊", "Открываете в кабинете на сайте в любой момент"],
     ["📈", "Видно, где сильные места и где нужно помочь"],
     ["🧭", "Конкретика: какие темы решал, что западает"],
+    ["🔔", "Telegram-уведомления — скоро"],
   ];
   return (
     <Section bg="rgba(255,255,255,0.018)">
       <div style={{ display: "grid", gridTemplateColumns: "1.15fr 1fr", gap: "clamp(28px,4vw,56px)", alignItems: "center" }} className="al-grid-2">
         <Reveal>
-          <DeviceFrame kind="laptop" label="Еженедельный отчёт"><ParentReportCard /></DeviceFrame>
+          <DeviceFrame kind="laptop" label="Кабинет родителя"><ParentReportCard /></DeviceFrame>
         </Reveal>
         <Reveal i={1}>
           <Eyebrow color={BLUE}>Что увидите вы</Eyebrow>
@@ -658,13 +659,13 @@ function ParentBarChart() {
   return (
     <div className="al-card" style={{ width: "100%", maxWidth: 520, margin: "0 auto", padding: "28px 30px 24px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-        <span style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>Решено задач по неделям</span>
-        <span style={{ fontSize: 12, fontWeight: 800, color: GREEN, background: "rgba(52,211,153,0.12)", border: `1px solid ${GREEN}55`, padding: "4px 12px", borderRadius: 99 }}>+18% за месяц</span>
+        <span style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>Рост освоения по неделям</span>
+        <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", padding: "4px 12px", borderRadius: 99 }}>пример</span>
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 18, height: 180 }}>
         {weeks.map(([w, n], i) => (
           <div key={w} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, height: "100%", justifyContent: "flex-end" }}>
-            <span style={{ fontSize: 13, fontWeight: 800, color: i === weeks.length - 1 ? GREEN : "rgba(255,255,255,0.7)" }}>{n}</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: i === weeks.length - 1 ? GREEN : "rgba(255,255,255,0.7)" }}>{n}%</span>
             <motion.div initial={{ height: 0 }} whileInView={{ height: `${(n / 58) * 100}%` }} viewport={{ once: true }}
               transition={{ duration: 0.7, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
               style={{ width: "100%", maxWidth: 56, borderRadius: "8px 8px 3px 3px",
@@ -689,17 +690,15 @@ function ParentShowcaseCarousel() {
       ) },
     { t: "Вы видите общую картину", s: "Дашборд прогресса: сколько решено, какие навыки освоены, как идёт план.",
       render: () => <div style={{ maxWidth: 560, margin: "0 auto" }}><DeviceFrame kind="laptop" img={deviceDesktopImg} label="Дашборд" /></div> },
-    { t: "Еженедельный отчёт на email", s: "Каждое воскресенье — короткое письмо: что решал, что западает, где помочь.",
+    { t: "Открываете когда удобно", s: "Заходите в кабинет на сайте в любой момент: вердикт, что освоено, над чем работать. Telegram-уведомления — скоро.",
       render: () => (
-        <div style={{ maxWidth: 480, margin: "0 auto", borderRadius: 18, overflow: "hidden", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}>
-          <div style={{ background: "rgba(255,255,255,0.05)", padding: "12px 18px", fontSize: 12, color: "rgba(255,255,255,0.6)", borderBottom: "1px solid rgba(255,255,255,0.08)", textAlign: "left" }}>
-            <div><b style={{ color: "#fff" }}>От:</b> AAPA &lt;reports@aapa.kz&gt;</div>
-            <div><b style={{ color: "#fff" }}>Тема:</b> 📊 Отчёт за неделю — Аружан</div>
-          </div>
-          <ParentReportCard />
+        <div style={{ maxWidth: 560, margin: "0 auto", position: "relative" }}>
+          <DeviceFrame kind="laptop" label="Кабинет родителя"><ParentReportCard /></DeviceFrame>
+          <span style={{ position: "absolute", left: 18, bottom: 28, background: "rgba(7,11,22,0.85)", border: `1px solid ${GOLD}55`,
+            color: "#fff", fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 99 }}>🔔 + уведомления в Telegram — скоро</span>
         </div>
       ) },
-    { t: "Прогресс растёт измеримо", s: "Не ощущения, а цифры: динамика решённых задач и закрытых навыков по неделям.",
+    { t: "Прогресс растёт измеримо", s: "Не ощущения, а цифры: динамика освоения программы по неделям.",
       render: () => <ParentBarChart /> },
   ];
   const n = slides.length;
@@ -845,7 +844,7 @@ function ParentLanding({ onCta }) {
     { quote: "Дешевле одного часа репетитора, а ребёнок занимается каждый день сам. Для меня это главный аргумент.", name: "Дмитрий", role: "отец ученицы 8 класса", initial: "Д" },
     { quote: "Понравилось, что нет чатов и рекламы. Спокойно даю планшет — знаю, что там только математика.", name: "Гульнара", role: "мама ученика 5 класса", initial: "Г" },
   ];
-  const perks = ["Адаптивная диагностика", "40 000 задач 5–11 класса", "Теория к каждому навыку", "Прогресс по 307 навыкам", "Еженедельный отчёт", "Безопасная среда без чатов"];
+  const perks = ["Адаптивная диагностика", "40 000 задач 5–11 класса", "Теория к каждому навыку", "Прогресс по 307 навыкам", "Кабинет с прогрессом ребёнка", "Безопасная среда без чатов"];
   const faqs = [
     { icon: "💰", defaultOpen: true, q: "Это замена репетитору?", a: "Для большинства тем — да. Система находит пробелы точнее, чем репетитор за первые занятия, и ребёнок тренируется столько, сколько нужно. Для форсированной подготовки к экзамену можно сочетать." },
     { icon: "🎮", q: "Ребёнок не будет просто играть?", a: "Геймификация — это обёртка над реальными задачами по школьной программе. Награды даются за решённые навыки, а не за «время в приложении». Прогресс вы видите в отчёте." },
@@ -883,7 +882,7 @@ function ParentLanding({ onCta }) {
 
       <HowItWorks accent={GOLD} />
 
-      {/* ЧТО УВИДИТЕ ВЫ — еженедельный отчёт */}
+      {/* ЧТО УВИДИТЕ ВЫ — кабинет родителя (отчёт о прогрессе на сайте) */}
       <ParentReportSection />
 
       {/* БЕЗОПАСНО ДЛЯ РЕБЁНКА — большие карточки с реальным контентом */}
