@@ -207,6 +207,48 @@ exports.onFriendRequestWritten = onDocumentWritten(
   }
 );
 
+// ── Cloud Function: привязка родителя к ученику по коду ──────────────────────
+// Родитель пишет parentLinkRequests/{id} = { parentUid, code, status:'pending' }.
+// Admin SDK резолвит код → studentUid и добавляет связь с обеих сторон:
+//   parent.childUids  += studentUid
+//   student.parentUids += parentUid   (поле создаётся лениво arrayUnion)
+// Код = согласие ученика (он сам показал код) → отдельного акцепта нет.
+// Идемпотентно: обрабатываем только status:'pending'; повторный триггер на
+// 'linked'/'invalid' → ранний return. arrayUnion не плодит дубликатов.
+exports.onParentLinkRequestWritten = onDocumentWritten(
+  { document: 'parentLinkRequests/{reqId}', region: 'us-central1', memory: '256MiB' },
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) return;
+    const a = after.data() || {};
+    if (a.status !== 'pending') return;        // доводим только свежий pending
+    const ref = after.ref;
+    const parentUid = a.parentUid;
+    const code = a.code != null ? String(a.code) : '';
+    if (!parentUid || !code) {
+      await ref.set({ status: 'invalid', reason: 'missing_fields' }, { merge: true });
+      return;
+    }
+    // резолв кода → studentUid (Admin SDK обходит rules)
+    const codeSnap = await db.collection('parentLinkCodes').doc(code).get();
+    const studentUid = codeSnap.exists ? (codeSnap.data()?.uid || null) : null;
+    if (!studentUid) {
+      await ref.set({ status: 'invalid', reason: 'code_not_found' }, { merge: true });
+      return;
+    }
+    if (studentUid === parentUid) {
+      await ref.set({ status: 'invalid', reason: 'self_link' }, { merge: true });
+      return;
+    }
+    const batch = db.batch();
+    batch.set(db.collection('users').doc(parentUid),  { childUids:  FieldValue.arrayUnion(studentUid) }, { merge: true });
+    batch.set(db.collection('users').doc(studentUid), { parentUids: FieldValue.arrayUnion(parentUid)  }, { merge: true });
+    batch.set(ref, { status: 'linked', studentUid, linkedAt: new Date().toISOString() }, { merge: true });
+    await batch.commit();
+    logger.info('parent linked', { parentUid, studentUid, reqId: event.params.reqId });
+  }
+);
+
 // ── Достижения по освоению навыков: scholar (1/5/15) + master (весь план) ────
 exports.onSkillMasteryWrite = onDocumentWritten(
   { document: 'skillMastery/{uid}', region: 'us-central1', memory: '256MiB' },

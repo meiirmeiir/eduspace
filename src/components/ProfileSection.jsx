@@ -5,6 +5,7 @@ import { useTheme } from "../ThemeContext.jsx";
 import { isNpcEnabled, setNpcEnabled } from "../NpcContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import ChangePasswordInline from "./ChangePasswordInline.jsx";
+import { ensureParentLinkCode, regenerateParentLinkCode, formatParentCode } from "../lib/parentLinkUtils.js";
 import ExpertReportView from "../screens/ExpertReportView.jsx";
 import ErrorCard from "./ui/ErrorCard.jsx";
 import Medal from "./Medal.jsx";
@@ -55,6 +56,37 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
   const [avatarUploading,setAvatarUploading]=useState(false);
   const [npcOn,setNpcOn]=useState(()=>isNpcEnabled(uid));
   const avatarInputRef=useRef(null);
+
+  // ── Код привязки родителя (только у ученика) ──────────────────────────────
+  const isParentRole = user?.role === 'parent';
+  const [parentCode,setParentCode]=useState(user?.parentLinkCode||null);
+  const [parentCodeCopied,setParentCodeCopied]=useState(false);
+  const [parentRegenBusy,setParentRegenBusy]=useState(false);
+  useEffect(()=>{
+    if(isParentRole||!user?.uid) return;
+    let cancelled=false;
+    (async()=>{
+      const c=await ensureParentLinkCode(user); // страховка для аккаунтов без кода
+      if(!cancelled&&c) setParentCode(c);
+    })();
+    return ()=>{cancelled=true;};
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[user?.uid]);
+  const handleCopyParentCode=async()=>{
+    if(!parentCode) return;
+    const text=formatParentCode(parentCode); // копируем С префиксом — то, что увидит родитель
+    try{ await navigator.clipboard.writeText(text); }
+    catch{ try{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}catch{} }
+    setParentCodeCopied(true); setTimeout(()=>setParentCodeCopied(false),2000);
+  };
+  const handleRegenParentCode=async()=>{
+    if(parentRegenBusy) return;
+    if(!window.confirm('Обновить код? Старый код перестанет работать — родителю нужно будет ввести новый.')) return;
+    setParentRegenBusy(true);
+    const c=await regenerateParentLinkCode({...user,parentLinkCode:parentCode});
+    if(c){ setParentCode(c); onUpdateUser&&onUpdateUser({...user,parentLinkCode:c}); }
+    setParentRegenBusy(false);
+  };
 
   const handleAvatarChange=async(e)=>{
     const file=e.target.files?.[0];
@@ -468,6 +500,38 @@ export default function ProfileSection({ user, statusObj, onOpenDiagnostics, onV
           </div>
         )}
       </div>
+
+      {/* ── Код для родителя (только ученик) ── */}
+      {!isParentRole && (
+      <div className="dashboard-section">
+        <h2 className="section-title" style={{marginBottom:16}}>👨‍👩‍👧 Код для родителя</h2>
+        <p style={{fontSize:13.5, color:THEME.textLight, lineHeight:1.5, marginBottom:14, maxWidth:480}}>
+          Покажите этот код родителю — он введёт его у себя, чтобы видеть ваш прогресс и план.
+        </p>
+        <div style={{display:'flex', alignItems:'center', gap:12, flexWrap:'wrap'}}>
+          <div style={{
+            fontFamily:"'Montserrat',monospace", fontWeight:800, fontSize:26, letterSpacing:'2px',
+            color:THEME.text, background:THEME.surface, border:`1.5px solid ${THEME.border}`,
+            borderRadius:12, padding:'10px 18px', userSelect:'all',
+          }}>
+            {parentCode ? formatParentCode(parentCode) : '······'}
+          </div>
+          <button type="button" onClick={handleCopyParentCode} disabled={!parentCode}
+            style={{display:'inline-flex', alignItems:'center', gap:6, minHeight:44, padding:'10px 16px',
+              borderRadius:10, border:`1.5px solid ${THEME.border}`, background:THEME.surface,
+              color:THEME.text, fontSize:14, fontWeight:600, cursor:parentCode?'pointer':'not-allowed'}}>
+            {parentCodeCopied ? '✓ Скопировано' : '📋 Копировать'}
+          </button>
+          <button type="button" onClick={handleRegenParentCode} disabled={parentRegenBusy||!parentCode}
+            style={{display:'inline-flex', alignItems:'center', gap:6, minHeight:44, padding:'10px 16px',
+              borderRadius:10, border:'none', background:'transparent',
+              color:THEME.textLight, fontSize:13, fontWeight:600, textDecoration:'underline',
+              cursor:parentRegenBusy?'wait':'pointer'}}>
+            {parentRegenBusy ? 'Обновляю…' : '↻ Обновить код'}
+          </button>
+        </div>
+      </div>
+      )}
 
       {/* ── Настройки ── */}
       <div className="dashboard-section" style={{marginBottom:0}}>

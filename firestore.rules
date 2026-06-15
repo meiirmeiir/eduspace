@@ -111,6 +111,36 @@ service cloud.firestore {
                         || resource.data.toUid == request.auth.uid);
     }
 
+    // ── Коды привязки родителя: parentLinkCodes/{code} = { uid } ─────────────
+    // Резолв кода → studentUid при привязке родителя. Ключ — 6 цифр (префикс
+    // "P-" только в UI, в реестре не хранится). Создаёт владелец-ученик;
+    // delete владельцем — для revoke (перегенерация при утечке кода).
+    match /parentLinkCodes/{code} {
+      allow get:    if isSignedIn();
+      allow list:   if false;
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['uid'])
+                    && code.matches('[0-9]{6}');
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── Запросы привязки родителя: parentLinkRequests/{autoId} ───────────────
+    // Родитель создаёт запрос со своим uid + кодом ребёнка (status:'pending').
+    // Двустороннюю связь (parent.childUids += studentUid, student.parentUids +=
+    // parentUid) и доводку статуса (linked/invalid) делает Cloud Function
+    // onParentLinkRequestWritten (Admin SDK обходит rules). Код = согласие
+    // ученика (он сам показал код), отдельного акцепта нет.
+    match /parentLinkRequests/{reqId} {
+      allow read:   if isSignedIn() && resource.data.parentUid == request.auth.uid;
+      allow create: if isSignedIn()
+                    && request.resource.data.parentUid == request.auth.uid
+                    && request.resource.data.code is string
+                    && request.resource.data.status == 'pending';
+      allow update, delete: if false;
+    }
+
     // ── Медали (субколлекция users/{uid}/medals/{medalId}) ──────────────────
     // Пишет только Cloud Function awardWeeklyMedals (Admin SDK обходит rules).
     // Читают — все залогиненные (медали отображаются в публичном профиле).
