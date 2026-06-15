@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { ReactFlow, Controls, useNodesState, useEdgesState } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import CustomNode from "../../CustomNode.jsx";
@@ -374,8 +375,11 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSkillId]);
 
-  return (
-    <div style={{ position:'absolute', inset:0, zIndex:50, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.5)' }}
+  // Портал в body + position:fixed: попап вырывается из overflow:hidden контейнера
+  // карты (.diag-map-wrap) и любых transform-предков (ReactFlow) → полноэкранный
+  // модал, не зажат в боксе карты. zIndex:1000 — выше .mobile-bottom-nav (z-index:90).
+  return createPortal(
+    <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.5)' }}
          onClick={e => { if(e.target===e.currentTarget) onClose(); }}>
       <div style={{ background:THEME.surface, border:`1px solid ${THEME.border}`, borderRadius:12, padding:'20px 22px', maxWidth:420, width:'90%', boxShadow:'0 20px 60px rgba(0,0,0,0.2)', maxHeight:'80vh', overflowY:'auto' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
@@ -456,7 +460,8 @@ function DiagModulePopup({ module: mod, onClose, onStartTraining, skillMastery =
           })}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
