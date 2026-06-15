@@ -486,3 +486,82 @@ exports.awardWeeklyMedals = onSchedule(
     });
   }
 );
+
+// ── Cloud Function: недельный снимок прогресса ученика ──────────────────────
+// Фундамент истории для родительского дашборда: раз в неделю фиксируем состояние
+// каждого ученика → progressSnapshots/{uid}/weeks/{weekId}. Через накопление даёт
+// настоящий «рост освоения за месяц/неделю» (дельты между снимками).
+// overallPct — skill-level avg ([0,40,80,100][stages]) по навыкам ПЛАНА: модульный
+// buildDiagModuleTree React-связан и в CF недоступен; дельта консистентна.
+// Идемпотентно: doc id = weekId, set(merge) → повторный запуск перезаписывает.
+exports.weeklyProgressSnapshot = onSchedule(
+  {
+    schedule: '10 0 * * 1',      // понедельник 00:10 UTC (после awardWeeklyMedals в 00:05)
+    timeZone: 'UTC',
+    region: 'us-central1',
+    memory: '256MiB',
+    timeoutSeconds: 540,
+    retryCount: 0,               // идемпотентно по weekId — повтор не нужен
+  },
+  async () => {
+    const now = new Date();
+    const weekId = getPrevWeekId(now);   // завершившаяся неделя — синхронно с leaderboard/medals
+    const date = now.toISOString();
+    const PCT = st => [0, 40, 80, 100][Math.min(Number(st) || 0, 3)];
+    const stagesOf = s => Number(s?.stagesCompleted || 0);
+
+    const masterySnaps = await db.collection('skillMastery').get();
+    let written = 0;
+
+    for (const ms of masterySnaps.docs) {
+      try {
+        const uid = ms.id;
+        const skills = ms.data()?.skills || {};
+
+        // агрегаты из стадий + счётчиков
+        let masteredCount = 0, inProgressCount = 0, cumAtt = 0, cumCor = 0;
+        for (const v of Object.values(skills)) {
+          const st = stagesOf(v);
+          if (st >= 3) masteredCount++; else if (st > 0) inProgressCount++;
+          cumAtt += Number(v?.dailyAttempts || 0);
+          cumCor += Number(v?.dailyCorrect || 0);
+        }
+
+        // план → overallPct (skill-level) + byVerticalPct
+        const planSnap = await db.collection('individualPlans').doc(uid).get();
+        const plan = planSnap.exists ? planSnap.data() : null;
+        const planSkillIds = [...new Set((plan?.modules || []).flatMap(m => (m && m.skills_list) || []))];
+        const pctOfSkill = id => PCT(stagesOf(skills[id]));
+        const overallPct = planSkillIds.length
+          ? Math.round(planSkillIds.reduce((s, id) => s + pctOfSkill(id), 0) / planSkillIds.length)
+          : (Object.keys(skills).length
+              ? Math.round(Object.values(skills).reduce((s, v) => s + PCT(stagesOf(v)), 0) / Object.keys(skills).length)
+              : 0);
+        const byVerticalPct = {};
+        (plan?.modules || []).forEach(m => Object.entries(m?.by_vertical || {}).forEach(([vert, arr]) => {
+          const ids = (arr || []).map(x => x && x.id).filter(Boolean);
+          if (ids.length) byVerticalPct[vert] = Math.round(ids.reduce((s, id) => s + pctOfSkill(id), 0) / ids.length);
+        }));
+
+        // weekPoints из leaderboard завершившейся недели
+        const lbSnap = await db.collection('leaderboard').doc(weekId).collection('entries').doc(uid).get();
+        const weekPoints = lbSnap.exists ? Number(lbSnap.data()?.points || 0) : 0;
+
+        // lastActiveDate из users (родителю users закрыт → отдаём через снимок)
+        const uSnap = await db.collection('users').doc(uid).get();
+        const lastActiveDate = uSnap.exists ? (uSnap.data()?.lastActiveDate || null) : null;
+
+        await db.collection('progressSnapshots').doc(uid).collection('weeks').doc(weekId).set({
+          weekId, date, overallPct, masteredCount, inProgressCount,
+          planSkillCount: planSkillIds.length,
+          cumulativeAttempts: cumAtt, cumulativeCorrect: cumCor,
+          weekPoints, byVerticalPct, lastActiveDate,
+        }, { merge: true });
+        written++;
+      } catch (e) {
+        logger.error('snapshot failed for student', { uid: ms.id, err: String(e) });
+      }
+    }
+    logger.info('weeklyProgressSnapshot done', { weekId, students: masterySnaps.size, written });
+  }
+);

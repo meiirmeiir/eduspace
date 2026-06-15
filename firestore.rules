@@ -234,6 +234,15 @@ service cloud.firestore {
       allow list:   if false;
     }
 
+    // ── Недельные снимки прогресса: progressSnapshots/{uid}/weeks/{weekId} ────
+    // Пишет ТОЛЬКО Cloud Function weeklyProgressSnapshot (Admin SDK обходит rules).
+    // Читает/листает владелец, admin, родитель (isParentOf по {uid}). list открыт —
+    // дашборду нужен перечень недель для тренда (роста освоения).
+    match /progressSnapshots/{uid}/weeks/{weekId} {
+      allow read, list: if isOwner(uid) || isAdmin() || isParentOf(uid);
+      allow write:      if false;
+    }
+
     match /quizProgress/{userId} {
       allow read:   if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId);
