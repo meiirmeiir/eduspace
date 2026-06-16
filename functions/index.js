@@ -59,16 +59,15 @@ async function sendTelegram(text) {
 const PARENT_BOT_TOKEN = defineSecret('PARENT_BOT_TOKEN');
 const TELEGRAM_WEBHOOK_SECRET = defineSecret('TELEGRAM_WEBHOOK_SECRET');
 
-// Отправка сообщения в конкретный чат родителя (chat_id известен из апдейта).
-// Параметризован токеном — в отличие от sendTelegram, который шлёт админу.
+// Отправка сообщения в чат родителя. replyMarkup — опц. inline-клавиатура (фаза G).
 // Возвращает { ok, status } — фаза D детектит 403 (бот заблокирован) → active=false.
-// Существующие вызовы (/start /link /unlink /report) возврат игнорируют.
-async function sendBotMessage(token, chatId, text) {
+// Существующие вызовы без replyMarkup не затронуты.
+async function sendBotMessage(token, chatId, text, replyMarkup) {
   try {
     const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', ...(replyMarkup ? { reply_markup: replyMarkup } : {}) }),
     });
     if (!r.ok) {
       const body = await r.text().catch(() => '');
@@ -81,6 +80,48 @@ async function sendBotMessage(token, chatId, text) {
     return { ok: false, status: 0 };
   }
 }
+
+// Редактирование существующего сообщения (навигация бот-кабинета, фаза G).
+async function editMessageText(token, chatId, messageId, text, replyMarkup) {
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId, text, parse_mode: 'HTML', ...(replyMarkup ? { reply_markup: replyMarkup } : {}) }),
+    });
+    if (!r.ok) {
+      const body = await r.text().catch(() => '');
+      logger.error('parentBot edit failed', { status: r.status, body: body.slice(0, 200) });
+      return { ok: false, status: r.status };
+    }
+    return { ok: true, status: 200 };
+  } catch (e) {
+    logger.error('parentBot edit threw', { err: String(e) });
+    return { ok: false, status: 0 };
+  }
+}
+
+// Ответ на callback (убирает «часики» на кнопке). text — опц. всплывающее уведомление.
+async function answerCallback(token, cqId, text) {
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: cqId, ...(text ? { text } : {}) }),
+    });
+  } catch (e) {
+    logger.error('answerCallback threw', { err: String(e) });
+  }
+}
+
+// Постоянная нижняя панель «кнопки сразу» (фаза G) — тап шлёт ТЕКСТ подписи → роутер
+// маппит в хендлеры. is_persistent — держится внизу всегда; resize — компактная.
+// Ставится на /start, /link-подтверждение, фоллбэк. 📊 Отчёт — широкой кнопкой сверху (акцент).
+const MAIN_KEYBOARD = {
+  keyboard: [['📊 Отчёт'], ['📚 По темам', '📈 Динамика']],
+  resize_keyboard: true,
+  is_persistent: true,
+};
 
 // Извлечь 6-значный код привязки из аргумента команды (срезать необязательный T-/пробелы).
 function parseTgCode(raw) {
@@ -171,9 +212,10 @@ async function handleTelegramLink(token, msg, rawArg) {
   await sendBotMessage(token, chatId,
     names.length
       ? `✅ Готово! Telegram подключён.\n\nБуду присылать отчёты о: <b>${names.join(', ')}</b>.\n` +
-        'Команда /report покажет текущий отчёт (скоро).'
+        'Нажмите <b>📊 Отчёт</b> внизу, чтобы посмотреть.'
       : '✅ Готово, Telegram подключён!\n\nПока к вашему аккаунту не привязан ни один ребёнок — ' +
-        'добавьте его в кабинете родителя.');
+        'добавьте его в кабинете родителя.',
+    MAIN_KEYBOARD);
 }
 
 // Отвязка чата от родителя по команде бота (Этап 2, фаза B4). Чат-центрично: рвёт
@@ -278,14 +320,17 @@ function buildReportMessages(children, header = null) {
   return packMessages(children.map(c => childBlock(c.name, c.r)), header);
 }
 
-// ── По темам (Этап 2, фаза F: /themes) ───────────────────────────────────────
-// Карта имён вертикалей. ⚠️ SYNC: 1:1 с src/components/ChildReport.jsx (VERTICAL_NAMES/
-// vName). При изменении набора вертикалей — менять ОБА файла. Бот = те же имена, что веб.
+// ── По темам (Этап 2, фаза F/G) ──────────────────────────────────────────────
+// Карта имён вертикалей. ⚠️ SYNC: 1:1 с src/lib/verticals.js (RU_VERTICALS) — КАНОН
+// (vertical_line_id в данных, 11 вертикалей). При изменении набора — менять ОБА файла.
+// (Веб ChildReport использует свою устаревшую копию из 8 — это веб-баг, чинится отдельно;
+//  без ARITHMETIC/WORD_PROBLEMS/NUMBER_THEORY/LOGIC показывал бы код вместо имени.)
 const VERTICAL_NAMES = {
-  ALGEBRA: 'Алгебра', GEOMETRY: 'Геометрия', NUMBERS: 'Числа', FUNCTIONS: 'Функции',
-  PROBABILITY: 'Вероятность', TRIGONOMETRY: 'Тригонометрия', CALCULUS: 'Анализ', STATISTICS: 'Статистика',
+  ALGEBRA: 'Алгебра', ARITHMETIC: 'Арифметика', GEOMETRY: 'Геометрия', NUMBER_THEORY: 'Теория чисел',
+  PROBABILITY: 'Вероятность', STATISTICS: 'Статистика', WORD_PROBLEMS: 'Текстовые задачи',
+  FUNCTIONS: 'Функции', TRIGONOMETRY: 'Тригонометрия', CALCULUS: 'Математический анализ', LOGIC: 'Логика',
 };
-const vName = v => VERTICAL_NAMES[v] || (v ? v[0] + v.slice(1).toLowerCase() : 'Тема');
+const vName = v => VERTICAL_NAMES[String(v || '').toUpperCase()] || (v ? v[0] + v.slice(1).toLowerCase() : 'Тема');
 
 // Блок «по темам» одного ребёнка: вертикали (byVerticalPct) с %, сортировка сильные↑/слабые↓,
 // маркеры 🟢≥70 / 🟡40-69 / 🔴<40. name — уже HTML-escaped.
@@ -317,6 +362,28 @@ function dynamicsBlock(name, weeks) {
   const delta = weeks[weeks.length - 1].overallPct - weeks[0].overallPct;
   const trend = delta > 0 ? `↗ рост +${delta}%` : delta < 0 ? `↘ снижение ${delta}%` : '→ без изменений';
   return `📈 <b>${name}</b>\n${chain}\n${trend}`;
+}
+
+function buildDynamicsMessages(children, header = null) {
+  return packMessages(children.map(c => dynamicsBlock(c.name, c.weeks)), header);
+}
+
+// Собрать динамику детей: [{ name, weeks }] из снимков (общее для /dynamics и кнопки-вида G).
+async function collectChildDynamics(childUids) {
+  const children = [];
+  for (const cid of childUids) {
+    try {
+      const snaps = await db.collection('progressSnapshots').doc(cid).collection('weeks').get();
+      const weeks = snaps.docs
+        .map(d => ({ weekId: d.id, overallPct: Number(d.data()?.overallPct || 0) }))
+        .filter(w => w.weekId)
+        .sort((a, b) => a.weekId.localeCompare(b.weekId));
+      children.push({ name: await childName(cid), weeks });
+    } catch (e) {
+      logger.error('dynamics child failed', { child: cid, err: String(e) });
+    }
+  }
+  return children;
 }
 
 // Имя ребёнка (HTML-escaped, как раньше на местах сбора) из publicProfiles.
@@ -372,9 +439,12 @@ async function handleReport(token, msg) {
     await sendBotMessage(token, chatId, '⚠️ Не удалось сформировать отчёт. Попробуйте позже.');
     return;
   }
-  // /report — без хедера «Итоги недели» (отчёт по запросу, не итог недели)
-  for (const m of buildReportMessages(children, null)) {
-    await sendBotMessage(token, chatId, m);
+  // /report — текст-сводка + входные кнопки бот-кабинета (фаза G). Кнопки только когда
+  // сводка влезла в ОДНО сообщение (1-3 ребёнка); при сплите (много детей) — текст-only.
+  const msgs = buildReportMessages(children, null);
+  for (let i = 0; i < msgs.length; i++) {
+    const markup = (msgs.length === 1) ? viewKeyboard('sum') : undefined;
+    await sendBotMessage(token, chatId, msgs[i], markup);
   }
 }
 
@@ -399,26 +469,63 @@ async function handleDynamics(token, msg) {
   const chatId = String(msg?.chat?.id);
   const childUids = await resolveChildUids(token, chatId);
   if (!childUids) return;
-  const children = [];
-  for (const cid of childUids) {
-    try {
-      const snaps = await db.collection('progressSnapshots').doc(cid).collection('weeks').get();
-      const weeks = snaps.docs
-        .map(d => ({ weekId: d.id, overallPct: Number(d.data()?.overallPct || 0) }))
-        .filter(w => w.weekId)
-        .sort((a, b) => a.weekId.localeCompare(b.weekId));
-      children.push({ name: await childName(cid), weeks });
-    } catch (e) {
-      logger.error('dynamics child failed', { child: cid, err: String(e) });
-    }
-  }
+  const children = await collectChildDynamics(childUids);
   if (!children.length) {
     await sendBotMessage(token, chatId, '⚠️ Не удалось получить динамику. Попробуйте позже.');
     return;
   }
-  for (const m of packMessages(children.map(c => dynamicsBlock(c.name, c.weeks)), null)) {
+  for (const m of buildDynamicsMessages(children, null)) {
     await sendBotMessage(token, chatId, m);
   }
+}
+
+// Клавиатура вида бот-кабинета (фаза G). 3 вида по ВСЕМ детям — без выбора ребёнка.
+function viewKeyboard(view) {
+  const B = {
+    themes: { text: '📚 По темам', callback_data: 'v:themes' },
+    dyn:    { text: '📈 Динамика', callback_data: 'v:dyn' },
+    sum:    { text: '← Сводка',    callback_data: 'v:sum' },
+  };
+  if (view === 'themes') return { inline_keyboard: [[B.sum, B.dyn]] };
+  if (view === 'dyn')    return { inline_keyboard: [[B.sum, B.themes]] };
+  return { inline_keyboard: [[B.themes, B.dyn]] };   // sum (по умолчанию)
+}
+
+// Нажатие inline-кнопки (фаза G). Изоляция = как message: chatId→telegramLinks→childUids.
+// Stateless: вид из callback_data (v:sum/v:themes/v:dyn), каждый вид — по ВСЕМ детям (нет лабиринта).
+async function handleCallback(token, cq) {
+  const chatId = String(cq?.message?.chat?.id);
+  const messageId = cq?.message?.message_id;
+  const cqId = cq?.id;
+  const view = (String(cq?.data || '').split(':')[1]) || 'sum';
+
+  const link = await db.collection('telegramLinks').doc(chatId).get();
+  if (!link.exists) { await answerCallback(token, cqId, 'Сначала подключите бота в кабинете родителя.'); return; }
+  const parentUid = link.data()?.parentUid;
+  const uSnap = parentUid ? await db.collection('users').doc(parentUid).get() : null;
+  const childUids = (uSnap && uSnap.exists ? uSnap.data()?.childUids : null) || [];
+  if (!childUids.length) { await answerCallback(token, cqId, 'Нет привязанных детей.'); return; }
+
+  let text = null;
+  try {
+    if (view === 'themes') {
+      const children = await collectChildReports(childUids, getWeekId(new Date()));
+      if (children.length) text = buildThemesMessages(children, null)[0];
+    } else if (view === 'dyn') {
+      const children = await collectChildDynamics(childUids);
+      if (children.length) text = buildDynamicsMessages(children, null)[0];
+    } else {                                   // sum
+      const children = await collectChildReports(childUids, getWeekId(new Date()));
+      if (children.length) text = buildReportMessages(children, null)[0];
+    }
+  } catch (e) {
+    logger.error('callback build failed', { chatId, view, err: String(e) });
+  }
+
+  if (!text) { await answerCallback(token, cqId, 'Ошибка. Отправьте /report заново.'); return; }
+  const res = await editMessageText(token, chatId, messageId, text, viewKeyboard(view));
+  // >48ч или иной отказ редактирования → подсказка, без краша
+  await answerCallback(token, cqId, res.ok ? undefined : 'Сообщение устарело — отправьте /report заново.');
 }
 
 // ── ISO-неделя (год + неделя четверга) ──────────────────────────────────────
@@ -1002,18 +1109,30 @@ exports.telegramWebhook = onRequest(
 
     try {
       const update = req.body || {};
+      const token = PARENT_BOT_TOKEN.value();
+
+      if (update.callback_query) {
+        // нажатие inline-кнопки бот-кабинета (фаза G) — изоляция внутри handleCallback
+        await handleCallback(token, update.callback_query);
+      } else {
       const msg = update.message || update.edited_message || null;
       const chatId = msg?.chat?.id;
       const text = (msg?.text || '').trim();
 
       // не текстовое сообщение — подтверждаем приём, ничего не делаем
       if (chatId && text) {
-        const token = PARENT_BOT_TOKEN.value();
         const parts = text.split(/\s+/);
         const cmd = parts[0].toLowerCase();
         const arg = parts[1] || '';
 
-        if ((cmd === '/start' && arg) || cmd === '/link') {
+        // ReplyKeyboard-панель (фаза G): тап шлёт текст подписи → маппим в хендлеры (до /команд)
+        if (text === '📊 Отчёт') {
+          await handleReport(token, msg);
+        } else if (text === '📚 По темам') {
+          await handleThemes(token, msg);
+        } else if (text === '📈 Динамика') {
+          await handleDynamics(token, msg);
+        } else if ((cmd === '/start' && arg) || cmd === '/link') {
           // deep-link «/start КОД» (из кабинета) или ручной «/link КОД» → привязка
           await handleTelegramLink(token, msg, arg);
         } else if (cmd === '/unlink') {
@@ -1030,18 +1149,21 @@ exports.telegramWebhook = onRequest(
           await handleTelegramResume(token, msg);
         } else if (cmd === '/start') {
           await sendBotMessage(token, chatId,
-            'Здравствуйте! Это бот <b>EduSpace</b> для родителей — сюда приходят отчёты о ' +
-            'прогрессе вашего ребёнка.\n\n' +
-            'Чтобы подключить: откройте кабинет родителя на сайте → «Подключить Telegram» → ' +
-            'нажмите «Открыть бота» или пришлите мне код командой <code>/link КОД</code>.\n\n' +
-            'После подключения: <b>/report</b> — отчёт, <b>/themes</b> — по темам, ' +
-            '<b>/dynamics</b> — динамика; <b>/stop</b>/<b>/resume</b> — еженедельные отчёты.\n\n' +
-            'Графики динамики, карта тем и полный дашборд — в кабинете родителя на сайте.');
+            '👋 Здравствуйте! Я бот <b>AAPA</b> — показываю, как учится ваш ребёнок.\n\n' +
+            'Нажмите кнопку внизу:\n' +
+            '📊 <b>Отчёт</b> — как дела сейчас (главное).\n' +
+            '📚 <b>По темам</b> — где силён, где отстаёт.\n' +
+            '📈 <b>Динамика</b> — как менялось по неделям.\n\n' +
+            'Каждый понедельник пришлю итоги недели сам.\n\n' +
+            'Ещё не подключили? Откройте кабинет родителя на сайте → «Подключить Telegram».',
+            MAIN_KEYBOARD);
         } else {
           await sendBotMessage(token, chatId,
-            'Команды: <b>/report</b> — отчёт, <b>/themes</b> — по темам, <b>/dynamics</b> — ' +
-            'динамика, /stop — без еженедельных, /resume — снова, /unlink — отключить. /start — помощь.');
+            'Нажмите кнопку внизу 👇 — например, <b>📊 Отчёт</b>.\n\n' +
+            'Команды: /report, /themes, /dynamics, /stop, /resume, /unlink, /start.',
+            MAIN_KEYBOARD);
         }
+      }
       }
     } catch (e) {
       logger.error('telegramWebhook handler threw', { err: String(e) });
