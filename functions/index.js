@@ -17,6 +17,8 @@
 
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
+const { onRequest } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
 const { logger }     = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
@@ -46,6 +48,31 @@ async function sendTelegram(text) {
     }
   } catch (e) {
     logger.error('Telegram send threw', { err: String(e) });
+  }
+}
+
+// ── Родительский Telegram-бот (Этап 2) — отдельный бот @eduspace_parent_bot ───
+// НЕ путать с админ-ботом выше (тот на .env для медаль-алёртов). Здесь — токен и
+// webhook-секрет в Secret Manager (детские данные → сильнее .env). Секреты
+// прокидываются в функцию через опцию `secrets:[...]`; .value() доступен в рантайме.
+const PARENT_BOT_TOKEN = defineSecret('PARENT_BOT_TOKEN');
+const TELEGRAM_WEBHOOK_SECRET = defineSecret('TELEGRAM_WEBHOOK_SECRET');
+
+// Отправка сообщения в конкретный чат родителя (chat_id известен из апдейта).
+// Параметризован токеном — в отличие от sendTelegram, который шлёт админу.
+async function sendBotMessage(token, chatId, text) {
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+    });
+    if (!r.ok) {
+      const body = await r.text().catch(() => '');
+      logger.error('parentBot send failed', { status: r.status, body: body.slice(0, 200) });
+    }
+  } catch (e) {
+    logger.error('parentBot send threw', { err: String(e) });
   }
 }
 
@@ -563,5 +590,58 @@ exports.weeklyProgressSnapshot = onSchedule(
       }
     }
     logger.info('weeklyProgressSnapshot done', { weekId, students: masterySnaps.size, written });
+  }
+);
+
+// ── Cloud Function: webhook родительского Telegram-бота (Этап 2, фаза A) ──────
+// ПЕРВЫЙ HTTP-эндпоинт проекта. Telegram POST-ит сюда апдейты. Публичный URL →
+// защита обязательна: при setWebhook задаётся secret_token, который Telegram шлёт
+// в заголовке X-Telegram-Bot-Api-Secret-Token; сверяем с TELEGRAM_WEBHOOK_SECRET →
+// иначе 401 (поддельный апдейт отбрасывается). Легитимный трафик Telegram всегда
+// несёт верный секрет, поэтому 401 ловит только посторонних.
+// Telegram ждёт быстрый 200 на принятый апдейт — иначе ретраит; поэтому на любой
+// обработанный апдейт (даже проигнорированный) отвечаем 200.
+// Фаза A: реализован только /start (приветствие-заглушка). /link, /report,
+// /unlink — фазы B/C.
+exports.telegramWebhook = onRequest(
+  { region: 'us-central1', memory: '256MiB', secrets: [PARENT_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET] },
+  async (req, res) => {
+    // 1) только POST от Telegram
+    if (req.method !== 'POST') { res.status(405).send('method not allowed'); return; }
+    // 2) подлинность апдейта — secret_token из setWebhook
+    if (req.get('X-Telegram-Bot-Api-Secret-Token') !== TELEGRAM_WEBHOOK_SECRET.value()) {
+      logger.warn('telegramWebhook: bad secret token', { ip: req.ip });
+      res.status(401).send('unauthorized');
+      return;
+    }
+
+    try {
+      const update = req.body || {};
+      const msg = update.message || update.edited_message || null;
+      const chatId = msg?.chat?.id;
+      const text = (msg?.text || '').trim();
+
+      // не текстовое сообщение — подтверждаем приём, ничего не делаем
+      if (chatId && text) {
+        const token = PARENT_BOT_TOKEN.value();
+        const cmd = text.split(/\s+/)[0].toLowerCase();
+
+        if (cmd === '/start') {
+          await sendBotMessage(token, chatId,
+            'Здравствуйте! Это бот <b>EduSpace</b> для родителей — сюда будут приходить ' +
+            'отчёты о прогрессе вашего ребёнка.\n\n' +
+            'Подключение из кабинета родителя появится совсем скоро. 🚀');
+        } else {
+          // фаза A: прочие команды ещё не реализованы
+          await sendBotMessage(token, chatId,
+            'Команда пока недоступна. Отправьте /start.');
+        }
+      }
+    } catch (e) {
+      logger.error('telegramWebhook handler threw', { err: String(e) });
+    }
+
+    // Telegram ждёт 200, иначе ретраит апдейт
+    res.status(200).send('ok');
   }
 );
