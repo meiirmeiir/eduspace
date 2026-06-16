@@ -245,17 +245,15 @@ function childBlock(name, r) {
   ].join('\n');
 }
 
-// Склейка отчётов нескольких детей в сообщения Telegram (Этап 2). header — опц.
-// вводная (только на 1-м сообщении, для дайджеста). Разделитель между детьми; футер
-// один раз в конце каждого сообщения. Блок ребёнка целиком (не режем): если не влезает
-// под лимит — новое сообщение. Возвращает массив строк (обычно 1; при многих детях —
-// несколько). /report и weeklyParentDigest используют ОДНУ эту логику.
+// Упаковка готовых текст-блоков в сообщения Telegram (Этап 2). header — опц. вводная
+// (только на 1-м сообщении, для дайджеста). Разделитель между блоками; футер один раз
+// в конце каждого. Блок целиком (не режем): не влезает под лимит → новое сообщение.
+// ОДИН упаковщик для /report (childBlock) и /themes (themesBlock).
 const REPORT_SEP = '\n──────────\n';
 const REPORT_FOOTER = '\n\n<i>Подробнее — в кабинете на сайте.</i>';
 const MSG_LIMIT = 4000;   // запас под футер/эмодзи (Telegram максимум — 4096)
 
-function buildReportMessages(children, header = null) {
-  const blocks = children.map(c => childBlock(c.name, c.r));
+function packMessages(blocks, header = null) {
   const messages = [];
   let cur = null;   // тело текущего сообщения (без футера)
   const start = (block) => {
@@ -276,15 +274,80 @@ function buildReportMessages(children, header = null) {
   return messages;
 }
 
-// /report (Этап 2, фаза C): текущий отчёт по запросу. LIVE через buildStudentReport
-// (вариант B — без снимка, без cold-start; вердикт=кабинету). Одно сообщение на ребёнка.
-async function handleReport(token, msg) {
-  const chatId = String(msg?.chat?.id);
+function buildReportMessages(children, header = null) {
+  return packMessages(children.map(c => childBlock(c.name, c.r)), header);
+}
+
+// ── По темам (Этап 2, фаза F: /themes) ───────────────────────────────────────
+// Карта имён вертикалей. ⚠️ SYNC: 1:1 с src/components/ChildReport.jsx (VERTICAL_NAMES/
+// vName). При изменении набора вертикалей — менять ОБА файла. Бот = те же имена, что веб.
+const VERTICAL_NAMES = {
+  ALGEBRA: 'Алгебра', GEOMETRY: 'Геометрия', NUMBERS: 'Числа', FUNCTIONS: 'Функции',
+  PROBABILITY: 'Вероятность', TRIGONOMETRY: 'Тригонометрия', CALCULUS: 'Анализ', STATISTICS: 'Статистика',
+};
+const vName = v => VERTICAL_NAMES[v] || (v ? v[0] + v.slice(1).toLowerCase() : 'Тема');
+
+// Блок «по темам» одного ребёнка: вертикали (byVerticalPct) с %, сортировка сильные↑/слабые↓,
+// маркеры 🟢≥70 / 🟡40-69 / 🔴<40. name — уже HTML-escaped.
+function themesBlock(name, r) {
+  const entries = Object.entries(r?.byVerticalPct || {});
+  if (!entries.length) {
+    return `📚 <b>${name}</b>\n<i>Данные по темам появятся после занятий.</i>`;
+  }
+  entries.sort((a, b) => b[1] - a[1]);   // сильные сверху, слабые снизу
+  const lines = entries.map(([code, pct]) => {
+    const m = pct >= 70 ? '🟢' : pct >= 40 ? '🟡' : '🔴';
+    return `${m} ${escapeHtml(vName(code))} — ${pct}%`;
+  });
+  return `📚 <b>${name}</b>\n${lines.join('\n')}`;
+}
+
+function buildThemesMessages(children, header = null) {
+  return packMessages(children.map(c => themesBlock(c.name, c.r)), header);
+}
+
+// Блок «динамика» одного ребёнка: overallPct по неделям (≥2 точки), иначе заглушка
+// (порог как у графика кабинета). weeks — отсортированы по weekId. name — HTML-escaped.
+function dynamicsBlock(name, weeks) {
+  if (!weeks || weeks.length < 2) {
+    return `📈 <b>${name}</b>\n<i>Динамика появится после 1-2 недель занятий.</i>`;
+  }
+  const short = w => w.replace(/^\d{4}-/, '');   // "2026-W24" → "W24"
+  const chain = weeks.map(w => `${short(w.weekId)} ${w.overallPct}%`).join(' → ');
+  const delta = weeks[weeks.length - 1].overallPct - weeks[0].overallPct;
+  const trend = delta > 0 ? `↗ рост +${delta}%` : delta < 0 ? `↘ снижение ${delta}%` : '→ без изменений';
+  return `📈 <b>${name}</b>\n${chain}\n${trend}`;
+}
+
+// Имя ребёнка (HTML-escaped, как раньше на местах сбора) из publicProfiles.
+async function childName(cid) {
+  const p = await db.collection('publicProfiles').doc(cid).get();
+  const pd = p.exists ? p.data() : {};
+  return escapeHtml(`${pd.firstName || ''} ${pd.lastName || ''}`.trim() || 'Ребёнок');
+}
+
+// Собрать LIVE-отчёты детей: [{ name, r }] (общее для /report и /themes; вывод как раньше).
+async function collectChildReports(childUids, weekId) {
+  const children = [];
+  for (const cid of childUids) {
+    try {
+      const r = await buildStudentReport(cid, weekId);
+      children.push({ name: await childName(cid), r });
+    } catch (e) {
+      logger.error('collect child failed', { child: cid, err: String(e) });
+    }
+  }
+  return children;
+}
+
+// Резолв привязки чата → childUids (или null, отправив нужное сообщение). Общее для
+// /report //themes //dynamics. Изоляция: chatId→telegramLinks→parentUid→свои childUids.
+async function resolveChildUids(token, chatId) {
   const link = await db.collection('telegramLinks').doc(chatId).get();
   if (!link.exists) {
     await sendBotMessage(token, chatId,
       'ℹ️ Сначала подключите бота в кабинете родителя (раздел «Уведомления в Telegram»).');
-    return;
+    return null;
   }
   const parentUid = link.data()?.parentUid;
   const uSnap = parentUid ? await db.collection('users').doc(parentUid).get() : null;
@@ -292,27 +355,68 @@ async function handleReport(token, msg) {
   if (!childUids.length) {
     await sendBotMessage(token, chatId,
       'У вашего аккаунта пока нет привязанных детей — добавьте ребёнка в кабинете родителя.');
-    return;
+    return null;
   }
+  return childUids;
+}
+
+// /report (Этап 2, фаза C): текущий отчёт по запросу. LIVE через buildStudentReport
+// (вариант B — без снимка, без cold-start; вердикт=кабинету). Одно сообщение на ребёнка.
+async function handleReport(token, msg) {
+  const chatId = String(msg?.chat?.id);
+  const childUids = await resolveChildUids(token, chatId);
+  if (!childUids) return;
   const weekId = getWeekId(new Date());   // ТЕКУЩАЯ неделя (live), как кабинет
-  const children = [];
-  for (const cid of childUids) {
-    try {
-      const r = await buildStudentReport(cid, weekId);
-      const p = await db.collection('publicProfiles').doc(cid).get();
-      const pd = p.exists ? p.data() : {};
-      const name = escapeHtml(`${pd.firstName || ''} ${pd.lastName || ''}`.trim() || 'Ребёнок');
-      children.push({ name, r });
-    } catch (e) {
-      logger.error('telegramWebhook: report failed', { parentUid, child: cid, err: String(e) });
-    }
-  }
+  const children = await collectChildReports(childUids, weekId);
   if (!children.length) {
     await sendBotMessage(token, chatId, '⚠️ Не удалось сформировать отчёт. Попробуйте позже.');
     return;
   }
   // /report — без хедера «Итоги недели» (отчёт по запросу, не итог недели)
   for (const m of buildReportMessages(children, null)) {
+    await sendBotMessage(token, chatId, m);
+  }
+}
+
+// /themes (Этап 2, фаза F): разбор по темам (вертикали %) по всем детям. Текст, как /report.
+async function handleThemes(token, msg) {
+  const chatId = String(msg?.chat?.id);
+  const childUids = await resolveChildUids(token, chatId);
+  if (!childUids) return;
+  const weekId = getWeekId(new Date());
+  const children = await collectChildReports(childUids, weekId);
+  if (!children.length) {
+    await sendBotMessage(token, chatId, '⚠️ Не удалось сформировать отчёт. Попробуйте позже.');
+    return;
+  }
+  for (const m of buildThemesMessages(children, null)) {
+    await sendBotMessage(token, chatId, m);
+  }
+}
+
+// /dynamics (Этап 2, фаза F): динамика overallPct по неделям из снимков, все дети. Текст.
+async function handleDynamics(token, msg) {
+  const chatId = String(msg?.chat?.id);
+  const childUids = await resolveChildUids(token, chatId);
+  if (!childUids) return;
+  const children = [];
+  for (const cid of childUids) {
+    try {
+      const snaps = await db.collection('progressSnapshots').doc(cid).collection('weeks').get();
+      const weeks = snaps.docs
+        .map(d => ({ weekId: d.id, overallPct: Number(d.data()?.overallPct || 0) }))
+        .filter(w => w.weekId)
+        .sort((a, b) => a.weekId.localeCompare(b.weekId));
+      children.push({ name: await childName(cid), weeks });
+    } catch (e) {
+      logger.error('dynamics child failed', { child: cid, err: String(e) });
+    }
+  }
+  if (!children.length) {
+    await sendBotMessage(token, chatId, '⚠️ Не удалось получить динамику. Попробуйте позже.');
+    return;
+  }
+  for (const m of packMessages(children.map(c => dynamicsBlock(c.name, c.weeks)), null)) {
     await sendBotMessage(token, chatId, m);
   }
 }
@@ -916,6 +1020,10 @@ exports.telegramWebhook = onRequest(
           await handleTelegramUnlink(token, msg);
         } else if (cmd === '/report') {
           await handleReport(token, msg);
+        } else if (cmd === '/themes') {
+          await handleThemes(token, msg);
+        } else if (cmd === '/dynamics') {
+          await handleDynamics(token, msg);
         } else if (cmd === '/stop') {
           await handleTelegramStop(token, msg);
         } else if (cmd === '/resume') {
@@ -926,12 +1034,13 @@ exports.telegramWebhook = onRequest(
             'прогрессе вашего ребёнка.\n\n' +
             'Чтобы подключить: откройте кабинет родителя на сайте → «Подключить Telegram» → ' +
             'нажмите «Открыть бота» или пришлите мне код командой <code>/link КОД</code>.\n\n' +
-            'После подключения: <b>/report</b> — текущий отчёт; <b>/stop</b> — остановить ' +
-            'еженедельные, <b>/resume</b> — вернуть.');
+            'После подключения: <b>/report</b> — отчёт, <b>/themes</b> — по темам, ' +
+            '<b>/dynamics</b> — динамика; <b>/stop</b>/<b>/resume</b> — еженедельные отчёты.\n\n' +
+            'Графики динамики, карта тем и полный дашборд — в кабинете родителя на сайте.');
         } else {
           await sendBotMessage(token, chatId,
-            'Команды: <b>/report</b> — отчёт, /stop — без еженедельных, /resume — снова, ' +
-            '/unlink — отключить. /start — помощь.');
+            'Команды: <b>/report</b> — отчёт, <b>/themes</b> — по темам, <b>/dynamics</b> — ' +
+            'динамика, /stop — без еженедельных, /resume — снова, /unlink — отключить. /start — помощь.');
         }
       }
     } catch (e) {
