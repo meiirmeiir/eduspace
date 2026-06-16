@@ -61,6 +61,8 @@ const TELEGRAM_WEBHOOK_SECRET = defineSecret('TELEGRAM_WEBHOOK_SECRET');
 
 // Отправка сообщения в конкретный чат родителя (chat_id известен из апдейта).
 // Параметризован токеном — в отличие от sendTelegram, который шлёт админу.
+// Возвращает { ok, status } — фаза D детектит 403 (бот заблокирован) → active=false.
+// Существующие вызовы (/start /link /unlink /report) возврат игнорируют.
 async function sendBotMessage(token, chatId, text) {
   try {
     const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -71,9 +73,12 @@ async function sendBotMessage(token, chatId, text) {
     if (!r.ok) {
       const body = await r.text().catch(() => '');
       logger.error('parentBot send failed', { status: r.status, body: body.slice(0, 200) });
+      return { ok: false, status: r.status };
     }
+    return { ok: true, status: 200 };
   } catch (e) {
     logger.error('parentBot send threw', { err: String(e) });
+    return { ok: false, status: 0 };
   }
 }
 
@@ -196,8 +201,10 @@ async function handleTelegramUnlink(token, msg) {
     '✅ Отвязано. Отчёты больше не приходят.\n\nСнова подключить — в кабинете родителя.');
 }
 
-// Формат краткого отчёта о ребёнке (Этап 2, фаза C). name — уже HTML-escaped.
-function formatReport(name, r) {
+// Блок одного ребёнка (Этап 2, фаза C/D). БЕЗ футера — он добавляется один раз на
+// сообщение (buildReportMessages), чтобы не дублироваться при склейке нескольких детей.
+// name — уже HTML-escaped.
+function childBlock(name, r) {
   const emoji = { good: '🟢', struggle: '🟡', idle: '⚪', unknown: '⚪' }[r?.verdict?.state] || '⚪';
   return [
     `👤 <b>${name}</b>`,
@@ -206,9 +213,38 @@ function formatReport(name, r) {
     `📊 Освоение плана: <b>${r.overallPct}%</b>`,
     `✅ Освоено: ${r.masteredCount} · 🔄 В работе: ${r.inProgressCount}`,
     `⭐ Очки за неделю: ${r.weekPoints}`,
-    '',
-    '<i>Подробнее — в кабинете на сайте.</i>',
   ].join('\n');
+}
+
+// Склейка отчётов нескольких детей в сообщения Telegram (Этап 2). header — опц.
+// вводная (только на 1-м сообщении, для дайджеста). Разделитель между детьми; футер
+// один раз в конце каждого сообщения. Блок ребёнка целиком (не режем): если не влезает
+// под лимит — новое сообщение. Возвращает массив строк (обычно 1; при многих детях —
+// несколько). /report и weeklyParentDigest используют ОДНУ эту логику.
+const REPORT_SEP = '\n──────────\n';
+const REPORT_FOOTER = '\n\n<i>Подробнее — в кабинете на сайте.</i>';
+const MSG_LIMIT = 4000;   // запас под футер/эмодзи (Telegram максимум — 4096)
+
+function buildReportMessages(children, header = null) {
+  const blocks = children.map(c => childBlock(c.name, c.r));
+  const messages = [];
+  let cur = null;   // тело текущего сообщения (без футера)
+  const start = (block) => {
+    const head = (messages.length === 0 && header) ? header + '\n\n' : '';
+    cur = head + block;
+  };
+  for (const block of blocks) {
+    if (cur === null) { start(block); continue; }
+    const candidate = cur + REPORT_SEP + block;
+    if (candidate.length + REPORT_FOOTER.length > MSG_LIMIT) {
+      messages.push(cur + REPORT_FOOTER);   // закрыть текущее
+      start(block);                         // новое сообщение (хедер уже не добавится)
+    } else {
+      cur = candidate;
+    }
+  }
+  if (cur !== null) messages.push(cur + REPORT_FOOTER);
+  return messages;
 }
 
 // /report (Этап 2, фаза C): текущий отчёт по запросу. LIVE через buildStudentReport
@@ -230,17 +266,25 @@ async function handleReport(token, msg) {
     return;
   }
   const weekId = getWeekId(new Date());   // ТЕКУЩАЯ неделя (live), как кабинет
+  const children = [];
   for (const cid of childUids) {
     try {
       const r = await buildStudentReport(cid, weekId);
       const p = await db.collection('publicProfiles').doc(cid).get();
       const pd = p.exists ? p.data() : {};
       const name = escapeHtml(`${pd.firstName || ''} ${pd.lastName || ''}`.trim() || 'Ребёнок');
-      await sendBotMessage(token, chatId, formatReport(name, r));
+      children.push({ name, r });
     } catch (e) {
       logger.error('telegramWebhook: report failed', { parentUid, child: cid, err: String(e) });
-      await sendBotMessage(token, chatId, '⚠️ Не удалось сформировать отчёт по одному из детей. Попробуйте позже.');
     }
+  }
+  if (!children.length) {
+    await sendBotMessage(token, chatId, '⚠️ Не удалось сформировать отчёт. Попробуйте позже.');
+    return;
+  }
+  // /report — без хедера «Итоги недели» (отчёт по запросу, не итог недели)
+  for (const m of buildReportMessages(children, null)) {
+    await sendBotMessage(token, chatId, m);
   }
 }
 
@@ -743,6 +787,18 @@ async function buildStudentReport(uid, weekId, skillsArg = null) {
   };
 }
 
+// Отчёт ребёнка за weekId для дайджеста (Этап 2, фаза D): снимок (если есть verdict)
+// иначе LIVE-фоллбэк buildStudentReport (новый ребёнок без снимка / старый снимок до C0
+// без verdict). childBlock читает одни и те же поля у обоих источников.
+async function getChildReportForWeek(uid, weekId) {
+  const snap = await db.collection('progressSnapshots').doc(uid).collection('weeks').doc(weekId).get();
+  if (snap.exists) {
+    const d = snap.data() || {};
+    if (d.verdict) return d;            // снимок с вердиктом — используем как есть
+  }
+  return buildStudentReport(uid, weekId);   // нет снимка / без verdict → live
+}
+
 // ── Cloud Function: недельный снимок прогресса ученика ──────────────────────
 // Фундамент истории для родительского дашборда: раз в неделю фиксируем состояние
 // каждого ученика → progressSnapshots/{uid}/weeks/{weekId}. Через накопление даёт
@@ -877,5 +933,85 @@ exports.onTelegramUnlinkRequestWritten = onDocumentWritten(
     batch.set(ref, { status: 'done', unlinkedAt: new Date().toISOString() }, { merge: true });
     await batch.commit();
     logger.info('telegram unlinked (cabinet)', { parentUid, removed: links.size, reqId: event.params.reqId });
+  }
+);
+
+// ── Cloud Function: еженедельный дайджест родителям (Этап 2, фаза D) ──────────
+// Пн 12:00 Алматы (= 07:00 UTC, ПОСЛЕ weeklyProgressSnapshot 00:10 → verdict свеж).
+// «Итог прошлой недели» (getPrevWeekId) по каждому привязанному ребёнку. Источник:
+// снимок за завершившуюся неделю; нет снимка / без verdict → live-фоллбэк.
+// Идемпотентно: lastSentWeekId == weekId → skip (повтор не дублирует). 403 (бот
+// заблокирован родителем) → telegramLinks.active=false (больше не слать).
+exports.weeklyParentDigest = onSchedule(
+  {
+    schedule: '0 12 * * 1',
+    timeZone: 'Asia/Almaty',     // = 07:00 UTC, после снимка (00:10 UTC)
+    region: 'us-central1',
+    memory: '256MiB',
+    timeoutSeconds: 540,
+    retryCount: 0,               // идемпотентно по lastSentWeekId — повтор не нужен
+    secrets: [PARENT_BOT_TOKEN],
+  },
+  async () => {
+    const weekId = getPrevWeekId(new Date());   // завершившаяся неделя — как снимок в 00:10
+    const token = PARENT_BOT_TOKEN.value();
+
+    const links = await db.collection('telegramLinks').where('active', '==', true).get();
+    let sentLinks = 0, sentChildren = 0, deactivated = 0;
+
+    for (const linkDoc of links.docs) {
+      const chatId = linkDoc.id;
+      try {
+        const ld = linkDoc.data() || {};
+        if (ld.lastSentWeekId === weekId) continue;        // уже слали за эту неделю
+        const parentUid = ld.parentUid;
+        if (!parentUid) continue;
+
+        const uSnap = await db.collection('users').doc(parentUid).get();
+        const childUids = (uSnap.exists ? uSnap.data()?.childUids : null) || [];
+        if (!childUids.length) {                           // нет детей — помечаем, чтоб не перебирать впредь
+          await linkDoc.ref.set({ lastSentWeekId: weekId }, { merge: true });
+          continue;
+        }
+
+        // собрать отчёты всех детей (per-child try/catch — сбойный ребёнок пропускается)
+        const children = [];
+        for (const cid of childUids) {
+          try {
+            const r = await getChildReportForWeek(cid, weekId);
+            const p = await db.collection('publicProfiles').doc(cid).get();
+            const pd = p.exists ? p.data() : {};
+            const name = escapeHtml(`${pd.firstName || ''} ${pd.lastName || ''}`.trim() || 'Ребёнок');
+            children.push({ name, r });
+          } catch (e) {
+            logger.error('digest child failed', { parentUid, child: cid, err: String(e) });
+          }
+        }
+        if (!children.length) {            // все сбоили — не спамим, помечаем неделю
+          await linkDoc.ref.set({ lastSentWeekId: weekId }, { merge: true });
+          continue;
+        }
+
+        // одно (или несколько при многих детях) сообщение с хедером «Итоги недели»
+        let blocked = false;
+        for (const m of buildReportMessages(children, '📅 <b>Итоги недели</b>')) {
+          const res = await sendBotMessage(token, chatId, m);
+          if (!res.ok && res.status === 403) { blocked = true; break; }
+        }
+        if (!blocked) sentChildren += children.length;
+
+        if (blocked) {
+          await linkDoc.ref.set({ active: false }, { merge: true });   // бот заблокирован → не слать впредь
+          deactivated++;
+          logger.info('digest: bot blocked → deactivated', { chatId, parentUid });
+        } else {
+          await linkDoc.ref.set({ lastSentWeekId: weekId }, { merge: true });
+          sentLinks++;
+        }
+      } catch (e) {
+        logger.error('digest link failed', { chatId, err: String(e) });
+      }
+    }
+    logger.info('weeklyParentDigest done', { weekId, links: links.size, sentLinks, sentChildren, deactivated });
   }
 );
