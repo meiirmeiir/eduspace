@@ -51,7 +51,7 @@ async function sendTelegram(text) {
   }
 }
 
-// ── Родительский Telegram-бот (Этап 2) — отдельный бот @eduspace_parent_bot ───
+// ── Родительский Telegram-бот (Этап 2) — отдельный бот @parent_aapa_bot ───────
 // НЕ путать с админ-ботом выше (тот на .env для медаль-алёртов). Здесь — токен и
 // webhook-секрет в Secret Manager (детские данные → сильнее .env). Секреты
 // прокидываются в функцию через опцию `secrets:[...]`; .value() доступен в рантайме.
@@ -74,6 +74,125 @@ async function sendBotMessage(token, chatId, text) {
   } catch (e) {
     logger.error('parentBot send threw', { err: String(e) });
   }
+}
+
+// Извлечь 6-значный код привязки из аргумента команды (срезать необязательный T-/пробелы).
+function parseTgCode(raw) {
+  const m = String(raw || '').trim().toUpperCase().replace(/^T-?/, '').replace(/\s/g, '');
+  return /^[0-9]{6}$/.test(m) ? m : null;
+}
+
+// Экранирование для parse_mode HTML (имена детей могут содержать &, <, >).
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Привязка чата к родителю по коду (Этап 2, фаза B3). Резолвит telegramLinkCodes/{code}
+// (Admin SDK обходит rules), проверяет TTL, переносит привязку (один чат на родителя),
+// пишет telegramLinks/{chatId} + users.telegramLink (родитель видит «кто привязан» — закрывает
+// слепую зону перехвата кода), удаляет код (single-use) + указатель users.telegramLinkCode,
+// отвечает с именами детей. Источник имени/username — message.from (username опционален).
+async function handleTelegramLink(token, msg, rawArg) {
+  const chatId = String(msg?.chat?.id);
+  const code = parseTgCode(rawArg);
+  if (!code) {
+    await sendBotMessage(token, chatId, '⚠️ Неверный формат кода. Сгенерируйте код в кабинете родителя и пришлите его.');
+    return;
+  }
+  const codeRef = db.collection('telegramLinkCodes').doc(code);
+  const snap = await codeRef.get();
+  if (!snap.exists) {
+    await sendBotMessage(token, chatId, '❌ Код неверный или уже использован. Сгенерируйте новый в кабинете родителя.');
+    return;
+  }
+  const cdata = snap.data() || {};
+  if (!cdata.expiresAt || cdata.expiresAt <= Date.now()) {
+    await codeRef.delete().catch(() => {});
+    await sendBotMessage(token, chatId, '⌛ Код истёк (срок действия 10 минут). Сгенерируйте новый в кабинете родителя.');
+    return;
+  }
+  const parentUid = cdata.parentUid;
+  if (!parentUid) {
+    await codeRef.delete().catch(() => {});
+    await sendBotMessage(token, chatId, '❌ Код повреждён. Сгенерируйте новый в кабинете родителя.');
+    return;
+  }
+
+  const linkedAt = new Date().toISOString();
+  const from = msg.from || {};
+  const tgName = `${from.first_name || ''} ${from.last_name || ''}`.trim() || null;
+  const tgUsername = from.username || null;
+
+  // Один чат на родителя: убрать прежние привязки ЭТОГО родителя (другой chatId → перенос).
+  const prevOfParent = await db.collection('telegramLinks').where('parentUid', '==', parentUid).get();
+  // Старый владелец ЭТОГО чата (если был ДРУГОЙ родитель) — для снятия его флага (шаг 7).
+  const existingChat = await db.collection('telegramLinks').doc(chatId).get();
+  const oldParent = existingChat.exists ? (existingChat.data()?.parentUid || null) : null;
+
+  const batch = db.batch();
+  prevOfParent.forEach(d => { if (d.id !== chatId) batch.delete(d.ref); });
+  batch.set(db.collection('telegramLinks').doc(chatId), { parentUid, active: true, linkedAt });
+  batch.set(db.collection('users').doc(parentUid),
+    { telegramLink: { chatId, tgUsername, tgName, linkedAt }, telegramLinkCode: FieldValue.delete() },
+    { merge: true });
+  batch.delete(codeRef);   // single-use: код мёртв после первого потребления
+  await batch.commit();
+
+  // Шаг 7: чат переехал с другого родителя — если у старого больше нет чатов, снять его флаг
+  // (иначе старый родитель видел бы в кабинете ложное «✓ Подключён»).
+  if (oldParent && oldParent !== parentUid) {
+    const left = await db.collection('telegramLinks').where('parentUid', '==', oldParent).get();
+    if (left.empty) {
+      await db.collection('users').doc(oldParent)
+        .set({ telegramLink: FieldValue.delete() }, { merge: true }).catch(() => {});
+    }
+  }
+
+  // Имена детей для подтверждения (из publicProfiles; HTML-escape под parse_mode HTML).
+  const names = [];
+  try {
+    const u = await db.collection('users').doc(parentUid).get();
+    const childUids = (u.exists ? u.data()?.childUids : null) || [];
+    for (const cid of childUids) {
+      const p = await db.collection('publicProfiles').doc(cid).get();
+      const pd = p.exists ? p.data() : {};
+      const nm = `${pd.firstName || ''} ${pd.lastName || ''}`.trim();
+      if (nm) names.push(escapeHtml(nm));
+    }
+  } catch (e) { logger.error('telegramWebhook: child names failed', { parentUid, err: String(e) }); }
+
+  logger.info('telegram linked', { parentUid, chatId, children: names.length });
+  await sendBotMessage(token, chatId,
+    names.length
+      ? `✅ Готово! Telegram подключён.\n\nБуду присылать отчёты о: <b>${names.join(', ')}</b>.\n` +
+        'Команда /report покажет текущий отчёт (скоро).'
+      : '✅ Готово, Telegram подключён!\n\nПока к вашему аккаунту не привязан ни один ребёнок — ' +
+        'добавьте его в кабинете родителя.');
+}
+
+// Отвязка чата от родителя по команде бота (Этап 2, фаза B4). Чат-центрично: рвёт
+// привязку чата, из которого пришёл /unlink. Флаг users.telegramLink снимаем, если у
+// родителя не осталось чатов (guard симметричен шагу 7 — булетпруф под инвариантом «один чат»).
+async function handleTelegramUnlink(token, msg) {
+  const chatId = String(msg?.chat?.id);
+  const ref = db.collection('telegramLinks').doc(chatId);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    await sendBotMessage(token, chatId, 'ℹ️ У этого чата нет активной привязки.');
+    return;
+  }
+  const parentUid = snap.data()?.parentUid || null;
+  await ref.delete();
+  if (parentUid) {
+    const left = await db.collection('telegramLinks').where('parentUid', '==', parentUid).get();
+    if (left.empty) {
+      await db.collection('users').doc(parentUid)
+        .set({ telegramLink: FieldValue.delete() }, { merge: true }).catch(() => {});
+    }
+  }
+  logger.info('telegram unlinked (bot)', { parentUid, chatId });
+  await sendBotMessage(token, chatId,
+    '✅ Отвязано. Отчёты больше не приходят.\n\nСнова подключить — в кабинете родителя.');
 }
 
 // ── ISO-неделя (год + неделя четверга) ──────────────────────────────────────
@@ -624,17 +743,24 @@ exports.telegramWebhook = onRequest(
       // не текстовое сообщение — подтверждаем приём, ничего не делаем
       if (chatId && text) {
         const token = PARENT_BOT_TOKEN.value();
-        const cmd = text.split(/\s+/)[0].toLowerCase();
+        const parts = text.split(/\s+/);
+        const cmd = parts[0].toLowerCase();
+        const arg = parts[1] || '';
 
-        if (cmd === '/start') {
+        if ((cmd === '/start' && arg) || cmd === '/link') {
+          // deep-link «/start КОД» (из кабинета) или ручной «/link КОД» → привязка
+          await handleTelegramLink(token, msg, arg);
+        } else if (cmd === '/unlink') {
+          await handleTelegramUnlink(token, msg);
+        } else if (cmd === '/start') {
           await sendBotMessage(token, chatId,
-            'Здравствуйте! Это бот <b>EduSpace</b> для родителей — сюда будут приходить ' +
-            'отчёты о прогрессе вашего ребёнка.\n\n' +
-            'Подключение из кабинета родителя появится совсем скоро. 🚀');
+            'Здравствуйте! Это бот <b>EduSpace</b> для родителей — сюда приходят отчёты о ' +
+            'прогрессе вашего ребёнка.\n\n' +
+            'Чтобы подключить: откройте кабинет родителя на сайте → «Подключить Telegram» → ' +
+            'нажмите «Открыть бота» или пришлите мне код командой <code>/link КОД</code>.');
         } else {
-          // фаза A: прочие команды ещё не реализованы
           await sendBotMessage(token, chatId,
-            'Команда пока недоступна. Отправьте /start.');
+            'Команда недоступна. Отправьте /start или подключитесь кодом: /link КОД.');
         }
       }
     } catch (e) {
@@ -643,5 +769,33 @@ exports.telegramWebhook = onRequest(
 
     // Telegram ждёт 200, иначе ретраит апдейт
     res.status(200).send('ok');
+  }
+);
+
+// ── Cloud Function: отвязка Telegram из кабинета (Этап 2, фаза B4) ────────────
+// Родитель пишет telegramUnlinkRequests/{id} = { parentUid, status:'pending' }.
+// Admin SDK удаляет ВСЕ telegramLinks этого родителя + сбрасывает users.telegramLink
+// (клиент telegramLinks не пишет — write:false в B5). Зеркало onParentUnlinkRequestWritten.
+// Идемпотентно: доводим только свежий pending; повторный триггер на 'done' выходит.
+exports.onTelegramUnlinkRequestWritten = onDocumentWritten(
+  { document: 'telegramUnlinkRequests/{reqId}', region: 'us-central1', memory: '256MiB' },
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) return;
+    const a = after.data() || {};
+    if (a.status !== 'pending') return;        // гасит ретриггер
+    const ref = after.ref;
+    const parentUid = a.parentUid;
+    if (!parentUid) {
+      await ref.set({ status: 'invalid', reason: 'missing_fields' }, { merge: true });
+      return;
+    }
+    const links = await db.collection('telegramLinks').where('parentUid', '==', parentUid).get();
+    const batch = db.batch();
+    links.forEach(d => batch.delete(d.ref));
+    batch.set(db.collection('users').doc(parentUid), { telegramLink: FieldValue.delete() }, { merge: true });
+    batch.set(ref, { status: 'done', unlinkedAt: new Date().toISOString() }, { merge: true });
+    await batch.commit();
+    logger.info('telegram unlinked (cabinet)', { parentUid, removed: links.size, reqId: event.params.reqId });
   }
 );

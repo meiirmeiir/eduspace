@@ -13,6 +13,7 @@ import { parseParentCode } from "../lib/parentLinkUtils.js";
 import ChildReport from "../components/ChildReport.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
 import OnboardingGuide from "../components/OnboardingGuide.jsx";
+import TelegramLinkCard from "../components/TelegramLinkCard.jsx";
 
 const RESULT_MSG = {
   linked:         { ok: true,  text: "✓ Привязка успешна — ребёнок добавлен." },
@@ -300,6 +301,9 @@ export default function ParentScreen({ user, onLogout }) {
 
           {showAddForm && addPanel}
           {unlinkResult && <div style={{ marginBottom: 12, fontSize: 13, color: "#dc2626" }}>{unlinkResult}</div>}
+
+          {/* Уведомления в Telegram — parent-level (Этап 2, фаза B): подключение бота */}
+          {parentUid && <TelegramLinkCard parentUid={parentUid} />}
 
           {/* Дашборд выбранного ребёнка (ChildReport сам грузит данные + карту в «Подробнее») */}
           {selectedChildUid && <ChildReport childUid={selectedChildUid} />}

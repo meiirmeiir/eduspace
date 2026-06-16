@@ -42,7 +42,7 @@ service cloud.firestore {
       // разрешён (для покупок в магазине) — нижняя граница только ≥ 0.
       allow update: if isAdmin() || (
                       isOwner(userId)
-                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'childUids', 'parentUids'])
+                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'childUids', 'parentUids', 'telegramLink'])
                       && (
                         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['crystals'])
                         || (
@@ -162,6 +162,44 @@ service cloud.firestore {
                     && request.resource.data.childUid is string
                     && request.resource.data.status == 'pending';
       allow update, delete: if false;   // только Cloud Function (Admin SDK)
+    }
+
+    // ── Коды привязки Telegram: telegramLinkCodes/{code} = { parentUid, expiresAt } ──
+    // (Этап 2, фаза B) Резолв кода → РОДИТЕЛЬ (не ученик). Создаёт залогиненный
+    // родитель со СВОИМ uid + TTL (expiresAt, epoch ms). Резолв/удаление при
+    // привязке делает Cloud Function telegramWebhook (Admin SDK обходит rules).
+    // get открыт для коллизия-чека при генерации (как parentLinkCodes/friendCodes;
+    // код раскрывает лишь opaque parentUid). delete владельцем — revoke/перегенерация.
+    match /telegramLinkCodes/{code} {
+      allow get:    if isSignedIn();
+      allow list:   if false;
+      allow create: if isSignedIn()
+                    && request.resource.data.parentUid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['parentUid', 'expiresAt'])
+                    && request.resource.data.expiresAt is int
+                    && code.matches('[0-9]{6}');
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.parentUid == request.auth.uid;
+    }
+
+    // ── Запросы отвязки Telegram: telegramUnlinkRequests/{autoId} ─────────────
+    // (Этап 2, фаза B4) Родитель создаёт { parentUid, status:'pending' }. Удаление
+    // telegramLinks + сброс users.telegramLink делает Cloud Function
+    // onTelegramUnlinkRequestWritten (Admin SDK). Отвязка parent-level (без childUid).
+    match /telegramUnlinkRequests/{reqId} {
+      allow read:   if isSignedIn() && resource.data.parentUid == request.auth.uid;
+      allow create: if isSignedIn()
+                    && request.resource.data.parentUid == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      allow update, delete: if false;   // только Cloud Function (Admin SDK)
+    }
+
+    // ── Привязки Telegram: telegramLinks/{chatId} = { parentUid, active, linkedAt } ──
+    // (Этап 2, фаза B5) Пишет/читает ТОЛЬКО Cloud Function (telegramWebhook /
+    // onTelegramUnlinkRequestWritten, Admin SDK обходит rules). Клиенту закрыто
+    // полностью — статус привязки родитель видит через users.telegramLink (зеркало).
+    match /telegramLinks/{chatId} {
+      allow read, list, write: if false;
     }
 
     // ── Медали (субколлекция users/{uid}/medals/{medalId}) ──────────────────
