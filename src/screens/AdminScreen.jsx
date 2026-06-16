@@ -7187,7 +7187,7 @@ ${relatedSkills.map(s=>`- ${s.skill_id}: ${s.skill_name}`).join('\n')}
             : allPivotSkills;
           const sktReadyCount=allPivotSkills.filter(s=>sktIdSet.has(s.id)).length;
 
-          const aiPrompt=`Ты — генератор задач для образовательной платформы EduSpace. Создай задачи по навыку:
+          const aiPrompt=`Ты — генератор задач для образовательной платформы AAPA. Создай задачи по навыку:
 
 Навык: "${sktSkillName||'[укажи название навыка]'}"
 ID навыка: "${sktSkillId||'[укажи skill_id]'}"

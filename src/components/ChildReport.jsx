@@ -12,14 +12,11 @@ import { buildDiagModuleTree } from "./diagTree/DiagnosticModuleTree.jsx";
 import { getLevelInfo } from "../lib/levelUtils.js";
 import { getWeekId } from "../lib/pointsUtils.js";
 import { computeVerdict } from "../lib/parentVerdict.js";
+import { ruVertical } from "../lib/verticals.js";
 import ChildMap from "./ChildMap.jsx";
 import { useTheme } from "../ThemeContext.jsx";
 
-const VERTICAL_NAMES = {
-  ALGEBRA: "Алгебра", GEOMETRY: "Геометрия", NUMBERS: "Числа", FUNCTIONS: "Функции",
-  PROBABILITY: "Вероятность", TRIGONOMETRY: "Тригонометрия", CALCULUS: "Анализ", STATISTICS: "Статистика",
-};
-const vName = v => VERTICAL_NAMES[v] || (v ? v[0] + v.slice(1).toLowerCase() : "Тема");
+// Имена вертикалей — из канона src/lib/verticals.js (ruVertical, 11). Свою копию-8 удалили (дрейф).
 const humanizeSkillId = id => !id ? "Навык" : String(id).replace(/[_-]+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
 export default function ChildReport({ childUid }) {
@@ -105,7 +102,7 @@ export default function ChildReport({ childUid }) {
         const strong = [...ranked].reverse().filter(s => s.passRate >= 70).slice(0, 4);
         // По темам: вертикаль -> освоено/всего + средний passRate
         const themes = Object.entries(byVert).map(([vert, rows]) => ({
-          vert, name: vName(vert), total: rows.length,
+          vert, name: ruVertical(vert), total: rows.length,
           mastered: rows.filter(r => r.stages >= 3).length,
           avgPass: rows.length ? Math.round(rows.reduce((s, r) => s + r.passRate, 0) / rows.length) : 0,
         })).sort((a, b) => b.total - a.total);
