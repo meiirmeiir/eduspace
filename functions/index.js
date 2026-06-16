@@ -22,6 +22,7 @@ const { defineSecret } = require('firebase-functions/params');
 const { logger }     = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { computeVerdict } = require('./parentVerdict');   // 1:1 с src/lib/parentVerdict.js
 
 initializeApp();
 const db = getFirestore();
@@ -193,6 +194,54 @@ async function handleTelegramUnlink(token, msg) {
   logger.info('telegram unlinked (bot)', { parentUid, chatId });
   await sendBotMessage(token, chatId,
     '✅ Отвязано. Отчёты больше не приходят.\n\nСнова подключить — в кабинете родителя.');
+}
+
+// Формат краткого отчёта о ребёнке (Этап 2, фаза C). name — уже HTML-escaped.
+function formatReport(name, r) {
+  const emoji = { good: '🟢', struggle: '🟡', idle: '⚪', unknown: '⚪' }[r?.verdict?.state] || '⚪';
+  return [
+    `👤 <b>${name}</b>`,
+    `${emoji} ${r?.verdict?.title || ''}`,
+    '',
+    `📊 Освоение плана: <b>${r.overallPct}%</b>`,
+    `✅ Освоено: ${r.masteredCount} · 🔄 В работе: ${r.inProgressCount}`,
+    `⭐ Очки за неделю: ${r.weekPoints}`,
+    '',
+    '<i>Подробнее — в кабинете на сайте.</i>',
+  ].join('\n');
+}
+
+// /report (Этап 2, фаза C): текущий отчёт по запросу. LIVE через buildStudentReport
+// (вариант B — без снимка, без cold-start; вердикт=кабинету). Одно сообщение на ребёнка.
+async function handleReport(token, msg) {
+  const chatId = String(msg?.chat?.id);
+  const link = await db.collection('telegramLinks').doc(chatId).get();
+  if (!link.exists) {
+    await sendBotMessage(token, chatId,
+      'ℹ️ Сначала подключите бота в кабинете родителя (раздел «Уведомления в Telegram»).');
+    return;
+  }
+  const parentUid = link.data()?.parentUid;
+  const uSnap = parentUid ? await db.collection('users').doc(parentUid).get() : null;
+  const childUids = (uSnap && uSnap.exists ? uSnap.data()?.childUids : null) || [];
+  if (!childUids.length) {
+    await sendBotMessage(token, chatId,
+      'У вашего аккаунта пока нет привязанных детей — добавьте ребёнка в кабинете родителя.');
+    return;
+  }
+  const weekId = getWeekId(new Date());   // ТЕКУЩАЯ неделя (live), как кабинет
+  for (const cid of childUids) {
+    try {
+      const r = await buildStudentReport(cid, weekId);
+      const p = await db.collection('publicProfiles').doc(cid).get();
+      const pd = p.exists ? p.data() : {};
+      const name = escapeHtml(`${pd.firstName || ''} ${pd.lastName || ''}`.trim() || 'Ребёнок');
+      await sendBotMessage(token, chatId, formatReport(name, r));
+    } catch (e) {
+      logger.error('telegramWebhook: report failed', { parentUid, child: cid, err: String(e) });
+      await sendBotMessage(token, chatId, '⚠️ Не удалось сформировать отчёт по одному из детей. Попробуйте позже.');
+    }
+  }
 }
 
 // ── ISO-неделя (год + неделя четверга) ──────────────────────────────────────
@@ -633,6 +682,67 @@ exports.awardWeeklyMedals = onSchedule(
   }
 );
 
+// ── Снимок-отчёт одного ученика за неделю weekId (метрики + вердикт) ─────────
+// ЕДИНЫЙ источник методики для двух потребителей:
+//   • weeklyProgressSnapshot — персист (завершившаяся неделя, скип-аргумент skills из батча);
+//   • /report бота (фаза C) — LIVE на текущей неделе (skills читает сам).
+// overallPct — skill-level avg ([0,40,80,100][stages]) по навыкам ПЛАНА (модульный
+// buildDiagModuleTree React-связан, в CF недоступен — отличается от кабинета, задокументировано).
+// skillsArg — опц. предзагруженные skills (батч снимка не перечитывает skillMastery).
+async function buildStudentReport(uid, weekId, skillsArg = null) {
+  const PCT = st => [0, 40, 80, 100][Math.min(Number(st) || 0, 3)];
+  const stagesOf = s => Number(s?.stagesCompleted || 0);
+
+  const skills = skillsArg
+    || ((await db.collection('skillMastery').doc(uid).get()).data()?.skills || {});
+
+  // агрегаты из стадий + счётчиков
+  let masteredCount = 0, inProgressCount = 0, cumAtt = 0, cumCor = 0;
+  for (const v of Object.values(skills)) {
+    const st = stagesOf(v);
+    if (st >= 3) masteredCount++; else if (st > 0) inProgressCount++;
+    cumAtt += Number(v?.dailyAttempts || 0);
+    cumCor += Number(v?.dailyCorrect || 0);
+  }
+
+  // план → overallPct (skill-level) + byVerticalPct
+  const planSnap = await db.collection('individualPlans').doc(uid).get();
+  const plan = planSnap.exists ? planSnap.data() : null;
+  const planSkillIds = [...new Set((plan?.modules || []).flatMap(m => (m && m.skills_list) || []))];
+  const pctOfSkill = id => PCT(stagesOf(skills[id]));
+  const overallPct = planSkillIds.length
+    ? Math.round(planSkillIds.reduce((s, id) => s + pctOfSkill(id), 0) / planSkillIds.length)
+    : (Object.keys(skills).length
+        ? Math.round(Object.values(skills).reduce((s, v) => s + PCT(stagesOf(v)), 0) / Object.keys(skills).length)
+        : 0);
+  const byVerticalPct = {};
+  (plan?.modules || []).forEach(m => Object.entries(m?.by_vertical || {}).forEach(([vert, arr]) => {
+    const ids = (arr || []).map(x => x && x.id).filter(Boolean);
+    if (ids.length) byVerticalPct[vert] = Math.round(ids.reduce((s, id) => s + pctOfSkill(id), 0) / ids.length);
+  }));
+
+  // weekPoints из leaderboard указанной недели
+  const lbSnap = await db.collection('leaderboard').doc(weekId).collection('entries').doc(uid).get();
+  const weekPoints = lbSnap.exists ? Number(lbSnap.data()?.points || 0) : 0;
+
+  // users: lastActiveDate (родителю users закрыт) + totalPoints (для вердикта)
+  const uSnap = await db.collection('users').doc(uid).get();
+  const udata = uSnap.exists ? uSnap.data() : {};
+  const lastActiveDate = udata?.lastActiveDate || null;
+  const totalPoints = Number(udata?.totalPoints || 0);
+
+  const verdict = computeVerdict({
+    thisWeekPoints: weekPoints, attempts: cumAtt, correct: cumCor, totalPoints, masteredCount,
+  });
+
+  return {
+    weekId, overallPct, masteredCount, inProgressCount,
+    planSkillCount: planSkillIds.length,
+    cumulativeAttempts: cumAtt, cumulativeCorrect: cumCor,
+    weekPoints, byVerticalPct, lastActiveDate, totalPoints, verdict,
+  };
+}
+
 // ── Cloud Function: недельный снимок прогресса ученика ──────────────────────
 // Фундамент истории для родительского дашборда: раз в неделю фиксируем состояние
 // каждого ученика → progressSnapshots/{uid}/weeks/{weekId}. Через накопление даёт
@@ -653,8 +763,6 @@ exports.weeklyProgressSnapshot = onSchedule(
     const now = new Date();
     const weekId = getPrevWeekId(now);   // завершившаяся неделя — синхронно с leaderboard/medals
     const date = now.toISOString();
-    const PCT = st => [0, 40, 80, 100][Math.min(Number(st) || 0, 3)];
-    const stagesOf = s => Number(s?.stagesCompleted || 0);
 
     const masterySnaps = await db.collection('skillMastery').get();
     let written = 0;
@@ -662,46 +770,15 @@ exports.weeklyProgressSnapshot = onSchedule(
     for (const ms of masterySnaps.docs) {
       try {
         const uid = ms.id;
-        const skills = ms.data()?.skills || {};
-
-        // агрегаты из стадий + счётчиков
-        let masteredCount = 0, inProgressCount = 0, cumAtt = 0, cumCor = 0;
-        for (const v of Object.values(skills)) {
-          const st = stagesOf(v);
-          if (st >= 3) masteredCount++; else if (st > 0) inProgressCount++;
-          cumAtt += Number(v?.dailyAttempts || 0);
-          cumCor += Number(v?.dailyCorrect || 0);
-        }
-
-        // план → overallPct (skill-level) + byVerticalPct
-        const planSnap = await db.collection('individualPlans').doc(uid).get();
-        const plan = planSnap.exists ? planSnap.data() : null;
-        const planSkillIds = [...new Set((plan?.modules || []).flatMap(m => (m && m.skills_list) || []))];
-        const pctOfSkill = id => PCT(stagesOf(skills[id]));
-        const overallPct = planSkillIds.length
-          ? Math.round(planSkillIds.reduce((s, id) => s + pctOfSkill(id), 0) / planSkillIds.length)
-          : (Object.keys(skills).length
-              ? Math.round(Object.values(skills).reduce((s, v) => s + PCT(stagesOf(v)), 0) / Object.keys(skills).length)
-              : 0);
-        const byVerticalPct = {};
-        (plan?.modules || []).forEach(m => Object.entries(m?.by_vertical || {}).forEach(([vert, arr]) => {
-          const ids = (arr || []).map(x => x && x.id).filter(Boolean);
-          if (ids.length) byVerticalPct[vert] = Math.round(ids.reduce((s, id) => s + pctOfSkill(id), 0) / ids.length);
-        }));
-
-        // weekPoints из leaderboard завершившейся недели
-        const lbSnap = await db.collection('leaderboard').doc(weekId).collection('entries').doc(uid).get();
-        const weekPoints = lbSnap.exists ? Number(lbSnap.data()?.points || 0) : 0;
-
-        // lastActiveDate из users (родителю users закрыт → отдаём через снимок)
-        const uSnap = await db.collection('users').doc(uid).get();
-        const lastActiveDate = uSnap.exists ? (uSnap.data()?.lastActiveDate || null) : null;
-
+        // skills уже загружены батчем — передаём, чтобы хелпер не перечитывал skillMastery
+        const r = await buildStudentReport(uid, weekId, ms.data()?.skills || {});
         await db.collection('progressSnapshots').doc(uid).collection('weeks').doc(weekId).set({
-          weekId, date, overallPct, masteredCount, inProgressCount,
-          planSkillCount: planSkillIds.length,
-          cumulativeAttempts: cumAtt, cumulativeCorrect: cumCor,
-          weekPoints, byVerticalPct, lastActiveDate,
+          weekId, date,
+          overallPct: r.overallPct, masteredCount: r.masteredCount, inProgressCount: r.inProgressCount,
+          planSkillCount: r.planSkillCount,
+          cumulativeAttempts: r.cumulativeAttempts, cumulativeCorrect: r.cumulativeCorrect,
+          weekPoints: r.weekPoints, byVerticalPct: r.byVerticalPct, lastActiveDate: r.lastActiveDate,
+          verdict: r.verdict,
         }, { merge: true });
         written++;
       } catch (e) {
@@ -752,15 +829,18 @@ exports.telegramWebhook = onRequest(
           await handleTelegramLink(token, msg, arg);
         } else if (cmd === '/unlink') {
           await handleTelegramUnlink(token, msg);
+        } else if (cmd === '/report') {
+          await handleReport(token, msg);
         } else if (cmd === '/start') {
           await sendBotMessage(token, chatId,
             'Здравствуйте! Это бот <b>EduSpace</b> для родителей — сюда приходят отчёты о ' +
             'прогрессе вашего ребёнка.\n\n' +
             'Чтобы подключить: откройте кабинет родителя на сайте → «Подключить Telegram» → ' +
-            'нажмите «Открыть бота» или пришлите мне код командой <code>/link КОД</code>.');
+            'нажмите «Открыть бота» или пришлите мне код командой <code>/link КОД</code>.\n\n' +
+            'После подключения — <b>/report</b> покажет текущий отчёт.');
         } else {
           await sendBotMessage(token, chatId,
-            'Команда недоступна. Отправьте /start или подключитесь кодом: /link КОД.');
+            'Команды: <b>/report</b> — отчёт о ребёнке, /unlink — отключить. Или /start — помощь.');
         }
       }
     } catch (e) {

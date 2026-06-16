@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "smoke": "playwright test",
+    "test:unit": "vitest run tests/unit",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/firestore-rules --fileParallelism=false\""
   },
   "dependencies": {
