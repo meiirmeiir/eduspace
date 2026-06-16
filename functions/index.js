@@ -201,6 +201,35 @@ async function handleTelegramUnlink(token, msg) {
     '✅ Отвязано. Отчёты больше не приходят.\n\nСнова подключить — в кабинете родителя.');
 }
 
+// /stop (Этап 2, фаза E): отписка от АВТОрассылки. Привязка ЦЕЛА (≠ /unlink): /report
+// работает по запросу, дайджест по понедельникам не приходит. Оперирует своим chatId.
+async function handleTelegramStop(token, msg) {
+  const chatId = String(msg?.chat?.id);
+  const link = await db.collection('telegramLinks').doc(chatId).get();
+  if (!link.exists) {
+    await sendBotMessage(token, chatId, 'ℹ️ У этого чата нет активной привязки.');
+    return;
+  }
+  await link.ref.set({ digestEnabled: false }, { merge: true });
+  logger.info('telegram digest stopped', { chatId });
+  await sendBotMessage(token, chatId,
+    '🔕 Еженедельные отчёты остановлены.\n\n/report по-прежнему работает по запросу. /resume — включить еженедельные снова.');
+}
+
+// /resume (Этап 2, фаза E): включить АВТОрассылку обратно.
+async function handleTelegramResume(token, msg) {
+  const chatId = String(msg?.chat?.id);
+  const link = await db.collection('telegramLinks').doc(chatId).get();
+  if (!link.exists) {
+    await sendBotMessage(token, chatId, 'ℹ️ У этого чата нет активной привязки.');
+    return;
+  }
+  await link.ref.set({ digestEnabled: true }, { merge: true });
+  logger.info('telegram digest resumed', { chatId });
+  await sendBotMessage(token, chatId,
+    '🔔 Еженедельные отчёты включены. Буду присылать итог каждую неделю.');
+}
+
 // Блок одного ребёнка (Этап 2, фаза C/D). БЕЗ футера — он добавляется один раз на
 // сообщение (buildReportMessages), чтобы не дублироваться при склейке нескольких детей.
 // name — уже HTML-escaped.
@@ -887,16 +916,22 @@ exports.telegramWebhook = onRequest(
           await handleTelegramUnlink(token, msg);
         } else if (cmd === '/report') {
           await handleReport(token, msg);
+        } else if (cmd === '/stop') {
+          await handleTelegramStop(token, msg);
+        } else if (cmd === '/resume') {
+          await handleTelegramResume(token, msg);
         } else if (cmd === '/start') {
           await sendBotMessage(token, chatId,
             'Здравствуйте! Это бот <b>EduSpace</b> для родителей — сюда приходят отчёты о ' +
             'прогрессе вашего ребёнка.\n\n' +
             'Чтобы подключить: откройте кабинет родителя на сайте → «Подключить Telegram» → ' +
             'нажмите «Открыть бота» или пришлите мне код командой <code>/link КОД</code>.\n\n' +
-            'После подключения — <b>/report</b> покажет текущий отчёт.');
+            'После подключения: <b>/report</b> — текущий отчёт; <b>/stop</b> — остановить ' +
+            'еженедельные, <b>/resume</b> — вернуть.');
         } else {
           await sendBotMessage(token, chatId,
-            'Команды: <b>/report</b> — отчёт о ребёнке, /unlink — отключить. Или /start — помощь.');
+            'Команды: <b>/report</b> — отчёт, /stop — без еженедельных, /resume — снова, ' +
+            '/unlink — отключить. /start — помощь.');
         }
       }
     } catch (e) {
@@ -963,6 +998,7 @@ exports.weeklyParentDigest = onSchedule(
       const chatId = linkDoc.id;
       try {
         const ld = linkDoc.data() || {};
+        if (ld.digestEnabled === false) continue;          // /stop — отписан от авторассылки
         if (ld.lastSentWeekId === weekId) continue;        // уже слали за эту неделю
         const parentUid = ld.parentUid;
         if (!parentUid) continue;
