@@ -118,7 +118,7 @@ async function answerCallback(token, cqId, text) {
 // маппит в хендлеры. is_persistent — держится внизу всегда; resize — компактная.
 // Ставится на /start, /link-подтверждение, фоллбэк. 📊 Отчёт — широкой кнопкой сверху (акцент).
 const MAIN_KEYBOARD = {
-  keyboard: [['📊 Отчёт'], ['📚 По темам', '📈 Динамика']],
+  keyboard: [['📊 Отчёт'], ['📚 По разделам', '📈 Динамика']],
   resize_keyboard: true,
   is_persistent: true,
 };
@@ -291,7 +291,7 @@ function childBlock(name, r) {
 // (только на 1-м сообщении, для дайджеста). Разделитель между блоками; футер один раз
 // в конце каждого. Блок целиком (не режем): не влезает под лимит → новое сообщение.
 // ОДИН упаковщик для /report (childBlock) и /themes (themesBlock).
-const REPORT_SEP = '\n──────────\n';
+const REPORT_SEP = '\n\n';   // H-#3: пустая строка между блоками (каждый начинается с жирного имени → адаптивный разделитель)
 const REPORT_FOOTER = '\n\n<i>Подробнее — в кабинете на сайте.</i>';
 const MSG_LIMIT = 4000;   // запас под футер/эмодзи (Telegram максимум — 4096)
 
@@ -330,20 +330,31 @@ const VERTICAL_NAMES = {
   PROBABILITY: 'Вероятность', STATISTICS: 'Статистика', WORD_PROBLEMS: 'Текстовые задачи',
   FUNCTIONS: 'Функции', TRIGONOMETRY: 'Тригонометрия', CALCULUS: 'Математический анализ', LOGIC: 'Логика',
 };
-const vName = v => VERTICAL_NAMES[String(v || '').toUpperCase()] || (v ? v[0] + v.slice(1).toLowerCase() : 'Тема');
+const vName = v => VERTICAL_NAMES[String(v || '').toUpperCase()] || (v ? v[0] + v.slice(1).toLowerCase() : 'Раздел');
 
-// Блок «по темам» одного ребёнка: вертикали (byVerticalPct) с %, сортировка сильные↑/слабые↓,
-// маркеры 🟢≥70 / 🟡40-69 / 🔴<40. name — уже HTML-escaped.
+// Заголовок-пояснение к /themes (H-#2): на уровне сообщения, один раз сверху.
+const THEMES_HEADER = 'Освоение разделов (средний уровень по навыкам):';
+
+// Блок «по разделам» одного ребёнка (H-#2, B-инлайн): byVerticalPct сгруппированы по уровню
+// (🟢≥70 «Сильные» / 🟡40-69 «В процессе» / 🔴<40 «Нужно внимание»); пустые группы опускаются;
+// внутри группы «Имя NN%» через запятую, по убыванию %. name — уже HTML-escaped.
 function themesBlock(name, r) {
   const entries = Object.entries(r?.byVerticalPct || {});
   if (!entries.length) {
-    return `📚 <b>${name}</b>\n<i>Данные по темам появятся после занятий.</i>`;
+    return `📚 <b>${name}</b>\n<i>Данные по разделам появятся после занятий.</i>`;
   }
   entries.sort((a, b) => b[1] - a[1]);   // сильные сверху, слабые снизу
-  const lines = entries.map(([code, pct]) => {
-    const m = pct >= 70 ? '🟢' : pct >= 40 ? '🟡' : '🔴';
-    return `${m} ${escapeHtml(vName(code))} — ${pct}%`;
-  });
+  const GROUPS = [
+    { marker: '🟢', label: 'Сильные',        test: p => p >= 70 },
+    { marker: '🟡', label: 'В процессе',     test: p => p >= 40 && p < 70 },
+    { marker: '🔴', label: 'Нужно внимание', test: p => p < 40 },
+  ];
+  const lines = [];
+  for (const g of GROUPS) {
+    const items = entries.filter(([, pct]) => g.test(pct))
+      .map(([code, pct]) => `${escapeHtml(vName(code))} ${pct}%`);
+    if (items.length) lines.push(`${g.marker} ${g.label}: ${items.join(', ')}`);
+  }
   return `📚 <b>${name}</b>\n${lines.join('\n')}`;
 }
 
@@ -351,17 +362,56 @@ function buildThemesMessages(children, header = null) {
   return packMessages(children.map(c => themesBlock(c.name, c.r)), header);
 }
 
-// Блок «динамика» одного ребёнка: overallPct по неделям (≥2 точки), иначе заглушка
-// (порог как у графика кабинета). weeks — отсортированы по weekId. name — HTML-escaped.
+// Месяцы в родительном падеже («25–31 мая», «1 июня»). H-#4.
+const RU_MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+
+// Обратное к getWeekId: "YYYY-Www" → понедельник этой ISO-недели (UTC). ISO-8601: неделя 1 —
+// та, что содержит 4 января. Round-trip getWeekId(mondayOfWeekId(w)) === w (провалидировано W22-W25).
+function mondayOfWeekId(weekId) {
+  const m = /^(\d{4})-W(\d{2})$/.exec(String(weekId || ''));
+  if (!m) return null;
+  const year = Number(m[1]), week = Number(m[2]);
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Dow = jan4.getUTCDay() || 7;                       // Пн=1..Вс=7
+  const week1Monday = new Date(jan4);
+  week1Monday.setUTCDate(jan4.getUTCDate() - (jan4Dow - 1));   // понедельник недели 1
+  const monday = new Date(week1Monday);
+  monday.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
+  return monday;
+}
+
+// "YYYY-Www" → диапазон дат недели: «25–31 мая» (в одном месяце) / «26 мая – 1 июня» (на стыке).
+function formatWeekRange(weekId) {
+  const mon = mondayOfWeekId(weekId);
+  if (!mon) return String(weekId || '').replace(/^\d{4}-/, '');   // фолбэк "W24"
+  const sun = new Date(mon);
+  sun.setUTCDate(mon.getUTCDate() + 6);
+  const d1 = mon.getUTCDate(), m1 = mon.getUTCMonth();
+  const d2 = sun.getUTCDate(), m2 = sun.getUTCMonth();
+  return m1 === m2
+    ? `${d1}–${d2} ${RU_MONTHS_GEN[m1]}`
+    : `${d1} ${RU_MONTHS_GEN[m1]} – ${d2} ${RU_MONTHS_GEN[m2]}`;
+}
+
+// Блок «динамика» одного ребёнка (H-#4): диапазон дат недели + бар ▓░ + %, тренд = последняя−
+// предпоследняя неделя. ≥2 точки, иначе заглушка. weeks — отсортированы по weekId. name — HTML-escaped.
 function dynamicsBlock(name, weeks) {
   if (!weeks || weeks.length < 2) {
     return `📈 <b>${name}</b>\n<i>Динамика появится после 1-2 недель занятий.</i>`;
   }
-  const short = w => w.replace(/^\d{4}-/, '');   // "2026-W24" → "W24"
-  const chain = weeks.map(w => `${short(w.weekId)} ${w.overallPct}%`).join(' → ');
-  const delta = weeks[weeks.length - 1].overallPct - weeks[0].overallPct;
-  const trend = delta > 0 ? `↗ рост +${delta}%` : delta < 0 ? `↘ снижение ${delta}%` : '→ без изменений';
-  return `📈 <b>${name}</b>\n${chain}\n${trend}`;
+  const BAR = 8;
+  const bar = pct => {
+    const f = Math.round(Math.max(0, Math.min(100, Number(pct) || 0)) / 100 * BAR);
+    return '▓'.repeat(f) + '░'.repeat(BAR - f);
+  };
+  const rows = weeks.map(w => `${bar(w.overallPct)} ${formatWeekRange(w.weekId)} · ${w.overallPct}%`);
+  const n = weeks.length;
+  const delta = weeks[n - 1].overallPct - weeks[n - 2].overallPct;   // последняя − предпоследняя
+  const trend = delta > 0 ? `↗ +${delta}% за последнюю неделю`
+    : delta < 0 ? `↘ ${delta}% за последнюю неделю`
+    : '→ без изменений за последнюю неделю';
+  return `📈 <b>${name}</b>\n${rows.join('\n')}\n${trend}`;
 }
 
 function buildDynamicsMessages(children, header = null) {
@@ -459,7 +509,7 @@ async function handleThemes(token, msg) {
     await sendBotMessage(token, chatId, '⚠️ Не удалось сформировать отчёт. Попробуйте позже.');
     return;
   }
-  for (const m of buildThemesMessages(children, null)) {
+  for (const m of buildThemesMessages(children, THEMES_HEADER)) {
     await sendBotMessage(token, chatId, m);
   }
 }
@@ -482,7 +532,7 @@ async function handleDynamics(token, msg) {
 // Клавиатура вида бот-кабинета (фаза G). 3 вида по ВСЕМ детям — без выбора ребёнка.
 function viewKeyboard(view) {
   const B = {
-    themes: { text: '📚 По темам', callback_data: 'v:themes' },
+    themes: { text: '📚 По разделам', callback_data: 'v:themes' },
     dyn:    { text: '📈 Динамика', callback_data: 'v:dyn' },
     sum:    { text: '← Сводка',    callback_data: 'v:sum' },
   };
@@ -510,7 +560,7 @@ async function handleCallback(token, cq) {
   try {
     if (view === 'themes') {
       const children = await collectChildReports(childUids, getWeekId(new Date()));
-      if (children.length) text = buildThemesMessages(children, null)[0];
+      if (children.length) text = buildThemesMessages(children, THEMES_HEADER)[0];
     } else if (view === 'dyn') {
       const children = await collectChildDynamics(childUids);
       if (children.length) text = buildDynamicsMessages(children, null)[0];
@@ -1128,7 +1178,7 @@ exports.telegramWebhook = onRequest(
         // ReplyKeyboard-панель (фаза G): тап шлёт текст подписи → маппим в хендлеры (до /команд)
         if (text === '📊 Отчёт') {
           await handleReport(token, msg);
-        } else if (text === '📚 По темам') {
+        } else if (text === '📚 По разделам') {
           await handleThemes(token, msg);
         } else if (text === '📈 Динамика') {
           await handleDynamics(token, msg);
@@ -1152,7 +1202,7 @@ exports.telegramWebhook = onRequest(
             '👋 Здравствуйте! Я бот <b>AAPA</b> — показываю, как учится ваш ребёнок.\n\n' +
             'Нажмите кнопку внизу:\n' +
             '📊 <b>Отчёт</b> — как дела сейчас (главное).\n' +
-            '📚 <b>По темам</b> — где силён, где отстаёт.\n' +
+            '📚 <b>По разделам</b> — где силён, где отстаёт.\n' +
             '📈 <b>Динамика</b> — как менялось по неделям.\n\n' +
             'Каждый понедельник пришлю итоги недели сам.\n\n' +
             'Ещё не подключили? Откройте кабинет родителя на сайте → «Подключить Telegram».',

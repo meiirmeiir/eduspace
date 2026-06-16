@@ -252,7 +252,7 @@ export default function ChildReport({ childUid }) {
         <div style={{ ...card, borderLeft: `3px solid ${C.green}` }}>
           <div style={{ fontWeight: 700, color: C.text, marginBottom: 10 }}>✅ Хорошо освоено</div>
           {strong.length === 0 ? (
-            <div style={{ fontSize: 13, color: C.dim }}>Сильные темы появятся по мере занятий.</div>
+            <div style={{ fontSize: 13, color: C.dim }}>Сильные навыки появятся по мере занятий.</div>
           ) : strong.slice(0, 3).map(s => (
             <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 7 }}>
               {/* 2 строки вместо 1+ellipsis: на мобильном родитель читает название; процент держится у верха (flex-start) */}
@@ -275,11 +275,11 @@ export default function ChildReport({ childUid }) {
         </div>
       </div>
 
-      {/* По темам — плитки auto-fit (1 тема = компактная, много = ряд; без пустой ширины) */}
+      {/* По разделам — плитки auto-fit (1 раздел = компактная, много = ряд; без пустой ширины) */}
       <div style={card}>
-        <div style={{ fontWeight: 700, color: C.text, marginBottom: 12 }}>📚 По темам</div>
+        <div style={{ fontWeight: 700, color: C.text, marginBottom: 12 }}>📚 По разделам</div>
         {themes.length === 0 ? (
-          <div style={{ fontSize: 13, color: C.dim }}>Данных по темам пока нет.</div>
+          <div style={{ fontSize: 13, color: C.dim }}>Данных по разделам пока нет.</div>
         ) : (
           <div className="cr-themes">
             {themes.map(t => {
