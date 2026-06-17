@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { CONFIDENCE_LEVELS, GRADES_LIST, EXAMS_LIST } from "../lib/appConstants.js";
+import { CONFIDENCE_LEVELS, CONF_EMOJI, CONF_SHORT, GRADES_LIST, EXAMS_LIST } from "../lib/appConstants.js";
 import { useTheme } from "../ThemeContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { generateQuestion, shuffle } from "../lib/mathUtils.js";
@@ -371,9 +371,7 @@ function QuestionScreen({ question, qNum, total, adaptiveMode, isLastQuestion, o
 
   const allMatchFilled = (resolvedQ.pairs||[]).length>0 && (resolvedQ.pairs||[]).every((_,i)=>matchSel[i]!==undefined);
 
-  const CONF_EMOJI = { 1:"😰", 2:"😕", 3:"😐", 4:"😊", 5:"🔥" };
-  const CONF_SHORT = { 1:"Нет", 2:"Слабо", 3:"Норм", 4:"Уверен", 5:"100%" };
-  const renderConfBtn = (c, currentConf, setConf) => {
+  const renderConfBtn = (c, currentConf, setConf) => {   // CONF_EMOJI/CONF_SHORT теперь из appConstants (единый источник)
     const isActive = currentConf?.v===c.v;
     return (
       <button

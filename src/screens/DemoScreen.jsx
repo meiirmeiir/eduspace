@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import LatexText from "../components/ui/LatexText.jsx";
 import { pickDemoQuestions } from "../data/demoQuestions.js";
+import ConfidencePicker from "../components/ConfidencePicker.jsx";
 
 /**
  * DemoScreen — мини-диагностика из 5 задач БЕЗ регистрации.
@@ -32,22 +33,31 @@ export default function DemoScreen({ onFinish, onExit }) {
   const total = questions.length;
 
   const [idx, setIdx] = useState(0);
-  const [selected, setSelected] = useState(null); // выбранный индекс (после ответа — заблокирован)
-  const [answers, setAnswers] = useState([]); // [{topic, correct}]
+  const [selected, setSelected] = useState(null);     // выбранный индекс ответа
+  const [confidence, setConfidence] = useState(null); // {v,color,label} | null — 2-й шаг (уверенность)
+  const [answers, setAnswers] = useState([]); // [{topic, correct, confidence}]
 
   const q = questions[idx];
-  const revealed = selected !== null;
+  // Двухшаговость (как реальная диагностика): reveal/засчёт ТОЛЬКО после выбора ответа И
+  // уверенности → защита от случайного тапа (друзья жаловались на одношаговый засчёт).
+  const revealed = selected !== null && confidence !== null;
 
   const choose = useCallback((i) => {
-    if (selected !== null) return; // один ответ на задачу
-    setSelected(i);
-    setAnswers((a) => [...a, { topic: q.topic, correct: i === q.correct }]);
-  }, [selected, q]);
+    if (confidence !== null) return;  // уверенность выбрана → ответ зафиксирован
+    setSelected(i);                   // до уверенности — вариант можно менять (не засчитываем)
+  }, [confidence]);
+
+  const confirm = useCallback((c) => {
+    if (selected === null || confidence !== null) return;
+    setConfidence(c);
+    setAnswers((a) => [...a, { topic: q.topic, correct: selected === q.correct, confidence: c.v }]);
+  }, [selected, confidence, q]);
 
   const next = useCallback(() => {
     if (idx + 1 < total) {
       setIdx(idx + 1);
       setSelected(null);
+      setConfidence(null);
       return;
     }
     // финал: считаем слабые/сильные темы
@@ -119,10 +129,12 @@ export default function DemoScreen({ onFinish, onExit }) {
                 let border = "rgba(255,255,255,.1)", bg = "rgba(255,255,255,.035)", letterBg = "rgba(255,255,255,.08)";
                 if (revealed && isCorrect) { border = "#34d399"; bg = "rgba(52,211,153,0.12)"; letterBg = "#34d399"; }
                 else if (revealed && isSel && !isCorrect) { border = "#f87171"; bg = "rgba(248,113,113,0.12)"; letterBg = "#f87171"; }
+                else if (isSel && !revealed) { border = accent; bg = `${accent}1f`; letterBg = accent; } // выбран, ждём уверенности
+                const hl = (revealed && (isCorrect || isSel)) || (isSel && !revealed);
                 return (
                   <button key={i} className={`dm-opt${revealed ? " locked" : ""}`} onClick={() => choose(i)}
                     style={{ borderColor: border, background: bg }}>
-                    <span className="dm-letter" style={{ background: letterBg, color: revealed && (isCorrect || isSel) ? "#0a0e1a" : "#fff" }}>
+                    <span className="dm-letter" style={{ background: letterBg, color: hl ? "#0a0e1a" : "#fff" }}>
                       {revealed && isCorrect ? "✓" : revealed && isSel ? "✕" : String.fromCharCode(65 + i)}
                     </span>
                     <span style={{ flex: 1 }}><LatexText text={opt} /></span>
@@ -130,6 +142,11 @@ export default function DemoScreen({ onFinish, onExit }) {
                 );
               })}
             </div>
+
+            {/* шаг уверенности (как реальная диагностика) — после выбора варианта, до reveal */}
+            {selected !== null && !revealed && (
+              <ConfidencePicker value={confidence?.v ?? null} onChange={confirm} />
+            )}
 
             {/* разбор */}
             <AnimatePresence>
@@ -158,7 +175,7 @@ export default function DemoScreen({ onFinish, onExit }) {
               boxShadow: revealed ? `0 12px 30px ${accent}33` : "none" }}>
             {idx + 1 < total ? "Следующая задача →" : "Показать мой план →"}
           </button>
-          {!revealed && <p style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 12 }}>Выбери ответ, чтобы продолжить</p>}
+          {!revealed && <p style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 12 }}>{selected === null ? "Выбери ответ" : "Оцени уверенность, чтобы продолжить"}</p>}
         </div>
       </div>
     </div>

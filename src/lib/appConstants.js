@@ -9,6 +9,10 @@ export const CONFIDENCE_LEVELS = [
   { v:3, label:"Нейтрально", color:"#94A3B8" }, { v:4, label:"Уверен", color:"#10B981" },
   { v:5, label:"Абсолютно уверен", color:"#059669" }
 ];
+// Эмодзи/короткие подписи уровней уверенности (по v). Единый источник для
+// диагностики (DiagnosticsScreens) и demo (ConfidencePicker) — без дрейфа.
+export const CONF_EMOJI = { 1:"😰", 2:"😕", 3:"😐", 4:"😊", 5:"🔥" };
+export const CONF_SHORT = { 1:"Нет", 2:"Слабо", 3:"Норм", 4:"Уверен", 5:"100%" };
 export const RPG_NODES = [
   { id:1, name:"Уравнения", x:100, y:350 }, { id:2, name:"Степени", x:250, y:250 },
   { id:3, name:"Рубеж: Алгебра", x:400, y:150, type:"boss" }, { id:4, name:"Площадь", x:550, y:250 },
