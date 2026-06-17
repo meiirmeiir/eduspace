@@ -2,12 +2,12 @@
 import { getContent } from "../lib/contentCache.js";
 import { doc, getDoc, updateDoc, db } from "../firestore-rest.js";
 import { addXp } from "../lib/levelUtils.js";
-import { ruVertical, ruVerticalUpper } from "../lib/verticals.js";
+import { ruVertical, ruVerticalUpper, verticalHue } from "../lib/verticals.js";
 import { useTheme } from "../ThemeContext.jsx";
 import Logo from "../components/ui/Logo.jsx";
 import LatexText from "../components/ui/LatexText.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
-import SkillPlanet3D, { fallbackGradient } from "../components/SkillPlanet3D.jsx";
+import SkillPlanet3D from "../components/SkillPlanet3D.jsx";
 import { buildDiagModuleTree } from "../components/diagTree/DiagnosticModuleTree.jsx";
 
 // ── Хелперы ───────────────────────────────────────────────────────────────────
@@ -67,13 +67,27 @@ function useIsMobile(bp = 880) {
 // Статичная мини-планета (CSS-градиент SkillPlanet3D-фолбэка). Используется на
 // всех карточках каталога: 289 живых WebGL-контекстов невозможны (лимит браузера
 // ~8-16 на страницу), поэтому 3D — только в секции «Сейчас изучаешь».
-function PlanetDot({ life, size = 52 }) {
+// Локальный hue-aware градиент мини-планеты темы: раздел = оттенок (hue), life = яркость.
+// НЕ общий fallbackGradient (тот для 4 др. потребителей без раздела) — SkillPlanet3D не трогаем.
+// life=0 → тускло-насыщенный оттенок РАЗДЕЛА (не серый!); life↑ → ярче; ≥0.95 → +свечение; заперт → тёмно-нейтр.
+function planetGradient(life, hue = 210) {
+  if (life < 0) return `radial-gradient(circle at 38% 32%, hsl(${hue},10%,38%), hsl(${hue},8%,15%) 70%)`;
+  const t = Math.max(0, Math.min(1, life));
+  const sat  = 36 + Math.round(t * 44);   // 36→80%
+  const lite = 44 + Math.round(t * 14);   // 44→58%
+  const inner = `hsl(${hue}, ${sat}%, ${lite}%)`;
+  const outer = `hsl(${(hue + 18) % 360}, ${Math.max(0, sat - 12)}%, ${Math.max(16, lite - 24)}%)`;
+  const glow  = t >= 0.95 ? `, radial-gradient(circle, transparent 58%, hsla(${hue},85%,72%,0.42))` : '';
+  return `radial-gradient(circle at 38% 32%, ${inner}, ${outer} 72%)${glow}`;
+}
+
+function PlanetDot({ life, hue = 210, size = 52 }) {
   return (
     <div aria-hidden="true" style={{ position:'relative', width:size, height:size, flexShrink:0 }}>
       <div style={{
         width:size, height:size, borderRadius:'50%',
-        background: fallbackGradient(life),
-        boxShadow: life >= 0.8 ? '0 0 14px rgba(120,200,255,0.45)' : life >= 0 ? '0 0 8px rgba(120,200,255,0.15)' : 'none',
+        background: planetGradient(life, hue),
+        boxShadow: life >= 0.8 ? `0 0 14px hsla(${hue},85%,65%,0.45)` : life >= 0 ? `0 0 8px hsla(${hue},60%,60%,0.18)` : 'none',
       }}/>
       {life < 0 && (
         <span style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:Math.round(size*0.38), opacity:0.85 }}>🔒</span>
@@ -588,7 +602,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
                 <SkillPlanet3D fromLife={life} toLife={life} size={planetSize}/>
               </div>
             </LazyMount>
-          : <PlanetDot life={life} size={planetSize}/>}
+          : <PlanetDot life={life} hue={verticalHue(t.vertical_line_id)} size={planetSize}/>}
         <div style={{ minWidth:0, flex:1 }}>
           <div style={{ fontSize:11, color:THEME.textLight, marginBottom:3 }}>{[ruVertical(t.vertical_line_id), t.grade ? `${t.grade} кл` : ''].filter(Boolean).join(' · ')}</div>
           <div style={{ fontWeight:700, fontSize:15, color:THEME.primary, marginBottom:6, paddingRight:isRead?20:0 }}>{highlight(ruName)}</div>
