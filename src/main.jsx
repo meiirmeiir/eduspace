@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import ScrollToTop from './components/ScrollToTop.jsx'
 import { NpcProvider } from './NpcContext.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
@@ -22,6 +23,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <NpcProvider>
           <App />
+          <ScrollToTop />
         </NpcProvider>
       </AuthProvider>
     </ErrorBoundary>

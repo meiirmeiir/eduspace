@@ -543,6 +543,26 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 [data-theme="dark"] .mbn-item { color:#8b949e !important; }
 [data-theme="dark"] .mbn-item.active { color:#f0f6fc !important; }
 
+/* ── Floating «наверх» (ScrollToTop, монтируется глобально в main.jsx) ──
+   Window-скролл; видимость (scrollY>600) — в компоненте. z-index ниже модалок (300).
+   Мобайл — над боттом-меню (~72px), чтобы не перекрыть. */
+.scroll-to-top {
+  position:fixed; bottom:24px; right:24px; z-index:200;
+  width:48px; height:48px; border-radius:50%; border:none;
+  background:#f5c518; color:#0f172a; font-size:22px; font-weight:700; line-height:1;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 16px rgba(0,0,0,0.28);
+  transition:transform 0.15s ease, box-shadow 0.15s ease;
+  animation:stt-in 0.2s ease;
+}
+.scroll-to-top:hover  { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.34); }
+.scroll-to-top:active { transform:translateY(0); }
+@keyframes stt-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@media (max-width: 768px) {
+  .scroll-to-top { bottom:88px; right:16px; width:44px; height:44px; font-size:20px; }
+}
+[data-theme="dark"] .scroll-to-top { box-shadow:0 4px 16px rgba(0,0,0,0.5); }
+
 /* Sticky-кнопка «Следующая задача» (фаза playing ежедневок). На мобайле сидит
    НАД таб-баром той же safe-area-математикой, что .assistant-widget (72px = таб-бар
    ~56 + зазор); на десктопе таб-бара нет (display:none) → у нижнего края. Бар
