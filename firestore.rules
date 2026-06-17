@@ -375,10 +375,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ── Доска (whiteboard): участники урока — оба залогинены ─────────────────
-    match /wbImages/{docId}    { allow read, write: if isSignedIn(); }
-    match /wbStrokes/{docId}   { allow read, write: if isSignedIn(); }
-    match /whiteboards/{docId} { allow read, write: if isSignedIn(); }
+    // ── Доска (whiteboard): контент урока. Пишет ТОЛЬКО учитель (admin); читают
+    // все залогиненные (ученик смотрит доску своего урока). Запись учеником
+    // закрыта — в UI canvas readOnly для не-admin (LessonModal), теперь и в rules.
+    match /wbImages/{docId}    { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /wbStrokes/{docId}   { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /whiteboards/{docId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
 
     // ── Индивидуальные планы (уже закрыты выше) ──────────────────────────────
     // (individualPlans — см. выше в разделе прогресса)

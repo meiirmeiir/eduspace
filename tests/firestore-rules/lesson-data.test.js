@@ -189,9 +189,14 @@ describe('whiteboard коллекции', () => {
       await assertFails(getDoc(doc(db, col, 'wb1')));
     });
 
-    test(`[${col}] залогиненный может писать (участник урока)`, async () => {
+    test(`[${col}] admin (учитель) может писать`, async () => {
+      const db = authedDb(env, 'admin-uid', { role: 'admin' });
+      await assertSucceeds(setDoc(doc(db, col, 'wb1'), { wbId: 'lesson1', data: 'stroke' }));
+    });
+
+    test(`[${col}] залогиненный НЕ-admin (ученик) НЕ может писать`, async () => {
       const db = authedDb(env, 'alice');
-      await assertSucceeds(setDoc(doc(db, col, 'wb_alice'), { wbId: 'lesson1', data: 'stroke' }));
+      await assertFails(setDoc(doc(db, col, 'wb_alice'), { wbId: 'lesson1', data: 'stroke' }));
     });
 
     test(`[${col}] анонимный НЕ может писать`, async () => {
