@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "../firestore-rest.js";
 import { compressImage } from "../lib/mathUtils.js";
 import { getAlmatyDateStr } from "../lib/srsUtils.js";
-import { tgPhoto, STUDENT_STATUSES, DAY_NAMES_SHORT, PLANS } from "../lib/appConstants.js";
+import { STUDENT_STATUSES, DAY_NAMES_SHORT, PLANS } from "../lib/appConstants.js";
 import { useTheme } from "../ThemeContext.jsx";
 import { getMyWeeklyRank, getLeague } from "../lib/pointsUtils.js";
 import Logo from "../components/ui/Logo.jsx";
@@ -266,10 +266,6 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
       const totalSize=photos.reduce((s,p)=>s+p.length,0);
       const data={hwId:submittingHwId,hwTitle:hw?.title||"",userId:user?.uid,userPhone:user?.phone,userName:`${user?.firstName} ${user?.lastName}`,photos:totalSize<900000?photos:[],submittedAt:new Date().toISOString(),status:"pending",feedback:"",grade:null};
       const ref=await addDoc(collection(db,"hwSubmissions"),data);
-      // Send to Telegram
-      for(let i=0;i<submitFiles.length;i++){
-        await tgPhoto(submitFiles[i],`📚 ДЗ сдано (${i+1}/${submitFiles.length})\n👤 ${user?.firstName} ${user?.lastName} (${user?.phone})\n📋 ${hw?.title||""}`);
-      }
       setHwSubmissions(p=>[...p,{id:ref.id,...data}]);
       closeSubmitHw();
     }catch(e){alert("Ошибка: "+e.message);}

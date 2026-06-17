@@ -40,7 +40,7 @@ import FaqScreen from "./screens/FaqScreen.jsx";
 import DailyLockModal from "./components/DailyLockModal.jsx";
 import { getAlmatyDateStr } from "./lib/srsUtils.js";
 import { generateRoadmap, parseGrade } from "./lib/diagnosticUtils.js";
-import { DIFFICULTY_WEIGHTS, escHtml, tgSend } from "./lib/appConstants.js";
+import { DIFFICULTY_WEIGHTS } from "./lib/appConstants.js";
 import { updateTopicProgress } from "./lib/mathUtils.js";
 import IndividualPlanScreen from "./screens/IndividualPlanScreen.jsx";
 import SmartDiagRunner from "./components/SmartDiagRunner.jsx";
@@ -924,113 +924,8 @@ function AppInner() {
         }
         // Обновить прогресс по темам
         updateTopicProgress(user?.phone, next).catch(e=>console.error("progress:",e));
-        // Уведомление в Telegram — разбиваем на чанки, чтобы не превысить лимит 4096 символов
-        // Определяем тип диагностики по данным ответов:
-        // у умной диагностики все ответы имеют поле verticalId (ставит DiagnosticEngine).
-        const isSmartDiag=next.some(a=>a.verticalId)||!!pendingSection?._smartDiag;
-        // Для умной диагностики строим разбивку по вертикальным линиям
-        let verticalBreakdown="";
-        if(isSmartDiag){
-          const vertMap={};
-          next.forEach(a=>{
-            const vid=a.verticalId||a.section||"—";
-            if(!vertMap[vid]) vertMap[vid]={correct:0,total:0};
-            vertMap[vid].total++;
-            if(a.correct) vertMap[vid].correct++;
-          });
-          verticalBreakdown="\n📐 <b>По вертикалям:</b>\n"+Object.entries(vertMap).map(([vid,s])=>{
-            const pct=Math.round(s.correct/s.total*100);
-            const bar=pct>=70?"🟢":pct>=40?"🟡":"🔴";
-            return `  ${bar} ${escHtml(vid)}: ${s.correct}/${s.total} (${pct}%)`;
-          }).join("\n");
-        }
-        const summary=[
-          isSmartDiag?`🧠 <b>Умная Диагностика завершена</b>`:`📊 <b>Диагностика завершена</b>`,
-          `👤 <b>${escHtml(user?.firstName)} ${escHtml(user?.lastName)}</b> (${escHtml(user?.phone)})`,
-          `🎯 ${escHtml(user?.goal)} · ${escHtml(user?.details)}`,
-          isSmartDiag?`📚 Раздел: <b>Умная Диагностика</b>`:`📚 Раздел: <b>${escHtml(currentSectionName||"—")}</b>`,
-          `✅ Результат: <b>${score}%</b> (${correct}/${next.length})`,
-          `⏱ Время: ${Math.floor(totalTime/60)}м ${totalTime%60}с`,
-          verticalBreakdown,
-        ].filter(Boolean).join("\n");
-        await tgSend(summary);
-        // Send answers in chunks to stay under Telegram's 4096-char limit
-        const MAX=3800;
-        // Для умной диагностики: шаги движка отправляем все разом после завершения
-        if(isSmartDiag){
-          const flushSmart=async(c)=>{try{await tgSend(c);}catch(e){console.warn("smart chunk:",e);}};
-          let smartChunk="";
-          for(let i=0;i<next.length;i++){
-            const a=next[i];
-            const d=a._engineDebug||{};
-            const icon=a.correct?"✅":"❌";
-            const resultTxt=a.correct?"Верно":"Неверно";
-            const entry=[
-              `\nШаг ${i+1} / ${next.length}`,
-              `👤 ${icon} Ответ: ${resultTxt} | Тема: ${escHtml(a.topic||"—")} | Класс: ${escHtml(a._grade||a.section||"—")} | Увер: ${a.confidence??"-"}/5 | ${a.timeSpent||0}с`,
-              `⚙️ 🔄 ${escHtml(d.skillStatusLine||"—")}`,
-              `📍 Вертикаль: ${escHtml(d.verticalName||"—")} (остаток: ${d.availableCount??"-"})`,
-              `🧠 ${escHtml(d.selectionReasonRu||"—")}`,
-            ].join("\n");
-            if(smartChunk.length+entry.length>MAX){await flushSmart(smartChunk);smartChunk=entry;}
-            else smartChunk+=entry;
-          }
-          if(smartChunk)await flushSmart(smartChunk);
-        } else {
-        let chunk=`📝 <b>Ответы:</b>`;
-        const flushChunk=async(c)=>{ try{ await tgSend(c); }catch(e){ console.warn("chunk send:",e); } };
-        for(let i=0;i<next.length;i++){
-          const a=next[i];
-          let entry;
-          if(a.type==="compound"){
-            let subLines;
-            if((a.subResults||[]).length>0){
-              subLines=a.subResults.map((sr,si)=>{
-                const lines=[];
-                lines.push(`   Под-вопрос ${si+1}: ${sr.correct?"✅":"❌"} <b>${escHtml(sr.text||"")}</b>`);
-                if((sr.options||[]).length>0){
-                  const optsStr=sr.options.map((o,oi)=>`${String.fromCharCode(1040+oi)}) ${escHtml(o)}`).join(" | ");
-                  lines.push(`      📋 ${optsStr}`);
-                }
-                if(sr.selectedIdx!=null&&(sr.options||[]).length>sr.selectedIdx){
-                  const selLetter=String.fromCharCode(1040+sr.selectedIdx);
-                  const corrLetter=sr.correctIdx!=null?String.fromCharCode(1040+sr.correctIdx):null;
-                  const wrongNote=!sr.correct&&corrLetter?` (верно: ${corrLetter})`:""
-                  lines.push(`      ➤ Выбрано: <b>${selLetter}) ${escHtml(sr.options[sr.selectedIdx])}</b>${wrongNote}`);
-                }
-                if((sr.skillNames||[]).length>0) lines.push(`      🎯 Навык: ${escHtml(sr.skillNames.join(", "))}`);
-                return lines.join("\n");
-              }).join("\n");
-            } else {
-              const parts=(a.selectedAnswer||"").split(" | ");
-              subLines=parts.map((part,si)=>`   Под-вопрос ${si+1}: ${escHtml(part)}`).join("\n");
-            }
-            entry=[
-              `\n${i+1}. ${a.correct?"✅":"❌"} <b>${escHtml(a.topic)}</b> [${escHtml(a.section)}] (составной)`,
-              a.questionText?`   📝 <i>${escHtml(a.questionText.slice(0,200))}</i>`:null,
-              subLines,
-              `   ⏱ ${a.timeSpent}с | Увер: ${a.confidence??"-"}/5`,
-            ].filter(Boolean).join("\n");
-          } else {
-          const optionsLine=(a.options||[]).length>0?`   📋 Варианты: ${a.options.map((o,oi)=>String.fromCharCode(1040+oi)+") "+o).join(" | ")}`:null;
-          const skillsLine=(a.skillNames||[]).length>0?`   🎯 Навыки: ${a.skillNames.join(", ")}`:null;
-          entry=[
-            `\n${i+1}. ${a.correct?"✅":"❌"} <b>${escHtml(a.topic)}</b> [${escHtml(a.section)}]`,
-            a.questionText?`   📝 <i>${escHtml(a.questionText.slice(0,300))}</i>`:null,
-            optionsLine?`   ${escHtml(optionsLine.trim())}`:null,
-            `   ➤ Выбрано: <b>${escHtml(a.selectedAnswer||"—")}</b> | Увер: ${a.confidence??"-"}/5 | ${a.timeSpent}с`,
-            skillsLine?`   ${escHtml(skillsLine.trim())}`:null,
-          ].filter(Boolean).join("\n");
-          }
-          if(chunk.length+entry.length>MAX){
-            await flushChunk(chunk);
-            chunk=entry;
-          } else {
-            chunk+=entry;
-          }
-        }
-        if(chunk) await flushChunk(chunk);
-        } // end else (regular diag)
+        // (Telegram-уведомление учителю удалено — фича мертва, токен был отозван;
+        //  сводка диагностики и ответы остаются в diagnosticResults → админка/экспертный отчёт.)
       }catch(e){console.error("Ошибка сохранения:",e);}
       savingDiagRef.current=false;
       })();

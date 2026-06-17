@@ -1,7 +1,3 @@
-// ── ENV ───────────────────────────────────────────────────────────────────────
-export const TELEGRAM_TOKEN  = import.meta.env.VITE_TELEGRAM_TOKEN  || "";
-export const TELEGRAM_CHAT   = import.meta.env.VITE_TELEGRAM_CHAT   || "";
-
 // ── КОНСТАНТЫ ─────────────────────────────────────────────────────────────────
 export const FALLBACK_QUESTIONS = [
   { id:"f1", sectionName:"Алгебра", topic:"Линейные уравнения", type:"mcq", text:"Решите уравнение: 3x + 7 = 22", options:["x = 5","x = 3","x = 7","x = 4"], correct:0, goals:["exam","gaps","future"] },
@@ -93,40 +89,6 @@ export const THEME_DARK  = { primary:"#0f172a", accent:"#f5c518", onAccent:"#0f1
 /* Backwards-compat: kept so legacy imports keep working. Prefer
    useTheme().theme for theme-aware components going forward. */
 export const THEME = THEME_LIGHT;
-
-// ── TELEGRAM ──────────────────────────────────────────────────────────────────
-export const escHtml = s => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-export async function tgSend(text) {
-  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT || TELEGRAM_TOKEN==="your_bot_token_here") return;
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-      method:"POST", headers:{"content-type":"application/json"},
-      body: JSON.stringify({chat_id:TELEGRAM_CHAT, text, parse_mode:"HTML"})
-    });
-    if (!res.ok) {
-      // Fallback: retry without HTML parse mode if parse error
-      const err = await res.json().catch(()=>({}));
-      if (err?.description?.includes("parse")) {
-        await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-          method:"POST", headers:{"content-type":"application/json"},
-          body: JSON.stringify({chat_id:TELEGRAM_CHAT, text: text.replace(/<[^>]*>/g,""), parse_mode:""})
-        });
-      }
-    }
-  } catch(e){ console.warn("Telegram sendMessage:", e); }
-}
-export async function tgPhoto(file, caption) {
-  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT || TELEGRAM_TOKEN==="your_bot_token_here") return;
-  try {
-    const form = new FormData();
-    form.append("chat_id", TELEGRAM_CHAT);
-    form.append("photo", file);
-    if (caption) form.append("caption", caption.slice(0,1024));
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, {
-      method:"POST", body: form
-    });
-  } catch(e){ console.warn("Telegram sendPhoto:", e); }
-}
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 export const getSpecificList = (goalKey) => goalKey === "exam" ? EXAMS_LIST : goalKey === "gaps" || goalKey === "future" ? GRADES_LIST : [];

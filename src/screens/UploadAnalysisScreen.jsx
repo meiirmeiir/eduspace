@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { tgPhoto } from "../lib/appConstants.js";
 import { useTheme } from "../ThemeContext.jsx";
 import { compressImage } from "../lib/mathUtils.js";
 import { updateDoc, doc, db } from "../firestore-rest.js";
@@ -26,10 +25,7 @@ function UploadAnalysisScreen({ user, onDone, onSkip, resultId }) {
     if (!files.length) { setError("Выберите хотя бы одно фото."); return; }
     setSending(true); setError("");
     try {
-      for (let i = 0; i < files.length; i++) {
-        await tgPhoto(files[i], `📷 Фото решений (${i+1}/${files.length})\n👤 ${user?.firstName} ${user?.lastName}\n📞 ${user?.phone}`);
-      }
-      // Save compressed photos to Firestore so they appear in the expert report
+      // Сохранить сжатые фото в Firestore — отображаются в экспертном отчёте (админка)
       if (resultId) {
         try {
           const studentPhotos = await Promise.all(files.map(f => compressImage(f, 800, 0.65)));
@@ -38,7 +34,6 @@ function UploadAnalysisScreen({ user, onDone, onSkip, resultId }) {
           if (totalSize < 900000) {
             await updateDoc(doc(db, "diagnosticResults", resultId), { studentPhotos });
           }
-          // Photos are always sent to Telegram regardless of Firestore size
         } catch(e) { console.error("Не удалось сохранить фото:", e); }
       }
       setDone(true);
