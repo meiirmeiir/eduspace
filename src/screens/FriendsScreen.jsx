@@ -189,10 +189,13 @@ export default function FriendsScreen({ user, onBack, onOpenPublicProfile }) {
         .fr-share:hover { transform: translateY(-1px); filter: brightness(1.07); }
         .fr-card { transition: transform 0.15s, box-shadow 0.15s; }
         .fr-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px -8px rgba(10,25,47,0.18); }
+        /* Список друзей: 1 колонка на мобайле, 2 на десктопе (заполняет ширину 960) */
+        .fr-list { display:grid; grid-template-columns:1fr; gap:10px; }
+        @media (min-width:768px) { .fr-list { grid-template-columns:1fr 1fr; } }
       `}</style>
       <AppTopbar variant="dark" title="Друзья" onBack={onBack} user={user} />
 
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 16px' }}>
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '24px 16px' }}>
 
         {/* «X принял твой запрос» */}
         {outgoing.acceptedNew.map(req => (
@@ -323,7 +326,7 @@ export default function FriendsScreen({ user, onBack, onOpenPublicProfile }) {
               <div style={{ fontFamily: "'Montserrat',sans-serif", fontWeight: 700, fontSize: 20, color: THEME.primary }}>🏆 Твои друзья</div>
               <div style={{ fontSize: 13, color: THEME.textLight }}>{friendRows.length} · по очкам этой недели</div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="fr-list">
               {friendRows.map((p, i) => {
                 const name = nameOf(p.uid);
                 const li = getLevelInfo(p.xp || 0);
