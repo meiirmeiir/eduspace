@@ -86,7 +86,7 @@ function PlanetDot({ life, size = 52 }) {
 // Логика обратной связи на задачах (зелёная/красная подсветка + объяснение)
 // сохранена 1-в-1, изменена только подача: один шаг на экран, прогресс-бар,
 // кнопка «дальше» появляется после ответа.
-function TheoryWalkthrough({ entry, ruName, onExit, awardXp }) {
+function TheoryWalkthrough({ entry, ruName, onExit, awardXp, user }) {
   const { theme: THEME, dark, shopTheme } = useTheme();
   // Тёмный UI = системная dark-тема ИЛИ тёмная shop-тема (galaxy/matrix/fire).
   // THEME.* адаптируется сам (THEME_DARK), но хардкоды вроде #7c2d12 в
@@ -505,6 +505,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
         ruName={ruName}
         onExit={() => setSelected(null)}
         awardXp={(score, total) => awardTheoryXp(selected, score, total)}
+        user={user}
       />
     );
   }

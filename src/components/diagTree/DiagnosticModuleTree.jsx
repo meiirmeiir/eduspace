@@ -7,6 +7,7 @@ import MagicEdge from "../../MagicEdge.jsx";
 import MapBackground from "./MapBackground.jsx";
 import SkillPlanet3D from "../SkillPlanet3D.jsx";
 import { GRADES_LIST } from "../../lib/appConstants.js";
+import { ruVertical } from "../../lib/verticals.js";
 import { useTheme } from "../../ThemeContext.jsx";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { fmtCountdown, getAlmatyNextMidnightAfter } from "../../lib/srsUtils.js";
@@ -71,7 +72,7 @@ function buildDiagModuleTree(plan, skillProgress, crossGradeLinks, skillNamesMap
   const sp = skillProgress || {};
 
   for (const skill of gapSkills) {
-    const gradeStr = `${skill.grade} класс`;
+    const gradeStr = skill.grade != null ? `${skill.grade} класс` : 'Общее';
     // Progress from mastery stages (0→0%, 1→40%, 2→80%, 3→100%), not diagnostic score
     const stages = skillMasteryData[skill.id]?.stagesCompleted || 0;
     const masteryPct = [0, 40, 80, 100][Math.min(stages, 3)];
@@ -104,7 +105,7 @@ function buildDiagModuleTree(plan, skillProgress, crossGradeLinks, skillNamesMap
     if (!matched) {
       const key = `${gradeStr}::${skill.vertical || 'Общее'}`;
       if (!virtualMap[key]) {
-        const vLabel = ({ ALGEBRA:'Алгебра',GEOMETRY:'Геометрия',WORD_PROBLEMS:'Текстовые задачи',STATISTICS:'Статистика',FUNCTIONS:'Функции',EQUATIONS:'Уравнения',TRIGONOMETRY:'Тригонометрия',COMBINATORICS:'Комбинаторика',SEQUENCES:'Последовательности',DERIVATIVES:'Производные' })[skill.vertical] || skill.vertical || 'Общее';
+        const vLabel = ruVertical(skill.vertical) || 'Общее';   // канон из verticals.js (был дрейф: нет ARITHMETIC/PROBABILITY)
         virtualMap[key] = { id: key, grade: gradeStr, gradeNum: skill.grade, moduleName: vLabel, skills: [], prerequisiteModuleIds: [] };
       }
       virtualMap[key].skills.push(skillDisplay);
