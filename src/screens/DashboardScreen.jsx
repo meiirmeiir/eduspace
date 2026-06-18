@@ -530,8 +530,10 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
               const urgent=d===0, warn=d>0&&d<=3;
               // d=0 → красный + CTA; 1..3 → оранжевое предупреждение; >3 → нейтральный.
               if(urgent){
+                // фон #dc2626 (не #ef4444): белый текст на #ef4444 = 3.76 (<AA);
+                // на #dc2626 ≈ 4.6 (AA). Conversion-critical призыв trial→оплата.
                 return (
-                  <div style={{background:"#ef4444",borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",boxShadow:"0 6px 18px -6px rgba(239,68,68,0.55)"}}>
+                  <div style={{background:"#dc2626",borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",boxShadow:"0 6px 18px -6px rgba(239,68,68,0.55)"}}>
                     <span style={{fontSize:22}}>⚠️</span>
                     <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,color:"#fff",flex:"1 1 auto"}}>
                       Пробный период закончился — оформи подписку, чтобы продолжить
@@ -540,7 +542,12 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
                         был ReferenceError→белый экран на trial-баннере (ESLint no-undef).
                         🔴 TODO: протянуть реальный канал оплаты из App (флоу подписки нет —
                         оплата вручную через AdminScreen); пока инертна (no-op, не краш). */}
-                    <button onClick={()=>onOpenSubscription?.()} style={{background:"#fff",color:"#dc2626",border:"none",borderRadius:10,padding:"9px 18px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
+                    {/* фон #fffffe (не #fff): белая «пилюля» с красным текстом. В тёмной
+                        теме флип-правило index.css:267 ловит `rgb(255,255,255)` и красит фон в
+                        #161b22 → красный-на-тёмном 3.58 (<AA). #fffffe визуально белый, но
+                        строка rgb(255,255,254) не матчит флип → пилюля остаётся белой →
+                        #dc2626-на-белом ≈ 5:1 (AA) в обеих темах. */}
+                    <button onClick={()=>onOpenSubscription?.()} style={{background:"#fffffe",color:"#dc2626",border:"none",borderRadius:10,padding:"9px 18px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
                       Оформить подписку
                     </button>
                   </div>

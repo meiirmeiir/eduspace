@@ -88,8 +88,15 @@ export const THEME_LIGHT = { primary:"#0f172a", accent:"#d4af37", onAccent:"#0f1
 /* THEME_DARK keeps `primary` identical to LIGHT — it doubles as the
    dark-navy surface for sidebar, lesson blocks and CTA buttons.
    Text that uses `color: THEME.primary` is brightened to readable
-   light by attr-selectors in index.css. */
-export const THEME_DARK  = { primary:"#0f172a", accent:"#f5c518", onAccent:"#0f172a", onPrimary:"#ffffff", bg:"#0a0e1a", surface:"#161b22", text:"#c9d1d9", textLight:"#8b949e", border:"rgba(255,255,255,0.12)", success:"#10B981", warning:"#F59E0B", error:"#EF4444" };
+   light by attr-selectors in index.css.
+   onAccent — текст НА accent-фоне (жёлтый #f5c518 в dark) → должен быть
+   ТЁМНЫМ. Раньше был #0f172a (== primary) → его ловило флип-правило
+   index.css:276 `[style*="color: rgb(15, 23, 42)"]` (придуманное для
+   primary-текста на тёмном фоне) и красило БЕЛЫМ → бел-на-жёлтом 1.49,
+   нечитаемая CTA. #0a0e1a — тот же near-black визуально, но строка
+   rgb(10,14,26) НЕ матчит флип → текст остаётся тёмным (~11:1). Флип для
+   настоящего primary-текста при этом не задет. */
+export const THEME_DARK  = { primary:"#0f172a", accent:"#f5c518", onAccent:"#0a0e1a", onPrimary:"#ffffff", bg:"#0a0e1a", surface:"#161b22", text:"#c9d1d9", textLight:"#8b949e", border:"rgba(255,255,255,0.12)", success:"#10B981", warning:"#F59E0B", error:"#EF4444" };
 /* Backwards-compat: kept so legacy imports keep working. Prefer
    useTheme().theme for theme-aware components going forward. */
 export const THEME = THEME_LIGHT;
