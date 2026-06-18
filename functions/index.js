@@ -281,9 +281,11 @@ function childBlock(name, r) {
     `👤 <b>${name}</b>`,
     `${emoji} ${r?.verdict?.title || ''}`,
     '',
-    `📊 Освоение плана: <b>${r.overallPct}%</b>`,
-    `✅ Освоено: ${r.masteredCount} · 🔄 В работе: ${r.inProgressCount}`,
-    `⭐ Очки за неделю: ${r.weekPoints}`,
+    // ?? 0 — защита от старого/частичного снимка без числовых полей: показать 0,
+    // не «undefined%» родителю (0% — конвенция «нет данных», как в кабинете/dynamics).
+    `📊 Освоение плана: <b>${r?.overallPct ?? 0}%</b>`,
+    `✅ Освоено: ${r?.masteredCount ?? 0} · 🔄 В работе: ${r?.inProgressCount ?? 0}`,
+    `⭐ Очки за неделю: ${r?.weekPoints ?? 0}`,
   ].join('\n');
 }
 
