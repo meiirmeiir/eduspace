@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { InlineMath, BlockMath } from "react-katex";
-import "katex/dist/katex.min.css";
 import NpcGuide from './components/NpcGuide.jsx';
 import { useNpc } from './NpcContext.jsx';
-// NB: @xyflow/dagre/CustomNode/MagicEdge/MapStyles.css НЕ импортим здесь — App.jsx их
-// НЕ использует (были vestigial; @xyflow sideEffects держал → map-чанк грузился в initial
-// зря). Map-экраны (DiagnosticModuleTree/ModuleTreeModal/InteractiveSkillTree/CustomNode)
-// импортят их сами → map уходит в lazy-чанк (Фаза 2.5, −116КБ gz из first-load).
+// NB: @xyflow/dagre/CustomNode/MagicEdge/MapStyles.css И react-katex/katex CSS НЕ импортим
+// здесь — App.jsx их НЕ использует (vestigial; sideEffects держал → чанки грузились в initial
+// зря). Потребители импортят сами: map-экраны (DiagnosticModuleTree/CustomNode) → @xyflow+CSS;
+// LatexText → react-katex+katex CSS. Так map (Фаза 2.5) и katex (Фаза 3) уходят в lazy.
 import { app, auth, signOut, reauthenticateWithCredential, updatePassword, EmailAuthProvider } from "./lib/firebase";
 import EmailAuthScreen from "./components/auth/EmailAuthScreen.jsx";
 import AboutLanding from "./screens/AboutLanding.jsx";
