@@ -339,9 +339,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // ── Уроки: Admin SDK пишет (обходит rules), залогиненные читают ──────────
+    // ── Уроки: Admin SDK пишет (обходит rules). Приватность: lessons содержат
+    // driveVideoUrl (видео-запись урока ребёнка) + summary конкретного ученика →
+    // НЕ broad read. Читают: владелец (studentId==uid), teacher (роль из users-doc),
+    // admin. Owner-проверка ПЕРВОЙ → ученик не платит лишний get(/users) (частый случай).
+    // Клиент: student шлёт scoped where(studentId==uid) (иначе безфильтровый запрос
+    // отклонится); teacher/admin — безфильтровый (request-level ветка разрешает всё).
     match /lessons/{docId} {
-      allow read:  if isSignedIn();
+      allow read:  if isSignedIn() && (
+                     resource.data.studentId == request.auth.uid
+                     || isAdmin()
+                     || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'teacher'
+                   );
       allow write: if isAdmin();
     }
 

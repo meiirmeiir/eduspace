@@ -4,7 +4,7 @@
  */
 import { describe, test, beforeAll, afterEach, afterAll } from 'vitest';
 import { assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, addDoc, updateDoc, deleteDoc, setDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, setDoc, collection, query, where } from 'firebase/firestore';
 import { getTestEnv, authedDb, anonDb, seed, clearData, destroyEnv } from './helpers.js';
 
 // ── homework ──────────────────────────────────────────────────────────────────
@@ -104,10 +104,46 @@ describe('lessons', () => {
   afterEach(async () => { await clearData(env); });
   afterAll(async () => { await destroyEnv(); });
 
-  test('залогиненный читает урок', async () => {
-    await seed(env, 'lessons/les1', { studentId: 'alice', subject: 'Math' });
+  // lessons содержат driveVideoUrl (видео урока) + summary → приватность ученика.
+  test('владелец (studentId==uid) читает свой урок — succeed', async () => {
+    await seed(env, 'lessons/les1', { studentId: 'alice', subject: 'Math', driveVideoUrl: 'x', summary: 's' });
     const db = authedDb(env, 'alice');
     await assertSucceeds(getDoc(doc(db, 'lessons/les1')));
+  });
+
+  // 🔴 ГЛАВНЫЙ тест: утечка закрыта — чужой ученик НЕ читает чужой урок.
+  test('чужой студент (studentId != uid) НЕ читает урок — deny (УТЕЧКА ЗАКРЫТА)', async () => {
+    await seed(env, 'lessons/les1', { studentId: 'alice', subject: 'Math', driveVideoUrl: 'video', summary: 'notes' });
+    const db = authedDb(env, 'bob');
+    await assertFails(getDoc(doc(db, 'lessons/les1')));
+  });
+
+  test('teacher (роль из users-doc) читает любой урок — succeed', async () => {
+    await seed(env, 'lessons/les1', { studentId: 'alice', subject: 'Math' });
+    await seed(env, 'users/teach1', { role: 'teacher' });
+    const db = authedDb(env, 'teach1');
+    await assertSucceeds(getDoc(doc(db, 'lessons/les1')));
+  });
+
+  test('admin читает любой урок — succeed', async () => {
+    await seed(env, 'lessons/les1', { studentId: 'alice', subject: 'Math' });
+    const db = authedDb(env, 'admin-uid', { role: 'admin' });
+    await assertSucceeds(getDoc(doc(db, 'lessons/les1')));
+  });
+
+  test('student LIST своих уроков (where studentId==uid) — succeed; безфильтровый LIST — deny', async () => {
+    await seed(env, 'lessons/les1', { studentId: 'bob', subject: 'Math' });
+    await seed(env, 'lessons/les2', { studentId: 'alice', subject: 'Phys' });
+    const db = authedDb(env, 'bob');
+    await assertSucceeds(getDocs(query(collection(db, 'lessons'), where('studentId', '==', 'bob'))));
+    await assertFails(getDocs(collection(db, 'lessons')));   // безфильтровый → отказ (rules не фильтры)
+  });
+
+  test('teacher безфильтровый LIST уроков — succeed (ветка по роли request-level)', async () => {
+    await seed(env, 'lessons/les1', { studentId: 'alice', subject: 'Math' });
+    await seed(env, 'users/teach1', { role: 'teacher' });
+    const db = authedDb(env, 'teach1');
+    await assertSucceeds(getDocs(collection(db, 'lessons')));
   });
 
   test('анонимный НЕ читает урок', async () => {
