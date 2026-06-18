@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { InlineMath, BlockMath } from "react-katex";
 import "katex/dist/katex.min.css";
-import { ReactFlow, Background, Controls, Panel, useNodesState, useEdgesState, Handle, Position, getBezierPath } from '@xyflow/react';
-import dagre from '@dagrejs/dagre';
-import '@xyflow/react/dist/style.css';
-import CustomNode from './CustomNode.jsx';
-import MagicEdge  from './MagicEdge.jsx';
 import NpcGuide from './components/NpcGuide.jsx';
-import './MapStyles.css';
 import { useNpc } from './NpcContext.jsx';
+// NB: @xyflow/dagre/CustomNode/MagicEdge/MapStyles.css НЕ импортим здесь — App.jsx их
+// НЕ использует (были vestigial; @xyflow sideEffects держал → map-чанк грузился в initial
+// зря). Map-экраны (DiagnosticModuleTree/ModuleTreeModal/InteractiveSkillTree/CustomNode)
+// импортят их сами → map уходит в lazy-чанк (Фаза 2.5, −116КБ gz из first-load).
 import { app, auth, signOut, reauthenticateWithCredential, updatePassword, EmailAuthProvider } from "./lib/firebase";
 import EmailAuthScreen from "./components/auth/EmailAuthScreen.jsx";
 import AboutLanding from "./screens/AboutLanding.jsx";

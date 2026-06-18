@@ -9,17 +9,18 @@ export default defineConfig({
         // Vendor в отдельные кэш-чанки: либы меняются РЕДКО (обновления) vs app-код
         // (часто) → при деплое app-кода юзер не перекачивает firebase/katex/framer/map
         // (они кэшированы по хешу). Плюс параллельная загрузка и дедуп общих vendor.
-        // Группируем ТОЛЬКО по пути node_modules — import-связи не меняем, поэтому
-        // manualChunks лишь группирует, не меняет КОГДА грузится. firebase/katex/framer
-        // — в initial через eager-код (кэш-выигрыш, не defer). map — СЕЙЧАС тоже в initial
-        // из-за vestigial-импортов @xyflow/dagre в App.jsx (defer = убрать их, отд. шаг);
-        // defer katex = отд. Фаза 3. React/react-dom НЕ выделяем — всегда нужны, в main.
+        // Группируем eager-vendor (firebase/katex/framer) в кэш-чанки: меняются редко
+        // vs app-код → returning-юзер не перекачивает их при app-деплое. React/react-dom
+        // НЕ выделяем — всегда нужны, в main. map-stack (@xyflow/dagre/d3) НАМЕРЕННО НЕ
+        // группируем: он lazy (только map-экраны), а явный manualChunk заставлял Vite
+        // preload'ить его в index.html (eager, −116КБ зря). Без группы Rollup авто-чанкует
+        // его в общий lazy-чанк → грузится только при открытии карты. (Защита: App.jsx
+        // больше не импортит @xyflow vestigial-импортами — иначе он попал бы в eager-граф.)
         manualChunks(id) {
           if (!id.includes('node_modules')) return
           if (/[\\/](firebase|@firebase)[\\/]/.test(id)) return 'firebase'
           if (/[\\/](katex|react-katex)[\\/]/.test(id)) return 'katex'
           if (/[\\/](framer-motion|motion-dom|motion-utils)[\\/]/.test(id)) return 'framer-motion'
-          if (/[\\/](@xyflow|@dagrejs|d3-[a-z]+)[\\/]/.test(id)) return 'map'
         },
       },
     },
