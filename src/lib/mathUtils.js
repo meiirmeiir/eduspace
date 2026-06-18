@@ -339,7 +339,7 @@ export function formatAnswerValue(raw, answerDisplay) {
   // Если формат НЕ задан явно и значение нецелое — показываем ТОЧНО (дробь/десятичное),
   // а не округляем до неверного целого (баг: полупериметр 7.5→"8", k=0.5→"1", π/2→"2").
   if ((!answerDisplay || !answerDisplay.type) && Math.abs(raw - rounded) >= 1e-9) {
-    var nd = floatToFraction(raw);
+    const nd = floatToFraction(raw);
     if (nd[1] !== 1 && nd[1] <= 1000) return nd[0] + '/' + nd[1];
     return String(Math.round(raw * 1000) / 1000).replace('.', ',');
   }

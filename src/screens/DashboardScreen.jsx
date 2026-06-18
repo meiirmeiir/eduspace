@@ -30,7 +30,7 @@ function pluralize(n, [one, few, many]) {
   return many;
 }
 
-export default function DashboardScreen({ user: userProp, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onOpenFriends, onOpenShop, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus: masteryStatusProp = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
+export default function DashboardScreen({ user: userProp, firebaseUser, activeSection: activeSectionProp, setActiveSection: setActiveSectionProp, onOpenDiagnostics, onStartSmartDiag, onViewRoadmap, onViewPlan, onOpenTheory, onOpenDaily, onOpenAdmin, onOpenLeaderboard, onOpenFriends, onOpenShop, onOpenSubscription, onLogout, onOpenPractice, onOpenIntermediateTests, onOpenFaq, onUpdateUser, masteryStatus: masteryStatusProp = { hasMastered:false, masteredCount:0, hasDueToday:false, completedToday:false }, onOpenDailyLockModal, rankRefreshKey = 0 }) {
   const user = userProp;
   const masteryStatus = masteryStatusProp;
   const { startTourIfNew, showNpcMessage } = useNpc();
@@ -534,6 +534,10 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
                     <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,color:"#fff",flex:"1 1 auto"}}>
                       Пробный период закончился — оформи подписку, чтобы продолжить
                     </div>
+                    {/* onOpenSubscription — опц. проп (App пока НЕ передаёт): без него
+                        был ReferenceError→белый экран на trial-баннере (ESLint no-undef).
+                        🔴 TODO: протянуть реальный канал оплаты из App (флоу подписки нет —
+                        оплата вручную через AdminScreen); пока инертна (no-op, не краш). */}
                     <button onClick={()=>onOpenSubscription?.()} style={{background:"#fff",color:"#dc2626",border:"none",borderRadius:10,padding:"9px 18px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
                       Оформить подписку
                     </button>
