@@ -1020,8 +1020,11 @@ exports.awardWeeklyMedals = onSchedule(
 // ЕДИНЫЙ источник методики для двух потребителей:
 //   • weeklyProgressSnapshot — персист (завершившаяся неделя, скип-аргумент skills из батча);
 //   • /report бота (фаза C) — LIVE на текущей неделе (skills читает сам).
-// overallPct — skill-level avg ([0,40,80,100][stages]) по навыкам ПЛАНА (модульный
-// buildDiagModuleTree React-связан, в CF недоступен — отличается от кабинета, задокументировано).
+// overallPct — КАНОН: плоское skill-level avg ([0,40,80,100][stages]) по навыкам ПЛАНА.
+// 🔴 АНТИ-ДРЕЙФ: идентичная формула в src/lib/mastery.js (STAGE_PCT + flatOverallPct) —
+//   кабинет (ChildReport-донат «Освоено программы», IndividualPlanScreen «общий
+//   прогресс») ссылается ТУДА. functions/ (CJS-пакет) не импортит src/, поэтому формула
+//   ПРОДУБЛИРОВАНА здесь inline. При правке формулы/маппинга — менять ОБА места синхронно.
 // skillsArg — опц. предзагруженные skills (батч снимка не перечитывает skillMastery).
 async function buildStudentReport(uid, weekId, skillsArg = null) {
   const PCT = st => [0, 40, 80, 100][Math.min(Number(st) || 0, 3)];
@@ -1093,8 +1096,8 @@ async function getChildReportForWeek(uid, weekId) {
 // Фундамент истории для родительского дашборда: раз в неделю фиксируем состояние
 // каждого ученика → progressSnapshots/{uid}/weeks/{weekId}. Через накопление даёт
 // настоящий «рост освоения за месяц/неделю» (дельты между снимками).
-// overallPct — skill-level avg ([0,40,80,100][stages]) по навыкам ПЛАНА: модульный
-// buildDiagModuleTree React-связан и в CF недоступен; дельта консистентна.
+// overallPct — КАНОН: плоское skill-level avg ([0,40,80,100][stages]) по навыкам ПЛАНА
+// (та же формула, что в src/lib/mastery.js на стороне кабинета; см. buildStudentReport).
 // Идемпотентно: doc id = weekId, set(merge) → повторный запуск перезаписывает.
 exports.weeklyProgressSnapshot = onSchedule(
   {

@@ -6,6 +6,7 @@ import Logo from "../components/ui/Logo.jsx";
 import ErrorCard from "../components/ui/ErrorCard.jsx";
 import AppTopbar from "../components/AppTopbar.jsx";
 import DiagnosticModuleTree, { buildDiagModuleTree } from "../components/diagTree/DiagnosticModuleTree.jsx";
+import { flatOverallPct } from "../lib/mastery.js";
 
 export default function IndividualPlanScreen({ user, onBack, onStartTraining }) {
   const { theme: THEME, dark, shopTheme } = useTheme();
@@ -72,10 +73,14 @@ export default function IndividualPlanScreen({ user, onBack, onStartTraining }) 
   const lockedMod      = diagData.modules.filter(m => m.isLocked && m.mastery < 100).length;
   const inProgressMods = diagData.modules.filter(m => !m.isLocked && m.mastery > 0 && m.mastery < 100);
   const availableMods  = diagData.modules.filter(m => !m.isLocked && m.mastery === 0);
-  // Общий прогресс с учётом частичного освоения: средний mastery по всем модулям.
-  const overallPct = totalMod
-    ? Math.round(diagData.modules.reduce((s, m) => s + Math.min(m.mastery || 0, 100), 0) / totalMod)
-    : 0;
+  // Общий прогресс — КАНОН: плоское среднее по навыкам плана (совпадает с ботом
+  // /report и снимками; см. lib/mastery.js). НЕ среднее-по-модулям (искажает при
+  // неравных модулях). Карта/категории используют module.mastery (diagData) отдельно.
+  const overallPct = flatOverallPct(
+    skillMasteryData,
+    (autoPlan?.modules || []).flatMap(m => (m && m.skills_list) || []),
+    Object.keys(skillMasteryData),
+  );
 
   return (
     <div className="page-themed" style={{ minHeight:'100vh', background:THEME.bg }}>

@@ -8,10 +8,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { doc, getDoc, getDocs, collection, db } from "../firestore-rest.js";
 import { getContent } from "../lib/contentCache.js";
 import { fetchFriendProfiles } from "../lib/friendsUtils.js";
-import { buildDiagModuleTree } from "./diagTree/DiagnosticModuleTree.jsx";
 import { getLevelInfo } from "../lib/levelUtils.js";
 import { getWeekId } from "../lib/pointsUtils.js";
 import { computeVerdict } from "../lib/parentVerdict.js";
+import { flatOverallPct } from "../lib/mastery.js";
 import { ruVertical } from "../lib/verticals.js";
 import ChildMap from "./ChildMap.jsx";
 import { useTheme } from "../ThemeContext.jsx";
@@ -51,11 +51,9 @@ export default function ChildReport({ childUid }) {
         // сбрасывается лениво → ложно «активен» забросившему).
         const thisWeekId = getWeekId();
         const lastWeekId = getWeekId(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
-        const [planSnap, masterySnap, progressSnap, cg, hier, profMap, lbThis, lbLast, snapsSnap] = await Promise.all([
+        const [planSnap, masterySnap, hier, profMap, lbThis, lbLast, snapsSnap] = await Promise.all([
           getDoc(doc(db, "individualPlans", childUid)),
           getDoc(doc(db, "skillMastery", childUid)),
-          getDoc(doc(db, "skillProgress", childUid)),
-          getContent("crossGradeLinks"),
           getContent("skillHierarchies"),
           fetchFriendProfiles([childUid]),
           getDoc(doc(db, "leaderboard", thisWeekId, "entries", childUid)),
@@ -73,13 +71,13 @@ export default function ChildReport({ childUid }) {
 
         const plan = planSnap.exists() ? planSnap.data() : null;
         const mastery = masterySnap.exists() ? (masterySnap.data()?.skills || {}) : {};
-        const skillProgress = progressSnap.exists() ? (progressSnap.data()?.skills || {}) : {};
         const profile = profMap?.[childUid] || {};
 
-        // Общий % освоения — средний mastery по модулям карты (buildDiagModuleTree)
-        const diag = plan ? buildDiagModuleTree(plan, skillProgress, cg || [], namesMap, mastery) : { modules: [] };
-        const mods = diag.modules || [];
-        const overallPct = mods.length ? Math.round(mods.reduce((s, m) => s + Math.min(m.mastery || 0, 100), 0) / mods.length) : 0;
+        // Общий % освоения — КАНОН: плоское среднее по навыкам плана (совпадает с
+        // ботом /report и снимками). НЕ среднее-по-модулям (искажает при неравных
+        // модулях; карта-планеты используют module.mastery отдельно). См. lib/mastery.js.
+        const planSkillIds = (plan?.modules || []).flatMap(m => (m && m.skills_list) || []);
+        const overallPct = flatOverallPct(mastery, planSkillIds, Object.keys(mastery));
 
         // by_vertical: vertical -> [{id, passRate}]; passRate = диагностика
         const byVert = {}; // vertical -> [{id, passRate, name, stages}]
