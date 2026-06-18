@@ -255,6 +255,7 @@ function ModuleTreeModal({ crossGradeLinks, onClose }){
     const { nodes, edges } = buildModuleTreeLayout(crossGradeLinks);
     setRFNodes(nodes);
     setRFEdges(edges);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setRFNodes/setRFEdges стабильны (React Flow), не нужны в deps
   },[crossGradeLinks]);
 
   return(

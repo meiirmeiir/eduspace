@@ -497,6 +497,7 @@ function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {}, fo
     });
     setRFNodes(enriched);
     setRFEdges(edges);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setRFNodes/setRFEdges стабильны (React Flow), не нужны в deps
   }, [diagData, skillMastery]);
 
   // Hover: подсветка входящих/исходящих рёбер (обновление только по событию).

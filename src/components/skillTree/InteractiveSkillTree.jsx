@@ -634,6 +634,7 @@ function InteractiveSkillTree({ skills, onStartTraining }) {
     if (!skills || !skills.length) { setRFNodes([]); setRFEdges([]); return; }
     const { nodes, edges } = buildPixelFlow(skills, onStartTraining);
     setRFNodes(nodes); setRFEdges(edges);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setRFNodes/setRFEdges стабильны (React Flow), не нужны в deps
   }, [skills, onStartTraining]);
 
   return (
