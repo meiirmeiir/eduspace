@@ -42,7 +42,6 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
   const [localSection,setLocalSection]=useState("home");
   const activeSection = activeSectionProp !== undefined ? activeSectionProp : localSection;
   const setActiveSection = setActiveSectionProp || setLocalSection;
-  const [schedule,setSchedule]=useState([]);
   const [homework,setHomework]=useState([]);
   const [loadingData,setLoadingData]=useState(true);
   const [dataError,setDataError]=useState(false);
@@ -134,8 +133,9 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
     const _isTeacher = user?.role==="teacher" || _isAdmin;
     setLoadingData(true); setDataError(false);
     try{
-      const [scS,hwS,uS,subS,lesS]=await Promise.all([
-        getDocs(collection(db,"schedule")),
+      const [hwS,uS,subS,lesS]=await Promise.all([
+        // schedule-фетч удалён: dead-code (стейт не рендерился) + лишнее чтение всей
+        // коллекции на каждом входе. Правило schedule сужено до isAdmin (клиент не читает).
         _isTeacher?getDocs(collection(db,"homework")):getDocs(query(collection(db,"homework"),where("userId","in",[uid,""]))),
         _isTeacher?getDocs(collection(db,"users")):Promise.resolve({docs:[]}),
         _isTeacher?getDocs(collection(db,"hwSubmissions")):getDocs(query(collection(db,"hwSubmissions"),where("userId","==",uid))),
@@ -144,9 +144,7 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
         // отклонит безфильтровый запрос. Teacher/admin читают все (правило-ветка по роли).
         _isTeacher?getDocs(collection(db,"lessons")):getDocs(query(collection(db,"lessons"),where("studentId","==",uid))),
       ]);
-      const allSc=scS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.time?.localeCompare(b.time));
       const allHw=hwS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.dueDate?.localeCompare(b.dueDate));
-      setSchedule(_isAdmin?allSc:allSc.filter(s=>(!s.userId&&!s.userIds?.length)||s.userId===uid||s.userIds?.includes(uid)));
       setHomework(_isTeacher?allHw:allHw);
       if(_isTeacher) setStudents(uS.docs.map(d=>({id:d.id,...d.data()})).filter(s=>s.role!=="admin"&&s.id!==uid));
       setHwSubmissions(subS.docs.map(d=>({id:d.id,...d.data()})));
@@ -338,7 +336,6 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
     setNewLessonCreating(false);
   };
   const delHw=async id=>{try{await deleteDoc(doc(db,"homework",id)); setHomework(p=>p.filter(h=>h.id!==id));}catch{alert("Ошибка.");}};
-  const delSc=async id=>{try{await deleteDoc(doc(db,"schedule",id)); setSchedule(p=>p.filter(s=>s.id!==id));}catch{alert("Ошибка.");}};
   const delLesson=async id=>{if(!confirm('Удалить занятие?'))return;try{await deleteDoc(doc(db,'lessons',id));setZoomLessons(p=>p.filter(l=>l.id!==id));}catch{alert('Ошибка.');}};
 
   const getWeekDates=()=>{const dow=today.getDay(),mon=new Date(today); mon.setDate(today.getDate()-(dow===0?6:dow-1)+weekOffset*7); return Array.from({length:7},(_,i)=>{const d=new Date(mon); d.setDate(mon.getDate()+i); return d;});};
