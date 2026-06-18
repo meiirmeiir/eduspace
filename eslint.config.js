@@ -3,8 +3,9 @@
 // → `no-undef` (error). Плюс react-hooks (другой класс: условные хуки).
 // Косметика (`no-unused-vars`) — warn, чтобы не топить реальные ошибки.
 //
-// Скоуп — только src/ (React-приложение, где жил theory-краш). functions/ (CJS,
-// Node-окружение), scripts/, tests/ — отдельные среды, не в этом проходе.
+// Скоуп: src/ (React-приложение, где жил theory-краш) + functions/ (CJS/Node Cloud
+// Functions — отдельный блок ниже, ловить тот же класс no-undef в бэкенде).
+// scripts/, tests/ — отдельные среды, не линтим.
 import js from '@eslint/js';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -13,7 +14,7 @@ import globals from 'globals';
 export default [
   {
     ignores: [
-      'dist/**', 'node_modules/**', 'functions/**', 'scripts/**',
+      'dist/**', 'node_modules/**', 'scripts/**',
       'tests/**', '.playwright-mcp/**', 'audit/**', 'src/dev/**',
       '*.config.js', 'vite.config.*',
     ],
@@ -49,6 +50,24 @@ export default [
       // Хуки: нарушение порядка = ошибка; deps — warn.
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+    },
+  },
+  {
+    // functions/ — Cloud Functions, CommonJS (require/module.exports), Node-окружение.
+    // Тот же фокус no-undef (свободные переменные в бэкенде), косметика — warn.
+    files: ['functions/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'commonjs',
+      globals: { ...globals.node },
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-undef': 'error',
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'no-control-regex': 'off',
+      'no-useless-escape': 'warn',
     },
   },
 ];

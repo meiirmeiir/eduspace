@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
+    "lint": "eslint src functions",
+    "lint:fix": "eslint src functions --fix",
     "build": "vite build",
     "preview": "vite preview",
     "smoke": "playwright test",

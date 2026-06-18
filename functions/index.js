@@ -914,7 +914,7 @@ exports.awardWeeklyMedals = onSchedule(
     timeoutSeconds: 540,
     retryCount: 0, // повторный запуск не нужен — стабильный medalId дедуплицирует
   },
-  async (event) => {
+  async (_event) => {
     const now = new Date();
     const weekId = getPrevWeekId(now);
     const { year, week } = parseWeek(weekId);
