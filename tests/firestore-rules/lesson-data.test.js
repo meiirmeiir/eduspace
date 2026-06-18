@@ -66,9 +66,16 @@ describe('schedule', () => {
   afterEach(async () => { await clearData(env); });
   afterAll(async () => { await destroyEnv(); });
 
-  test('залогиненный студент читает расписание', async () => {
+  // read закрыт до admin: клиент schedule больше не читает (dead-code убран).
+  test('студент НЕ читает расписание — deny (закрыто до admin)', async () => {
     await seed(env, 'schedule/sc1', { subject: 'Math', userIds: ['alice'] });
     const db = authedDb(env, 'alice');
+    await assertFails(getDoc(doc(db, 'schedule/sc1')));
+  });
+
+  test('admin читает расписание — succeed', async () => {
+    await seed(env, 'schedule/sc1', { subject: 'Math', userIds: ['alice'] });
+    const db = authedDb(env, 'admin-uid', { role: 'admin' });
     await assertSucceeds(getDoc(doc(db, 'schedule/sc1')));
   });
 
