@@ -112,7 +112,7 @@ export default function DemoResultScreen({ result, onRegister, onRestart, onExit
     : "Нашли пробелы — это уже половина успеха.";
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#fff", fontFamily: "'Inter',sans-serif", position: "relative", overflowX: "hidden" }}>
+    <div role="main" style={{ minHeight: "100vh", background: BG, color: "#fff", fontFamily: "'Inter',sans-serif", position: "relative", overflowX: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         @media(max-width:560px){ .dr-grid2{grid-template-columns:1fr!important;} }

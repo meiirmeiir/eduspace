@@ -478,7 +478,9 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
           </button>
         </div>
       </aside>
-      <main className="dashboard-main">
+      {/* было <main> — демоутнут в <div>: App.jsx даёт единый <main> вокруг блока
+          экранов (иначе у dashboard было бы два вложенных <main>). className/CSS целы. */}
+      <div className="dashboard-main">
         <div className="mobile-topbar">
           <button className="burger-btn" onClick={()=>setSidebarOpen(true)}>☰</button>
           <Logo size={28} showSubtitle={false}/>
@@ -1044,7 +1046,7 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
         {activeSection==="profile"&&(
           <ProfileSection user={user} statusObj={statusObj} onOpenDiagnostics={onOpenDiagnostics} onViewPlan={onViewPlan} onUpdateUser={onUpdateUser} onOpenShop={onOpenShop}/>
         )}
-      </main>
+      </div>
 
       {showSchedForm&&<div className="modal-overlay" onClick={()=>{setShowSchedForm(false);setNewLessonError('');}}><div className="modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:480,width:'100%'}}>
         <div className="modal-title">Добавить занятие</div>

@@ -338,8 +338,11 @@ function VideoCarousel({ accent = GOLD }) {
       <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 28 }}>
         {slides.map((_, i) => (
           <button key={i} onClick={() => goTo(i)} aria-label={`Слайд ${i + 1}`}
-            style={{ width: i === index ? 30 : 10, height: 10, borderRadius: 99, border: "none", cursor: "pointer", padding: 0,
+            style={{ minWidth: 24, height: 24, border: "none", cursor: "pointer", padding: 0, background: "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            {/* тач-зона 24px (a11y target-size); визуальная точка 10px внутри */}
+            <span style={{ width: i === index ? 30 : 10, height: 10, borderRadius: 99, display: "block",
               background: i === index ? accent : "rgba(255,255,255,0.22)", transition: "width 0.35s ease, background 0.35s ease" }} />
+          </button>
         ))}
       </div>
 
@@ -412,7 +415,7 @@ function PriceSection({ onCta, accent = GOLD, perks, ctaText }) {
           </div>
           <button className="al-btn-primary" onClick={onCta}
             style={{ width: "100%", maxWidth: 420, fontSize: 17, padding: "18px 32px", background: accent === PURPLE ? `linear-gradient(135deg,${PURPLE},#7c3aed)` : `linear-gradient(135deg,${GOLD},#f59e0b)`, color: accent === PURPLE ? "#fff" : "#0a0e1a" }}>{ctaText}</button>
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 14 }}>Первая диагностика бесплатно · Без банковской карты</p>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 14 }}>Первая диагностика бесплатно · Без банковской карты</p>
         </div>
       </Reveal>
     </Section>
@@ -725,8 +728,11 @@ function ParentShowcaseCarousel() {
       <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 26 }}>
         {slides.map((_, i) => (
           <button key={i} onClick={() => setIndex(i)} aria-label={`Слайд ${i + 1}`}
-            style={{ width: i === index ? 30 : 10, height: 10, borderRadius: 99, border: "none", cursor: "pointer", padding: 0,
+            style={{ minWidth: 24, height: 24, border: "none", cursor: "pointer", padding: 0, background: "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            {/* тач-зона 24px (a11y target-size); визуальная точка 10px внутри */}
+            <span style={{ width: i === index ? 30 : 10, height: 10, borderRadius: 99, display: "block",
               background: i === index ? GOLD : "rgba(255,255,255,0.22)", transition: "width 0.35s ease, background 0.35s ease" }} />
+          </button>
         ))}
       </div>
       <div style={{ textAlign: "center", marginTop: 24, minHeight: 96 }}>
@@ -768,7 +774,7 @@ function ParentPriceSection({ onCta, perks }) {
               ))}
             </div>
             <button className="al-btn-primary" onClick={onCta} style={{ width: "100%", maxWidth: 400, margin: "0 auto", fontSize: 16.5, padding: "17px 30px" }}>Дайте ребёнку попробовать →</button>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 13 }}>Первая диагностика бесплатно · Без банковской карты</p>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 13 }}>Первая диагностика бесплатно · Без банковской карты</p>
           </div>
         </Reveal>
         {/* сравнение со столбцами */}
@@ -871,7 +877,7 @@ function ParentLanding({ onCta }) {
             <div className="al-hero-cta" style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 30 }}>
               <button className="al-btn-primary" style={{ fontSize: 16, padding: "17px 32px" }} onClick={onCta}>Попробовать бесплатно →</button>
             </div>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 16 }}>Первая диагностика бесплатно · Без банковской карты</p>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 16 }}>Первая диагностика бесплатно · Без банковской карты</p>
           </Reveal>
           {/* Композиция «вы видите → ребёнок учится» вместо вечно грузящегося видео */}
           <ParentHeroVisual />
@@ -1323,7 +1329,7 @@ function StudentLanding({ onCta }) {
               <button className="al-btn-primary" onClick={onCta}
                 style={{ background: `linear-gradient(135deg,${PURPLE},#7c3aed)`, color: "#fff", fontSize: 16, padding: "17px 32px" }}>Начать приключение →</button>
             </div>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 16 }}>Старт бесплатно · Без банковской карты</p>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 16 }}>Старт бесплатно · Без банковской карты</p>
           </Reveal>
           {/* ЖИВАЯ 3D-планета вместо видео: расцветает из камня при загрузке */}
           <Reveal i={1}>
@@ -1461,7 +1467,7 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
   const cta = user ? onDashboard : (onDemo || onStart);
 
   return (
-    <div className="al-root" style={{ fontFamily: "'Inter',sans-serif", background: BG, color: "#fff", minHeight: "100vh", overflowX: "hidden", position: "relative" }}>
+    <div className="al-root" role="main" style={{ fontFamily: "'Inter',sans-serif", background: BG, color: "#fff", minHeight: "100vh", overflowX: "hidden", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         .al-btn-primary{background:linear-gradient(135deg,${GOLD},#f59e0b);color:#0a0e1a;border:none;padding:16px 32px;border-radius:14px;font-family:'Inter',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:transform .2s,box-shadow .2s;letter-spacing:.2px;}
@@ -1564,7 +1570,7 @@ export default function AboutLanding({ initialRole = null, user = null, onStart,
           <div style={{ maxWidth: MAXW, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24 }}>
             <div>
               <Logo size={28} light />
-              <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, margin: "14px 0 0" }}>© 2026 AAPA — Ad Astra Per Aspera</p>
+              <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 13, margin: "14px 0 0" }}>© 2026 AAPA — Ad Astra Per Aspera</p>
             </div>
             <div style={{ display: "flex", gap: 26, flexWrap: "wrap", fontSize: 14 }}>
               <a href="https://wa.me/77000000000" target="_blank" rel="noreferrer" style={{ color: "rgba(255,255,255,0.5)", textDecoration: "none" }}>WhatsApp</a>

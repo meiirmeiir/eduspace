@@ -1201,7 +1201,11 @@ function AppInner() {
 
       {/* Route-lazy: только активный экран грузит свой чанк (Suspense вокруг блока
           экранов; персистентный UI — снаружи, не мигает при смене). Eager: landing/
-          dashboard/auth (старт без флэша). DEV-превью изолирован отдельно. */}
+          dashboard/auth (старт без флэша). DEV-превью изолирован отдельно.
+          A11y: <main> вокруг блока = единый landmark для ВСЕХ ученических экранов
+          (DashboardScreen свой <main> демоутнут в <div>, иначе вложенные). landing/
+          demo — свои <main> (отдельные early-returns), не вложены с этим. */}
+      <main>
       <React.Suspense fallback={<div style={{minHeight:'70vh',display:'flex',alignItems:'center',justifyContent:'center',color:THEME.textLight,fontFamily:"'Inter',sans-serif",fontSize:15}}>Загрузка…</div>}>
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);setProfile(p=>p?{...p,onboardingDone:true}:p);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
@@ -1252,6 +1256,7 @@ function AppInner() {
       {screen==="public_profile"&&publicProfileUid&&<PublicProfileScreen uid={publicProfileUid} onBack={closePublicProfile}/>}
       {screen==="shop"&&<ShopScreen user={user} onBack={()=>goBack()} onUpdateUser={handleUpdateUser} onGoDaily={()=>navigate("daily")}/>}
       </React.Suspense>
+      </main>
       {/* Bottom-nav: only on screens where the user is browsing,
           not while taking a test or onboarding. Родителю НЕ показываем —
           это ученическая навигация (План/Задачи/…), у родителя нет такого контекста. */}

@@ -74,7 +74,7 @@ export default function DemoScreen({ onFinish, onExit }) {
   const progress = ((idx + (revealed ? 1 : 0)) / total) * 100;
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#fff", fontFamily: "'Inter',sans-serif", display: "flex", flexDirection: "column" }}>
+    <div role="main" style={{ minHeight: "100vh", background: BG, color: "#fff", fontFamily: "'Inter',sans-serif", display: "flex", flexDirection: "column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         .dm-opt{width:100%;text-align:left;display:flex;align-items:center;gap:14px;padding:18px 18px;border-radius:16px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.035);color:#fff;font-family:'Inter',sans-serif;font-size:16px;cursor:pointer;transition:border-color .18s,background .18s,transform .12s;}
@@ -175,7 +175,7 @@ export default function DemoScreen({ onFinish, onExit }) {
               boxShadow: revealed ? `0 12px 30px ${accent}33` : "none" }}>
             {idx + 1 < total ? "Следующая задача →" : "Показать мой план →"}
           </button>
-          {!revealed && <p style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 12 }}>{selected === null ? "Выбери ответ" : "Оцени уверенность, чтобы продолжить"}</p>}
+          {!revealed && <p style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 12 }}>{selected === null ? "Выбери ответ" : "Оцени уверенность, чтобы продолжить"}</p>}
         </div>
       </div>
     </div>
