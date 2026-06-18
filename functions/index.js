@@ -1124,7 +1124,7 @@ exports.weeklyProgressSnapshot = onSchedule(
     schedule: '10 0 * * 1',      // понедельник 00:10 UTC (после awardWeeklyMedals в 00:05)
     timeZone: 'UTC',
     region: 'us-central1',
-    memory: '256MiB',
+    memory: '512MiB',            // skillMastery.get() всех учеников upfront + CHUNK отчётов в полёте (OOM-страховка)
     timeoutSeconds: 540,
     retryCount: 0,               // идемпотентно по weekId — повтор не нужен
   },
@@ -1134,27 +1134,39 @@ exports.weeklyProgressSnapshot = onSchedule(
     const date = now.toISOString();
 
     const masterySnaps = await db.collection('skillMastery').get();
+    const docs = masterySnaps.docs;
+    // Чанкинг + Promise.all: последовательный цикл (3 read + 1 write/ученик серийно)
+    // линейно упирался в timeout при росте базы. Обрабатываем по CHUNK учеников
+    // параллельно (ограниченная конкуренция: ~CHUNK×3 reads + CHUNK writes в полёте
+    // на чанк — безопасно для Admin-лимитов [≈200 writes/сек ≪ 10K, доки разные → без
+    // hotspot] и памяти). buildStudentReport не трогаем — ученики независимы (нет кросс-стейта).
+    const CHUNK = 25;
     let written = 0;
 
-    for (const ms of masterySnaps.docs) {
-      try {
-        const uid = ms.id;
-        // skills уже загружены батчем — передаём, чтобы хелпер не перечитывал skillMastery
-        const r = await buildStudentReport(uid, weekId, ms.data()?.skills || {});
-        await db.collection('progressSnapshots').doc(uid).collection('weeks').doc(weekId).set({
-          weekId, date,
-          overallPct: r.overallPct, masteredCount: r.masteredCount, inProgressCount: r.inProgressCount,
-          planSkillCount: r.planSkillCount,
-          cumulativeAttempts: r.cumulativeAttempts, cumulativeCorrect: r.cumulativeCorrect,
-          weekPoints: r.weekPoints, byVerticalPct: r.byVerticalPct, lastActiveDate: r.lastActiveDate,
-          verdict: r.verdict,
-        }, { merge: true });
-        written++;
-      } catch (e) {
-        logger.error('snapshot failed for student', { uid: ms.id, err: String(e) });
-      }
+    for (let i = 0; i < docs.length; i += CHUNK) {
+      const results = await Promise.all(docs.slice(i, i + CHUNK).map(async (ms) => {
+        try {
+          const uid = ms.id;
+          // skills уже загружены батчем — передаём, чтобы хелпер не перечитывал skillMastery
+          const r = await buildStudentReport(uid, weekId, ms.data()?.skills || {});
+          await db.collection('progressSnapshots').doc(uid).collection('weeks').doc(weekId).set({
+            weekId, date,
+            overallPct: r.overallPct, masteredCount: r.masteredCount, inProgressCount: r.inProgressCount,
+            planSkillCount: r.planSkillCount,
+            cumulativeAttempts: r.cumulativeAttempts, cumulativeCorrect: r.cumulativeCorrect,
+            weekPoints: r.weekPoints, byVerticalPct: r.byVerticalPct, lastActiveDate: r.lastActiveDate,
+            verdict: r.verdict,
+          }, { merge: true });
+          return 1;                          // записан
+        } catch (e) {
+          // сбой ОДНОГО ученика → return 0 (НЕ throw) → не роняет Promise.all-чанк
+          logger.error('snapshot failed for student', { uid: ms.id, err: String(e) });
+          return 0;
+        }
+      }));
+      written += results.reduce((a, b) => a + b, 0);
     }
-    logger.info('weeklyProgressSnapshot done', { weekId, students: masterySnaps.size, written });
+    logger.info('weeklyProgressSnapshot done', { weekId, students: docs.length, written });
   }
 );
 
