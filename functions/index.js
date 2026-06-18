@@ -343,8 +343,6 @@ function buildReportGroups(children, header = null) {
 // ── По темам (Этап 2, фаза F/G) ──────────────────────────────────────────────
 // Карта имён вертикалей. ⚠️ SYNC: 1:1 с src/lib/verticals.js (RU_VERTICALS) — КАНОН
 // (vertical_line_id в данных, 11 вертикалей). При изменении набора — менять ОБА файла.
-// (Веб ChildReport использует свою устаревшую копию из 8 — это веб-баг, чинится отдельно;
-//  без ARITHMETIC/WORD_PROBLEMS/NUMBER_THEORY/LOGIC показывал бы код вместо имени.)
 const VERTICAL_NAMES = {
   ALGEBRA: 'Алгебра', ARITHMETIC: 'Арифметика', GEOMETRY: 'Геометрия', NUMBER_THEORY: 'Теория чисел',
   PROBABILITY: 'Вероятность', STATISTICS: 'Статистика', WORD_PROBLEMS: 'Текстовые задачи',

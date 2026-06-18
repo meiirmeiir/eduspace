@@ -6,6 +6,7 @@
  */
 
 import { getDocs, collection, db } from '../firestore-rest.js';
+import { devLog } from './devLog.js';
 
 const TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -25,7 +26,7 @@ export async function getContent(collectionName) {
   const promise = getDocs(collection(db, collectionName))
     .then(snap => {
       const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      console.log('[contentCache] loaded:', collectionName, items.length);
+      devLog('[contentCache] loaded:', collectionName, items.length);
       return items;
     })
     .catch(err => {

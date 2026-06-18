@@ -4,6 +4,7 @@
 
 import { getToken } from 'firebase/app-check';
 import { auth, app } from './firebase.js';
+import { devLog } from './devLog.js';
 
 // ── XP-награды ────────────────────────────────────────────────────────────────
 export const XP_REWARDS = {
@@ -101,7 +102,7 @@ export async function addXp(uid, amount, reason, _user) {
   }];
 
   const url = `https://firestore.googleapis.com/v1/projects/${PROJECT()}/databases/(default)/documents:commit?key=${KEY()}`;
-  console.log('[xp]', '+' + amount, reason, uid);
+  devLog('[xp]', '+' + amount, reason, uid);
   try {
     const r = await fetch(url, {
       method: 'POST',

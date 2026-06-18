@@ -10,6 +10,7 @@
 import { getToken } from 'firebase/app-check';
 import { auth, app } from './firebase.js';
 import { getShopItem } from './shopItems.js';
+import { devLog } from './devLog.js';
 import { doc, updateDoc, db } from '../firestore-rest.js';
 
 const PROJECT = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
@@ -51,7 +52,7 @@ export async function purchaseItem(uid, itemId, userCrystals, priceOverride = nu
     },
   }];
 
-  console.log('[shop] purchase attempting', itemId, '-' + price + '💎', 'uid=' + uid);
+  devLog('[shop] purchase attempting', itemId, '-' + price + '💎', 'uid=' + uid);
   const url = `https://firestore.googleapis.com/v1/projects/${PROJECT()}/databases/(default)/documents:commit?key=${KEY()}`;
   try {
     const r = await fetch(url, {
@@ -64,7 +65,7 @@ export async function purchaseItem(uid, itemId, userCrystals, priceOverride = nu
       console.error('[shop] purchase FAILED', itemId, r.status, t.slice(0, 300));
       return { success: false, error: `commit_failed_${r.status}` };
     }
-    console.log('[shop] purchase success', itemId, 'uid=' + uid);
+    devLog('[shop] purchase success', itemId, 'uid=' + uid);
     return {
       success: true,
       item,
@@ -101,7 +102,7 @@ export async function purchaseSet(uid, itemIds, price, userCrystals) {
     },
   }];
 
-  console.log('[shop] set purchase attempting', itemIds.join(','), '-' + price + '💎', 'uid=' + uid);
+  devLog('[shop] set purchase attempting', itemIds.join(','), '-' + price + '💎', 'uid=' + uid);
   const url = `https://firestore.googleapis.com/v1/projects/${PROJECT()}/databases/(default)/documents:commit?key=${KEY()}`;
   try {
     const r = await fetch(url, {
@@ -114,7 +115,7 @@ export async function purchaseSet(uid, itemIds, price, userCrystals) {
       console.error('[shop] set purchase FAILED', r.status, t.slice(0, 300));
       return { success: false, error: `commit_failed_${r.status}` };
     }
-    console.log('[shop] set purchase success', 'uid=' + uid);
+    devLog('[shop] set purchase success', 'uid=' + uid);
     return { success: true, newCrystals: userCrystals - price };
   } catch (e) {
     console.error('[shop] set purchase exception', e?.message || e);
@@ -130,7 +131,7 @@ export async function equipItem(uid, itemId, type) {
   if (!uid || !type) return { success: false, error: 'bad_args' };
   try {
     await updateDoc(doc(db, 'users', uid), { [`equipped.${type}`]: itemId });
-    console.log('[shop] equipped', type, '=', itemId, 'uid=' + uid);
+    devLog('[shop] equipped', type, '=', itemId, 'uid=' + uid);
     return { success: true };
   } catch (e) {
     console.error('[shop] equip FAILED', type, itemId, e?.message || e);

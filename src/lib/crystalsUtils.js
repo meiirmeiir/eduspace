@@ -4,6 +4,7 @@
 
 import { getToken } from 'firebase/app-check';
 import { auth, app } from './firebase.js';
+import { devLog } from './devLog.js';
 
 const PROJECT = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
 const KEY     = () => import.meta.env.VITE_FIREBASE_API_KEY;
@@ -35,7 +36,7 @@ export async function addCrystals(uid, amount, reason) {
     },
   }];
 
-  console.log('[crystals]', '+' + amount, reason, uid);
+  devLog('[crystals]', '+' + amount, reason, uid);
   const url = `https://firestore.googleapis.com/v1/projects/${PROJECT()}/databases/(default)/documents:commit?key=${KEY()}`;
   try {
     const r = await fetch(url, {
@@ -48,7 +49,7 @@ export async function addCrystals(uid, amount, reason) {
       console.error('[crystals] FAILED', reason, r.status, t.slice(0, 300));
       return false;
     }
-    console.log('[crystals] success', reason, '+' + amount, 'uid=' + uid);
+    devLog('[crystals] success', reason, '+' + amount, 'uid=' + uid);
     return true;
   } catch (e) {
     console.error('[crystals] FAILED', reason, 'exception:', e?.message || e);
