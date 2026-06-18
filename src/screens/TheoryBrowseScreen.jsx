@@ -599,7 +599,7 @@ export default function TheoryBrowseScreen({ user, onBack, initialSkillId }) {
         {planet3d && !isMobile
           ? <LazyMount height={planetSize}>
               <div style={{ width:planetSize, height:planetSize, flexShrink:0 }}>
-                <SkillPlanet3D fromLife={life} toLife={life} size={planetSize}/>
+                <SkillPlanet3D fromLife={life} toLife={life} size={planetSize} hue={verticalHue(t.vertical_line_id)}/>
               </div>
             </LazyMount>
           : <PlanetDot life={life} hue={verticalHue(t.vertical_line_id)} size={planetSize}/>}

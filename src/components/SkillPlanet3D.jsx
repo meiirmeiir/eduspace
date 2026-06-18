@@ -52,6 +52,9 @@ void main(){
 
 export const PLANET_FRAG = NOISE_GLSL + `
 uniform float uLife; uniform vec3 uSunDir; uniform float uAmbient;
+// Сдвиг тона раздела в градусах (0 = текущий сине-океанический вид). Если потребитель
+// не задаёт uHueShift в uniforms — GL-дефолт 0 → hueShift = identity → вид не меняется.
+uniform float uHueShift;
 varying vec3 vPos; varying vec3 vNormalW; varying vec3 vViewDir;
 const vec3 DEAD_ROCK=vec3(0.32,0.27,0.23);
 const vec3 STONE    =vec3(0.50,0.50,0.54);
@@ -59,6 +62,13 @@ const vec3 LAND_SOIL=vec3(0.55,0.45,0.28);
 const vec3 VEG_GREEN=vec3(0.22,0.50,0.22);
 const vec3 SHALLOW  =vec3(0.20,0.50,0.75);
 const vec3 DEEP     =vec3(0.07,0.20,0.45);
+// Вращение цвета вокруг серой оси (1,1,1) на hueDeg° — сдвиг HSL-тона с сохранением
+// яркости (формула Родрига). hueDeg=0 → cos=1,sin=0 → identity (см. uHueShift выше).
+vec3 hueShift(vec3 col, float hueDeg){
+  float a=radians(hueDeg); float c=cos(a), s=sin(a);
+  const vec3 k=vec3(0.57735026919);
+  return col*c + cross(k,col)*s + k*dot(k,col)*(1.0-c);
+}
 void main(){
   float life=uLife;
   float h=fbm(vPos*1.8);
@@ -75,6 +85,7 @@ void main(){
   float depth=smoothstep(seaLevel,seaLevel-0.35,h);
   vec3 water=mix(SHALLOW,DEEP,depth);
   vec3 surface=mix(land,water,isWater);
+  surface=hueShift(surface,uHueShift);
   float ndl=max(dot(normalize(vNormalW),normalize(uSunDir)),0.0);
   float light=uAmbient+(1.0-uAmbient)*ndl;
   gl_FragColor=vec4(surface*light,1.0);
@@ -127,7 +138,8 @@ export function fallbackGradient(life) {
   return 'radial-gradient(circle at 38% 32%, #7fe0a0, #2a86d6 72%), radial-gradient(circle, transparent 60%, rgba(120,200,255,0.4))';
 }
 
-export default function SkillPlanet3D({ fromLife = 0, toLife = 0, size = 220 }) {
+// hue — оттенок раздела (verticalHue), 210 = нейтральный (текущий сине-океанический вид).
+export default function SkillPlanet3D({ fromLife = 0, toLife = 0, size = 220, hue = 210 }) {
   const mountRef = useRef(null);
   const [failed, setFailed] = useState(false);
 
@@ -153,10 +165,11 @@ export default function SkillPlanet3D({ fromLife = 0, toLife = 0, size = 220 }) 
 
       const sunDir = new THREE.Vector3(0.7, 0.35, 0.6).normalize();
       const uniforms = {
-        uLife:    { value: fromLife },
-        uSunDir:  { value: sunDir },
-        uAmbient: { value: 0.18 },
-        uBloom:   { value: 1 },
+        uLife:     { value: fromLife },
+        uSunDir:   { value: sunDir },
+        uAmbient:  { value: 0.18 },
+        uBloom:    { value: 1 },
+        uHueShift: { value: hue - 210 },   // 210 (нейтр.) → 0 → текущий вид
       };
       const animated = fromLife !== toLife;
       const LERP_DELAY = 0.25, LERP_DUR = 2.5;
@@ -229,7 +242,7 @@ export default function SkillPlanet3D({ fromLife = 0, toLife = 0, size = 220 }) 
         if (renderer.forceContextLoss) renderer.forceContextLoss();
       }
     };
-  }, [fromLife, toLife, size]);
+  }, [fromLife, toLife, size, hue]);
 
   if (failed) {
     return (
