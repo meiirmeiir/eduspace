@@ -139,7 +139,10 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
         _isTeacher?getDocs(collection(db,"homework")):getDocs(query(collection(db,"homework"),where("userId","in",[uid,""]))),
         _isTeacher?getDocs(collection(db,"users")):Promise.resolve({docs:[]}),
         _isTeacher?getDocs(collection(db,"hwSubmissions")):getDocs(query(collection(db,"hwSubmissions"),where("userId","==",uid))),
-        getDocs(collection(db,"lessons")),
+        // lessons содержат driveVideoUrl (видео урока) + summary → приватность ученика.
+        // Student запрашивает ТОЛЬКО свои (where studentId==uid) — иначе суженное правило
+        // отклонит безфильтровый запрос. Teacher/admin читают все (правило-ветка по роли).
+        _isTeacher?getDocs(collection(db,"lessons")):getDocs(query(collection(db,"lessons"),where("studentId","==",uid))),
       ]);
       const allSc=scS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.time?.localeCompare(b.time));
       const allHw=hwS.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.dueDate?.localeCompare(b.dueDate));
