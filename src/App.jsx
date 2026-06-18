@@ -12,8 +12,8 @@ import { useNpc } from './NpcContext.jsx';
 import { app, auth, signOut, reauthenticateWithCredential, updatePassword, EmailAuthProvider } from "./lib/firebase";
 import EmailAuthScreen from "./components/auth/EmailAuthScreen.jsx";
 import AboutLanding from "./screens/AboutLanding.jsx";
-import DemoScreen from "./screens/DemoScreen.jsx";
-import DemoResultScreen from "./screens/DemoResultScreen.jsx";
+const DemoScreen = React.lazy(() => import("./screens/DemoScreen.jsx"));
+const DemoResultScreen = React.lazy(() => import("./screens/DemoResultScreen.jsx"));
 import { useAuth } from "./contexts/AuthContext.jsx";
 import {
   doc, getDoc, setDoc, updateDoc,
@@ -25,34 +25,36 @@ import { ThemeProvider, useTheme } from "./ThemeContext.jsx";
 import Logo from "./components/ui/Logo.jsx";
 import MobileBottomNav from "./components/MobileBottomNav.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
-import OnboardingScreen from "./screens/OnboardingScreen.jsx";
-import { DiagnosticRulesScreen, DiagnosticsScreen, QuestionScreen } from "./screens/DiagnosticsScreens.jsx";
-import ReportScreen from "./screens/ReportScreen.jsx";
-import UploadAnalysisScreen from "./screens/UploadAnalysisScreen.jsx";
-import ExpertReportView from "./screens/ExpertReportView.jsx";
+const OnboardingScreen = React.lazy(() => import("./screens/OnboardingScreen.jsx"));
+const DiagnosticRulesScreen = React.lazy(() => import("./screens/DiagnosticsScreens.jsx").then(m => ({ default: m.DiagnosticRulesScreen })));
+const DiagnosticsScreen = React.lazy(() => import("./screens/DiagnosticsScreens.jsx").then(m => ({ default: m.DiagnosticsScreen })));
+const QuestionScreen = React.lazy(() => import("./screens/DiagnosticsScreens.jsx").then(m => ({ default: m.QuestionScreen })));
+const ReportScreen = React.lazy(() => import("./screens/ReportScreen.jsx"));
+const UploadAnalysisScreen = React.lazy(() => import("./screens/UploadAnalysisScreen.jsx"));
+const ExpertReportView = React.lazy(() => import("./screens/ExpertReportView.jsx"));
 import LandingScreen from "./screens/LandingScreen.jsx";
-import RoadmapScreen from "./screens/RoadmapScreen.jsx";
-import IntermediateTestsScreen from "./screens/IntermediateTestsScreen.jsx";
-import BossFightScreen from "./screens/BossFightScreen.jsx";
-import TheoryBrowseScreen from "./screens/TheoryBrowseScreen.jsx";
-import DailyTasksScreen from "./screens/DailyTasksScreen.jsx";
-import FaqScreen from "./screens/FaqScreen.jsx";
+const RoadmapScreen = React.lazy(() => import("./screens/RoadmapScreen.jsx"));
+const IntermediateTestsScreen = React.lazy(() => import("./screens/IntermediateTestsScreen.jsx"));
+const BossFightScreen = React.lazy(() => import("./screens/BossFightScreen.jsx"));
+const TheoryBrowseScreen = React.lazy(() => import("./screens/TheoryBrowseScreen.jsx"));
+const DailyTasksScreen = React.lazy(() => import("./screens/DailyTasksScreen.jsx"));
+const FaqScreen = React.lazy(() => import("./screens/FaqScreen.jsx"));
 import DailyLockModal from "./components/DailyLockModal.jsx";
 import { getAlmatyDateStr } from "./lib/srsUtils.js";
 import { generateRoadmap, parseGrade } from "./lib/diagnosticUtils.js";
 import { DIFFICULTY_WEIGHTS } from "./lib/appConstants.js";
 import { updateTopicProgress } from "./lib/mathUtils.js";
-import IndividualPlanScreen from "./screens/IndividualPlanScreen.jsx";
-import SmartDiagRunner from "./components/SmartDiagRunner.jsx";
-import SkillMasteryScreen from "./screens/SkillMasteryScreen.jsx";
-import PracticeScreen from "./screens/PracticeScreen.jsx";
+const IndividualPlanScreen = React.lazy(() => import("./screens/IndividualPlanScreen.jsx"));
+const SmartDiagRunner = React.lazy(() => import("./components/SmartDiagRunner.jsx"));
+const SkillMasteryScreen = React.lazy(() => import("./screens/SkillMasteryScreen.jsx"));
+const PracticeScreen = React.lazy(() => import("./screens/PracticeScreen.jsx"));
 import DashboardScreen from "./screens/DashboardScreen.jsx";
-import ParentScreen from "./screens/ParentScreen.jsx"; // родительский раздел (Шаг 5): список детей + привязка
-import AdminScreen from "./screens/AdminScreen.jsx";
-import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
-import FriendsScreen from "./screens/FriendsScreen.jsx";
-import PublicProfileScreen from "./screens/PublicProfileScreen.jsx";
-import ShopScreen from "./screens/ShopScreen.jsx";
+const ParentScreen = React.lazy(() => import("./screens/ParentScreen.jsx")); // родительский раздел (Шаг 5): список детей + привязка
+const AdminScreen = React.lazy(() => import("./screens/AdminScreen.jsx"));   // учительский — ученик НЕ качает (lazy)
+const LeaderboardScreen = React.lazy(() => import("./screens/LeaderboardScreen.jsx"));
+const FriendsScreen = React.lazy(() => import("./screens/FriendsScreen.jsx"));
+const PublicProfileScreen = React.lazy(() => import("./screens/PublicProfileScreen.jsx"));
+const ShopScreen = React.lazy(() => import("./screens/ShopScreen.jsx"));
 import { addPoints } from "./lib/pointsUtils.js";
 import { addCrystals } from "./lib/crystalsUtils.js";
 import { addXp, XP_REWARDS, subscribeXp } from "./lib/levelUtils.js";
@@ -1201,6 +1203,10 @@ function AppInner() {
         }
       `}</style>
 
+      {/* Route-lazy: только активный экран грузит свой чанк (Suspense вокруг блока
+          экранов; персистентный UI — снаружи, не мигает при смене). Eager: landing/
+          dashboard/auth (старт без флэша). DEV-превью изолирован отдельно. */}
+      <React.Suspense fallback={<div style={{minHeight:'70vh',display:'flex',alignItems:'center',justifyContent:'center',color:THEME.textLight,fontFamily:"'Inter',sans-serif",fontSize:15}}>Загрузка…</div>}>
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);setProfile(p=>p?{...p,onboardingDone:true}:p);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
       {screen==="dashboard"&&(profile?.role==='parent'||user?.role==='parent')&&<ParentScreen user={user||profile} onLogout={handleLogout}/>}
@@ -1249,6 +1255,7 @@ function AppInner() {
       {screen==="friends"&&<FriendsScreen user={user} onBack={()=>goBack()} onOpenPublicProfile={openPublicProfile}/>}
       {screen==="public_profile"&&publicProfileUid&&<PublicProfileScreen uid={publicProfileUid} onBack={closePublicProfile}/>}
       {screen==="shop"&&<ShopScreen user={user} onBack={()=>goBack()} onUpdateUser={handleUpdateUser} onGoDaily={()=>navigate("daily")}/>}
+      </React.Suspense>
       {/* Bottom-nav: only on screens where the user is browsing,
           not while taking a test or onboarding. Родителю НЕ показываем —
           это ученическая навигация (План/Задачи/…), у родителя нет такого контекста. */}
