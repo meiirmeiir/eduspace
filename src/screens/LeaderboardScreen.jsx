@@ -383,25 +383,30 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile, o
         <h1 style={{fontFamily:"'Montserrat',sans-serif", fontSize:28, fontWeight:800, color: lt, marginBottom:6, display:'inline-flex', alignItems:'center'}}>🏆 Рейтинг<InfoTooltip text="Рейтинг по очкам за неделю — за ежедневные задачи, навыки и диагностику. Сбрасывается в понедельник." /></h1>
         <p style={{fontSize:13, color: forceLightText || !equippedBg ? 'rgba(226,232,240,0.7)' : ltd, marginBottom:18}}>Текущая неделя · {formatCurrentWeekRange()} · обновляется в реальном времени</p>
 
-        <div style={{display:'flex', gap:6, marginBottom:18, flexWrap:'wrap', alignItems:'center'}}>
+        {/* Фильтры скоупа — равномерная сетка (auto-fit minmax: 2×2 на мобайле, 1 ряд
+            на десктопе, равные ширины). «Пригласить друга» — ДЕЙСТВИЕ (filled), вынесено
+            из группы фильтров (toggle, outlined) в отдельную строку ниже. */}
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:8, marginBottom: onOpenFriends ? 10 : 18}}>
           {TABS.map(t => (
             <button key={t.id} className={`theme-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)} style={{
-              padding:'8px 14px', borderRadius:99, fontSize:13, fontWeight:700,
-              cursor:'pointer', fontFamily:"'Inter',sans-serif",
+              padding:'9px 14px', borderRadius:99, fontSize:13, fontWeight:700,
+              cursor:'pointer', fontFamily:"'Inter',sans-serif", whiteSpace:'nowrap', textAlign:'center',
               background: tab===t.id ? THEME.primary : THEME.surface,
               color: tab===t.id ? (THEME.onPrimary ?? '#fff') : lt,
               border: `1px solid ${tab===t.id ? THEME.primary : THEME.border}`,
             }}>{t.icon} {t.label}</button>
           ))}
-          {onOpenFriends && (
+        </div>
+        {onOpenFriends && (
+          <div style={{marginBottom:18}}>
             <button onClick={onOpenFriends} style={{
-              marginLeft:'auto', padding:'8px 16px', borderRadius:99, fontSize:13, fontWeight:800,
+              padding:'9px 18px', borderRadius:99, fontSize:13, fontWeight:800,
               cursor:'pointer', fontFamily:"'Inter',sans-serif",
               background:'linear-gradient(135deg, #7c3aed, #a78bfa)', color:'#fff', border:'none',
               boxShadow:'0 2px 12px rgba(124,58,237,0.45)',
             }}>+ Пригласить друга</button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Hero-блок — ПЕРСОНАЛЬНАЯ статистика вместо декоративной карточки:
             ранг, дельта позиции, лига с прогрессом до следующей, таймер сброса. */}
