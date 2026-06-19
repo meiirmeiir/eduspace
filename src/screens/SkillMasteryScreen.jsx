@@ -313,7 +313,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
                             })}
                           </div>
                           {revealed && pt.explanation && (
-                            <div style={{ marginTop:12, background: isCorr?'#f0fdf4':'#fef2f2', border:`1px solid ${isCorr?'#bbf7d0':'#fecaca'}`, borderRadius:8, padding:'10px 14px', fontSize:13, color:THEME.text, fontFamily:"'Inter',sans-serif", lineHeight:1.6 }}>
+                            <div style={{ marginTop:12, background: isCorr?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)', border:`1px solid ${isCorr?'rgba(34,197,94,0.35)':'rgba(239,68,68,0.35)'}`, borderRadius:8, padding:'10px 14px', fontSize:13, color:THEME.text, fontFamily:"'Inter',sans-serif", lineHeight:1.6 }}>
                               💡 <LatexText text={pt.explanation}/>
                             </div>
                           )}
@@ -507,7 +507,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
           {revealed && (
             <div style={{ marginTop:18 }}>
               {currentTask.explanation && (
-                <div style={{ background: isCorrect?'#f0fdf4':'#fef2f2', border:`1px solid ${isCorrect?'#bbf7d0':'#fecaca'}`, borderRadius:10, padding:'10px 14px', marginBottom:14, fontSize:13, color:THEME.text, fontFamily:"'Inter',sans-serif", lineHeight:1.6 }}>
+                <div style={{ background: isCorrect?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)', border:`1px solid ${isCorrect?'rgba(34,197,94,0.35)':'rgba(239,68,68,0.35)'}`, borderRadius:10, padding:'10px 14px', marginBottom:14, fontSize:13, color:THEME.text, fontFamily:"'Inter',sans-serif", lineHeight:1.6 }}>
                   💡 <LatexText text={currentTask.explanation}/>
                 </div>
               )}
