@@ -28,12 +28,13 @@ export const storage = getStorage(app);
 auth.languageCode = 'ru';
 
 const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
-if (siteKey) {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(siteKey),
-    isTokenAutoRefreshEnabled: true,
-  });
-} else {
+export const appCheck = siteKey
+  ? initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(siteKey),
+      isTokenAutoRefreshEnabled: true,
+    })
+  : null;
+if (!siteKey) {
   console.warn('[AppCheck] VITE_RECAPTCHA_SITE_KEY not set — App Check disabled');
 }
 

@@ -4,7 +4,7 @@
  */
 
 import { getToken } from 'firebase/app-check';
-import { app } from './lib/firebase.js';
+import { appCheck } from './lib/firebase.js';
 
 const getKey = () => import.meta.env.VITE_FIREBASE_API_KEY;
 const getProject = () => import.meta.env.VITE_FIREBASE_PROJECT_ID;
@@ -103,8 +103,9 @@ function _authHeader() {
 }
 
 async function _appCheckHeader() {
+  if (!appCheck) return {};
   try {
-    const result = await getToken(app, false);
+    const result = await getToken(appCheck, false);
     return { 'X-Firebase-AppCheck': result.token };
   } catch {
     return {};
