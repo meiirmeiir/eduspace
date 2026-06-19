@@ -989,8 +989,17 @@ function AppInner() {
   );
   // Гость: демо-режим без регистрации (/demo · /demo/result), затем лендинг.
   if (!firebaseUser) {
-    if (demoRoute?.step==="result") return <DemoResultScreen result={demoResult} onRegister={demoRegister} onRestart={startDemo} onExit={exitDemo}/>;
-    if (demoRoute?.step==="quiz")   return <DemoScreen onFinish={finishDemo} onExit={exitDemo}/>;
+    // DemoScreen/DemoResultScreen — React.lazy: ОБЯЗАТЕЛЬНО в Suspense, иначе холодный
+    // in-app переход (клик «Попробовать» → setDemoRoute → рендер lazy) подвешивается БЕЗ
+    // границы → React #426 → ErrorBoundary «Что-то пошло не так» (работало лишь после
+    // перезагрузки, когда чанк уже в кэше). Fallback — пульсирующее лого на тёмном.
+    const demoFallback = (
+      <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#0f172a'}}>
+        <svg className="aapa-mark" width="64" height="64" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="50" fill="#0A2463"/><path d="M45 35 L85 15 L78 28 L95 35 L78 40 L85 55 L65 40 Z" fill="#FBBF24"/><path d="M50 75 Q35 60 15 65 L15 75 Q35 70 50 85 Q65 70 85 75 L85 65 Q65 60 50 75Z" fill="#E2E8F0"/><path d="M50 65 Q35 50 15 55 L15 65 Q35 60 50 75 Q65 60 85 65 L85 55 Q65 50 50 65Z" fill="#FFF"/><path d="M50 30 L15 45 L50 60 L85 45Z" fill="#1E3A8A"/><path d="M50 35 L22 47 L50 55 L78 47Z" fill="#2563EB"/><path d="M50 45 L70 50 L72 65" stroke="#FBBF24" strokeWidth="2.5" fill="none" strokeLinecap="round"/><circle cx="72" cy="68" r="3.5" fill="#FBBF24"/></svg>
+      </div>
+    );
+    if (demoRoute?.step==="result") return <React.Suspense fallback={demoFallback}><DemoResultScreen result={demoResult} onRegister={demoRegister} onRestart={startDemo} onExit={exitDemo}/></React.Suspense>;
+    if (demoRoute?.step==="quiz")   return <React.Suspense fallback={demoFallback}><DemoScreen onFinish={finishDemo} onExit={exitDemo}/></React.Suspense>;
     if (showAuth) return <EmailAuthScreen from={authFrom} onSuccess={(res)=>{setAboutRoute(null);setDemoRoute(null);_setScreen(res?.isNewUser?'onboarding':'dashboard');}} onBack={()=>{setShowAuth(false);setAuthFrom(null);}}/>;
     return <AboutLanding initialRole={aboutRoute?.role ?? null} onStart={()=>setShowAuth(true)} onDemo={startDemo} invitePending={inviteBanner}/>;
   }
