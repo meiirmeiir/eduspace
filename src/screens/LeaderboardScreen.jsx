@@ -391,9 +391,12 @@ export default function LeaderboardScreen({ user, onBack, onOpenPublicProfile, o
             <button key={t.id} className={`theme-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)} style={{
               padding:'9px 14px', borderRadius:99, fontSize:13, fontWeight:700,
               cursor:'pointer', fontFamily:"'Inter',sans-serif", whiteSpace:'nowrap', textAlign:'center',
-              background: tab===t.id ? THEME.primary : THEME.surface,
+              // Неактив: стекло (страница рейтинга ВСЕГДА тёмная) + светлый текст lt —
+              // читается в обеих темах. Раньше фон=THEME.surface (белый в light) → светлый
+              // текст на белом = невидим в light mode.
+              background: tab===t.id ? THEME.primary : 'rgba(255,255,255,0.08)',
               color: tab===t.id ? (THEME.onPrimary ?? '#fff') : lt,
-              border: `1px solid ${tab===t.id ? THEME.primary : THEME.border}`,
+              border: `1px solid ${tab===t.id ? THEME.primary : 'rgba(255,255,255,0.18)'}`,
             }}>{t.icon} {t.label}</button>
           ))}
         </div>
