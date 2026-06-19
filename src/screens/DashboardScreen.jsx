@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { addDoc, collection, db, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "../firestore-rest.js";
 import { compressImage } from "../lib/mathUtils.js";
 import { getAlmatyDateStr } from "../lib/srsUtils.js";
+import { openSubscriptionWhatsApp } from "../lib/openSubscription.js";
 import { STUDENT_STATUSES, DAY_NAMES_SHORT, PLANS } from "../lib/appConstants.js";
 import { useTheme } from "../ThemeContext.jsx";
 import { getMyWeeklyRank, getLeague } from "../lib/pointsUtils.js";
@@ -90,17 +91,11 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
   const isSolo=planKey==='solo';
   const isPaidPlan=!!planKey&&(planKey.startsWith('group_')||planKey.startsWith('individual_'));
   const trialDaysLeft=user?.trialExpiry?Math.max(0,Math.ceil((new Date(user.trialExpiry+"T23:59:59")-new Date())/(864e5))):null;
-  // Канал оплаты: WhatsApp +7 747 195 8968 с заготовленным текстом (имя+класс ученика —
-  // чтобы менеджер сразу видел, кто пишет). onOpenSubscription (если App когда-то протянет)
-  // имеет приоритет; иначе — прямой wa.me deeplink. wa.me хочет цифры с кодом страны без «+».
+  // Канал оплаты: общий хелпер openSubscriptionWhatsApp (wa.me с заготовкой имя+класс).
+  // onOpenSubscription (если App когда-то протянет) имеет приоритет; иначе — хелпер.
   const openSubscription=()=>{
     if(onOpenSubscription){ onOpenSubscription(); return; }
-    const lines=["Здравствуйте! Хочу оформить подписку на AAPA."];
-    const fio=`${user?.firstName||''} ${user?.lastName||''}`.trim();
-    if(fio) lines.push("", `Ученик: ${fio}`);
-    if(user?.grade) lines.push(`Класс: ${user.grade}`);
-    const url=`https://wa.me/77471958968?text=${encodeURIComponent(lines.join("\n"))}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    openSubscriptionWhatsApp(user);
   };
   const _stdStatus=STUDENT_STATUSES.find(s=>s.value===planKey);
   const _planForStatus=planKey&&PLANS[planKey]?{value:planKey,label:PLANS[planKey].label,color:THEME.accent}:null;
@@ -572,11 +567,17 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
               const bd=warn?"rgba(249,115,22,0.5)":"rgba(245,158,11,0.35)";
               const txt=warn?"#9a3412":"#92400e";
               return (
-                <div style={{background:bg,border:`1px solid ${bd}`,borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12}}>
+                <div style={{background:bg,border:`1px solid ${bd}`,borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
                   <span style={{fontSize:22}}>{warn?"⚠️":"⏳"}</span>
-                  <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:14,color:txt}}>
+                  <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,fontSize:14,color:txt,flex:"1 1 auto"}}>
                     Пробный период: осталось {d} {plural}
                   </div>
+                  {/* «Оплатить сейчас» — оплата ДО истечения trial (опережение). Текст с
+                      именем/классом (залогинен). Отличается от «Оформить подписку» в
+                      ветке «закончился» (там — необходимость продолжить после конца). */}
+                  <button onClick={()=>openSubscriptionWhatsApp(user)} style={{marginLeft:"auto",background:txt,color:"#fff",border:"none",borderRadius:10,padding:"8px 16px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+                    Оплатить сейчас
+                  </button>
                 </div>
               );
             })()}

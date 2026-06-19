@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
+import { openSubscriptionWhatsApp } from "../lib/openSubscription.js";
 
 /**
  * DemoResultScreen — «Твой персональный план» после мини-диагностики.
@@ -164,6 +165,11 @@ export default function DemoResultScreen({ result, onRegister, onRestart, onExit
           <button onClick={onRegister}
             style={{ width: "100%", maxWidth: 420, border: "none", borderRadius: 14, padding: "17px 32px", fontSize: 17, fontWeight: 700, cursor: "pointer", color: "#fff", fontFamily: "'Inter',sans-serif", background: `linear-gradient(135deg,${accent},#7c3aed)`, boxShadow: `0 14px 36px ${accent}38` }}>
             Зарегистрироваться и получить план →
+          </button>
+          {/* Готов оформить подписку сразу → WhatsApp (менеджер оформит без регистрации). */}
+          <button onClick={() => openSubscriptionWhatsApp()}
+            style={{ width: "100%", maxWidth: 420, margin: "12px auto 0", display: "block", background: "transparent", border: "1.5px solid rgba(37,211,102,0.55)", borderRadius: 14, padding: "14px 28px", fontSize: 15, fontWeight: 700, cursor: "pointer", color: "#fff", fontFamily: "'Inter',sans-serif" }}>
+            Оплатить сразу через WhatsApp
           </button>
           <div style={{ marginTop: 18, display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
             <button onClick={onRestart} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", fontSize: 14, cursor: "pointer", fontFamily: "'Inter',sans-serif", textDecoration: "underline" }}>Пройти ещё раз</button>

@@ -10,6 +10,7 @@ import ShipProgress from "../components/ShipProgress.jsx";
 import Boss3D from "../components/Boss3D.jsx";
 import BattleScene3D from "../components/BattleScene3D.jsx";
 import { EQUIPMENT_SETS, getShopItem } from "../lib/shopItems.js";
+import { openSubscriptionWhatsApp } from "../lib/openSubscription.js";
 
 // Видео-заготовки (Vite импортирует mp4 → URL). Лежат в assets/marketing/videos/.
 import diagnosticVid from "../../assets/marketing/videos/diagnostic_v2.mp4";
@@ -415,6 +416,9 @@ function PriceSection({ onCta, accent = GOLD, perks, ctaText }) {
           </div>
           <button className="al-btn-primary" onClick={onCta}
             style={{ width: "100%", maxWidth: 420, fontSize: 17, padding: "18px 32px", background: accent === PURPLE ? `linear-gradient(135deg,${PURPLE},#7c3aed)` : `linear-gradient(135deg,${GOLD},#f59e0b)`, color: accent === PURPLE ? "#fff" : "#0a0e1a" }}>{ctaText}</button>
+          {/* Готов платить сразу → WhatsApp (без регистрации, менеджер оформит). */}
+          <button onClick={() => openSubscriptionWhatsApp()}
+            style={{ width: "100%", maxWidth: 420, margin: "12px auto 0", display: "block", background: "transparent", border: "1.5px solid rgba(37,211,102,0.55)", color: "#fff", borderRadius: 14, padding: "14px 28px", fontSize: 15, fontWeight: 700, fontFamily: "'Inter',sans-serif", cursor: "pointer" }}>Оплатить сразу через WhatsApp</button>
           <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 14 }}>Первая диагностика бесплатно · Без банковской карты</p>
         </div>
       </Reveal>
@@ -774,6 +778,9 @@ function ParentPriceSection({ onCta, perks }) {
               ))}
             </div>
             <button className="al-btn-primary" onClick={onCta} style={{ width: "100%", maxWidth: 400, margin: "0 auto", fontSize: 16.5, padding: "17px 30px" }}>Дайте ребёнку попробовать →</button>
+            {/* Готов платить сразу → WhatsApp (без регистрации, менеджер оформит). */}
+            <button onClick={() => openSubscriptionWhatsApp()}
+              style={{ width: "100%", maxWidth: 400, margin: "12px auto 0", display: "block", background: "transparent", border: "1.5px solid rgba(37,211,102,0.55)", color: "#fff", borderRadius: 14, padding: "13px 28px", fontSize: 14.5, fontWeight: 700, fontFamily: "'Inter',sans-serif", cursor: "pointer" }}>Оплатить сразу через WhatsApp</button>
             <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 13 }}>Первая диагностика бесплатно · Без банковской карты</p>
           </div>
         </Reveal>
