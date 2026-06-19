@@ -353,7 +353,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
       <div style={{ minHeight:'100vh', background:BG }}>
         <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <Logo size={28}/>
-          <div style={{ fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:13, color:THEME.primary }}>{skillName || skillId}</div>
+          <div style={{ flex:1, minWidth:0, textAlign:'center', padding:'0 12px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:13, color:THEME.primary }}>{skillName || skillId}</div>
           <button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
         </nav>
         <div style={{ maxWidth:520, margin:'80px auto', padding:'0 24px', textAlign:'center' }}>
@@ -449,7 +449,7 @@ export default function SkillMasteryScreen({ user, skillId, skillName, onBack, o
     <div style={{ minHeight:'100vh', background:BG }}>
       <nav data-inner-nav style={{ background:THEME.surface, borderBottom:`1px solid ${THEME.border}`, padding:'0 32px', height:60, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Logo size={28}/>
-        <div style={{ fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:13, color:THEME.primary }}>{skillName || skillId}</div>
+        <div style={{ flex:1, minWidth:0, textAlign:'center', padding:'0 12px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:13, color:THEME.primary }}>{skillName || skillId}</div>
         <button onClick={onBack} style={{ background:'transparent', border:`1px solid ${THEME.border}`, borderRadius:8, padding:'6px 14px', cursor:'pointer', fontSize:13, color:THEME.textLight }}>← Назад</button>
       </nav>
 
