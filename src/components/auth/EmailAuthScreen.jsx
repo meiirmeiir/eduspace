@@ -245,6 +245,14 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
             region:      regRegion,
             role:        'student',
             status:      'trial',
+            // Пробный период: 7 дней доступа от регистрации. trialExpiry — ПОСЛЕДНИЙ
+            // валидный день (включительно), как statusExpiry: App.jsx флипает в inactive
+            // когда trialExpiry<today (т.е. на следующий день), а DashboardScreen считает
+            // дедлайн как trialExpiry+"T23:59:59". Поэтому рег-день + 6 = 7 календарных дат
+            // (баннер «осталось 7 дней» в день регистрации). Формат "YYYY-MM-DD" UTC.
+            // 864e5 = мс/день. Только ученик — родитель (ветка выше) trialExpiry не
+            // получает: наблюдателя не гейтим (гейт App.jsx:586 = любой status==='inactive').
+            trialExpiry: new Date(Date.now() + 6 * 864e5).toISOString().slice(0, 10),
             friendCode,                       // код приглашения друзей
             friends:     [],
             registeredAt: new Date().toISOString(),
