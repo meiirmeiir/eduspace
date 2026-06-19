@@ -4,64 +4,9 @@
    and accent colors, so it has been removed.
    ════════════════════════════════════════════════════════════ */
 
-/* ── Theme Toggle Switch ── */
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 24px 14px;
-}
-
-.theme-toggle-track {
-  position: relative;
-  width: 56px;
-  height: 28px;
-  border-radius: 14px;
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.35s, border-color 0.35s;
-  /* Visible on both themes: light gray pill on white, lighter pill on dark. */
-  background: rgba(15, 23, 42, 0.08);
-  border: 1px solid rgba(15, 23, 42, 0.15);
-  flex-shrink: 0;
-}
-[data-theme="dark"] .theme-toggle-track {
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.15);
-}
-
-.theme-toggle-thumb {
-  position: absolute;
-  top: 3px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #f0c040;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  transition: left 0.3s cubic-bezier(.4,0,.2,1), background 0.35s;
-  left: 3px;
-  line-height: 1;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
-  overflow: hidden;
-}
-
-.theme-toggle-thumb.is-dark {
-  left: 31px;
-  background: #4f46e5;
-}
-
-/* Emoji glyph: explicit positioning so sun/moon sit in the
-   geometric centre of the 22px pill. Emoji line boxes have a
-   built-in descender area, so we translate up + a hair left
-   to compensate for the inherent right-bias of these glyphs. */
-.theme-toggle-glyph {
-  display: inline-block;
-  line-height: 1;
-  transform: translate(-1px, -2px);
-}
+/* Theme Toggle Switch — стили перенесены в index.css (глобальный): тоггл живёт в
+   шапке на ВСЕХ экранах, а MapStyles.css грузится лениво только с картой (CustomNode),
+   поэтому на экранах без карты тоггл оставался без стилей («битый» голый SVG). */
 
 /* ── Фон карты — прозрачный (рисует MapBackground под ReactFlow) ── */
 .react-flow__pane {

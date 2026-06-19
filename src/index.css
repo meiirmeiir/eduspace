@@ -309,6 +309,60 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   z-index:30;
 }
 .desktop-header-actions .theme-toggle { padding:0; }
+
+/* ── Theme Toggle Switch ── (перенесено из MapStyles.css: тоггл — глобальный элемент
+   шапки на всех экранах, а MapStyles грузится лениво только с картой → иначе тоггл
+   без стилей на экранах без карты). */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px 14px;
+}
+.theme-toggle-track {
+  position: relative;
+  width: 56px;
+  height: 28px;
+  border-radius: 14px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.35s, border-color 0.35s;
+  /* Visible on both themes: light gray pill on white, lighter pill on dark. */
+  background: rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  flex-shrink: 0;
+}
+[data-theme="dark"] .theme-toggle-track {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.theme-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f0c040;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: left 0.3s cubic-bezier(.4,0,.2,1), background 0.35s;
+  left: 3px;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+  overflow: hidden;
+}
+.theme-toggle-thumb.is-dark {
+  left: 31px;
+  background: #4f46e5;
+}
+/* SVG-иконка (IconSun/IconMoon) центрируется flex-ом thumb. Прежний
+   transform:translate(-1px,-2px) был компенсацией эмодзи-десендера — для SVG лишний. */
+.theme-toggle-glyph {
+  display: inline-block;
+  line-height: 1;
+}
 @media (max-width: 768px) {
   .desktop-header-actions { display:none; }
 }
@@ -331,7 +385,12 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
   box-sizing:border-box !important;
 }
 .mobile-topbar .burger-btn { flex-shrink:0; }
-.mobile-topbar .theme-toggle { margin-left:auto; padding:0; }
+/* Спейсер правого кластера на уровне mobile-topbar: раздвигает [бургер·logo·breadcrumb]
+   и [чипы·тема·аватар], прижимая правую группу к краю (в пределах padding). Раньше
+   margin-left:auto висел на .theme-toggle, но после выноса тоггла в TopbarStats он
+   оказался вложенным и переставал толкать ряд → аватар (последний) уезжал за край. */
+.mobile-topbar .topbar-stats { margin-left:auto; }
+.mobile-topbar .theme-toggle { padding:0; }
 /* Free up topbar space — drop the logo subtitle on mobile */
 .mobile-topbar .logo-subtitle { display:none !important; }
 .mobile-topbar .logo-title { font-size:16px !important; }
