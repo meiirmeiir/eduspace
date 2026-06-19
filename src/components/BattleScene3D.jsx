@@ -4,6 +4,7 @@ import { buildLego } from './LegoCharacter3D.jsx';
 import { loadCharacterModel, cloneCharacterScene, pickClip, normalizeCharacter } from './Character3D.jsx';
 import { applyBossDamageDim, buildBossFromGltf } from './Boss3D.jsx';
 import { bossById, loadBossModel } from '../lib/bossConfig.js';
+import { OUTFIT_SETS, OUTFIT_EQUIPMENT_SETS, loadOutfitModel } from '../lib/outfitSets.js';
 import PixelBoss from './PixelBoss.jsx';
 
 // Покемон-арена боя (ОДИН WebGL-контекст). Камера под углом ~30° сверху: игрок
@@ -72,6 +73,14 @@ export default function BattleScene3D({ equipped = {}, gender = 'male', bossId =
   const resolvedKey = SLOTS.map((s) => resolved[s] || '-').join('|');
   const resolvedRef = useRef(resolved); resolvedRef.current = resolved;
   useEffect(() => { apiRef.current?.rebuild(resolvedRef.current); }, [resolvedKey]);
+
+  // Полный сет → подмена модели целиком на наряд (как Character3D:135-157). Частичная/
+  // смешанная экипировка → базовая модель по полу. Та же логика, что в превью — чтобы
+  // бой === превью (Монарх в шопе = Монарх в бою). HP-бонусы считаются отдельно (computePlayerHp).
+  const equippedIds = SLOTS.map((s) => resolved[s]).filter(Boolean);
+  const fullSetKey = Object.entries(OUTFIT_EQUIPMENT_SETS).find(([, set]) =>
+    set.gender === gender && set.items.length > 0 && set.items.every((id) => equippedIds.includes(id))
+  )?.[0] || null;
 
   // Красная вспышка экрана при контратаке (пропуск самого первого hitSeq).
   const firstHit = useRef(true);
@@ -258,7 +267,13 @@ export default function BattleScene3D({ equipped = {}, gender = 'male', bossId =
       apiRef.current = { rebuild: lego.rebuildEquip, dispose: lego.dispose };
       lego.rebuildEquip(resolvedRef.current);
       let heroKind = 'lego';
-      loadCharacterModel(gender).then(({ gltf }) => {
+      // Полный сет → GLB наряда (King.glb и т.п.), иначе базовая модель по полу.
+      // Наряд-модели имеют idle (Idle_Neutral) + богаче анимаций; бой играет idle +
+      // позиционный lunge → свап безопасен. Lego выше — заглушка, пока грузится GLTF.
+      const heroModelPromise = fullSetKey
+        ? loadOutfitModel(OUTFIT_SETS[fullSetKey].file)
+        : loadCharacterModel(gender);
+      heroModelPromise.then(({ gltf }) => {
         if (cancelled || !scene) return;
         const model = cloneCharacterScene(THREE, gltf);
         normalizeCharacter(THREE, model);
@@ -412,7 +427,7 @@ export default function BattleScene3D({ equipped = {}, gender = 'male', bossId =
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bossId, height, gender]);
+  }, [bossId, height, gender, fullSetKey]);
 
   if (failed) {
     const legacy = boss.tier <= 2 ? 'topic' : 'chapter';
@@ -433,8 +448,13 @@ export default function BattleScene3D({ equipped = {}, gender = 'male', bossId =
       )}
       {/* HP игрока — только сердечки, привязаны НАД головой (left/top — imperative в rAF) */}
       {hud && (
-        <div ref={playerOvRef} style={{ position: 'absolute', transform: 'translate(-50%,0)', pointerEvents: 'none' }}>
-          <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+        <div ref={playerOvRef} style={{ position: 'absolute', transform: 'translate(-50%,-100%)', pointerEvents: 'none' }}>
+          {/* maxWidth=140 (≈5 сердец/ряд) + flex-wrap: 3-5 HP в один ряд, при многих
+              (Монарх=8) переносится на 2 ряда (5+3), не вылезая за арену (overflow:hidden
+              обрезал бы). half-width (~70px) < clampX-margin 90px → ряд всегда в пределах
+              канваса. transform -100% по Y — растём ВВЕРХ от якоря (над головой), 2-й ряд
+              не лезет на модель. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center', maxWidth: 140, margin: '0 auto' }}>
             {Array.from({ length: playerMaxHp }).map((_, i) => {
               const isLosing = i === losingHeart;
               const full = i < playerHp || isLosing;
