@@ -447,21 +447,31 @@ export default function EmailAuthScreen({ onSuccess, onBack, from }) {
               {/* Выбор роли — только на регистрации. Дефолт 'student'. */}
               <div className="input-group" style={{marginBottom:18}}>
                 <label className="input-label">Кто регистрируется?</label>
-                <div style={{display:'flex', gap:10}}>
-                  {[['student','🎓','Ученик'], ['parent','👨‍👩‍👧','Родитель']].map(([val, emoji, label]) => (
+                {/* Сегмент-toggle (важный первый выбор флоу): единый трек с двумя
+                    половинами, активная ЗАЛИТА THEME.primary (navy) + светлый текст.
+                    Форма отличается от outlined-«Твой герой» ниже → не спутать. primary
+                    (а не accent): index.css в dark форсит текст кнопок светлым — на золоте
+                    он был бы нечитаем (контраст 1.9), а на тёмном navy светлый текст ОК в
+                    обеих темах. navy #0f172a темнее панели → выделяется. */}
+                <div style={{display:'flex', padding:4, borderRadius:12, border:`1px solid ${THEME.border}`, background:THEME.surface}}>
+                  {[['student','🎓','Ученик'], ['parent','👨‍👩‍👧','Родитель']].map(([val, emoji, label]) => {
+                    const active = regRole===val;
+                    return (
                     <button key={val} type="button" onClick={()=>{setRegRole(val);setError('');}}
                       style={{
-                        flex:1, padding:'12px 10px', borderRadius:12, cursor:'pointer',
+                        flex:1, padding:'11px 10px', borderRadius:9, cursor:'pointer',
                         display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                        fontFamily:"'Inter',sans-serif", fontSize:14.5, fontWeight:700,
-                        background: regRole===val ? 'rgba(212,175,55,0.12)' : 'transparent',
-                        border: regRole===val ? '2px solid #d4af37' : `2px solid ${THEME.border}`,
-                        color: regRole===val ? '#92400e' : THEME.text,
-                        transition:'all 0.15s',
+                        fontFamily:"'Inter',sans-serif", fontSize:14.5, fontWeight: active?800:600,
+                        background: active ? THEME.primary : 'transparent',
+                        color: active ? (THEME.onPrimary ?? '#fff') : THEME.text,
+                        border:'none',
+                        boxShadow: active ? '0 1px 6px rgba(0,0,0,0.25)' : 'none',
+                        transition:'all 0.18s',
                       }}>
-                      <span style={{fontSize:20}}>{emoji}</span> {label}
+                      <span style={{fontSize:18}}>{emoji}</span> {label}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               <div className="form-row">
