@@ -534,9 +534,13 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
               </div>
             </div>
 
-            {/* Баннер триала — только на полном дашборде (этап active): новичка
-                «осталось 0 дней» сбивает с толку, выглядит как конец доступа. */}
-            {stage==='active'&&isTrial&&!isTeacher&&(()=>{
+            {/* Баннер триала: показываем ВЕСЬ trial (countdown с 1-го дня), независимо
+                от stage — trial про ВРЕМЯ, не про прогресс. Гейт по наличию trialExpiry
+                (а не stage==='active'): у новых регистраций оно есть → d осмыслен (7→0);
+                у старых аккаунтов без trialExpiry баннер скрыт → нет конфузного «осталось
+                0 дней». Enforcement (status==='inactive' → гейт доступа App.jsx:586,
+                флип App.jsx:398) — stage-независим и здесь НЕ затронут. */}
+            {isTrial&&!isTeacher&&user?.trialExpiry&&(()=>{
               const d=trialDaysLeft??0;
               const plural=(()=>{ const n=Math.abs(d)%100, b=n%10; if(n>10&&n<20)return 'дней'; if(b>1&&b<5)return 'дня'; if(b===1)return 'день'; return 'дней'; })();
               const urgent=d===0, warn=d>0&&d<=3;
