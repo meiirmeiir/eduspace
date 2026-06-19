@@ -533,6 +533,7 @@ function DiagnosticModuleTree({ diagData, onStartTraining, skillMastery = {}, fo
           onNodeMouseEnter={(_, node) => { if(node.type==='diagModuleNode') setHoveredId(node.id); }}
           onNodeMouseLeave={() => setHoveredId(null)}
           fitView fitViewOptions={{ padding:0.20 }}
+          minZoom={0.1} maxZoom={2}
           nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
           proOptions={{ hideAttribution:true }}
           onInit={setRfInstance}
