@@ -967,9 +967,10 @@ function AppInner() {
   }
 
   // ── Защита маршрутов через Firebase Auth ────────────────────────────────
-  // Бренд-сплэш: тот же navy+лого, что статический #aapa-splash в index.html
-  // (классы .aapa-splash в index.css) → бесшовная передача HTML-сплэш → React-лоадер,
-  // без моргания. Navy фикс. (не THEME.bg): тема ещё может быть не резолвнута.
+  // Бренд-сплэш: тот же фон+лого, что статический #aapa-splash в index.html
+  // (классы .aapa-splash в index.css, фон #0a0e1a = THEME_DARK.bg) → бесшовная передача
+  // HTML-сплэш → React-лоадер без моргания и согласовано с тёмной платформой. Фон
+  // фиксированный (не THEME.bg-проп): тема ещё может быть не резолвнута на этом этапе.
   if (authLoading) return (
     <div className="aapa-splash">
       <svg className="aapa-mark" width="88" height="88" viewBox="0 0 100 100" fill="none">
