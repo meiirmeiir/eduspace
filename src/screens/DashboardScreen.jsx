@@ -90,6 +90,18 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
   const isSolo=planKey==='solo';
   const isPaidPlan=!!planKey&&(planKey.startsWith('group_')||planKey.startsWith('individual_'));
   const trialDaysLeft=user?.trialExpiry?Math.max(0,Math.ceil((new Date(user.trialExpiry+"T23:59:59")-new Date())/(864e5))):null;
+  // Канал оплаты: WhatsApp +7 747 195 8968 с заготовленным текстом (имя+класс ученика —
+  // чтобы менеджер сразу видел, кто пишет). onOpenSubscription (если App когда-то протянет)
+  // имеет приоритет; иначе — прямой wa.me deeplink. wa.me хочет цифры с кодом страны без «+».
+  const openSubscription=()=>{
+    if(onOpenSubscription){ onOpenSubscription(); return; }
+    const lines=["Здравствуйте! Хочу оформить подписку на AAPA."];
+    const fio=`${user?.firstName||''} ${user?.lastName||''}`.trim();
+    if(fio) lines.push("", `Ученик: ${fio}`);
+    if(user?.grade) lines.push(`Класс: ${user.grade}`);
+    const url=`https://wa.me/77471958968?text=${encodeURIComponent(lines.join("\n"))}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
   const _stdStatus=STUDENT_STATUSES.find(s=>s.value===planKey);
   const _planForStatus=planKey&&PLANS[planKey]?{value:planKey,label:PLANS[planKey].label,color:THEME.accent}:null;
   const statusObj=_stdStatus||_planForStatus||STUDENT_STATUSES[1];
@@ -538,16 +550,15 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
                     <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:14,color:"#fff",flex:"1 1 auto"}}>
                       Пробный период закончился — оформи подписку, чтобы продолжить
                     </div>
-                    {/* onOpenSubscription — опц. проп (App пока НЕ передаёт): без него
-                        был ReferenceError→белый экран на trial-баннере (ESLint no-undef).
-                        🔴 TODO: протянуть реальный канал оплаты из App (флоу подписки нет —
-                        оплата вручную через AdminScreen); пока инертна (no-op, не краш). */}
+                    {/* openSubscription (см. выше) — канал оплаты WhatsApp с заготовкой
+                        имя+класс. onOpenSubscription-проп, если App когда-то протянет, имеет
+                        приоритет; иначе прямой wa.me deeplink. */}
                     {/* фон #fffffe (не #fff): белая «пилюля» с красным текстом. В тёмной
                         теме флип-правило index.css:267 ловит `rgb(255,255,255)` и красит фон в
                         #161b22 → красный-на-тёмном 3.58 (<AA). #fffffe визуально белый, но
                         строка rgb(255,255,254) не матчит флип → пилюля остаётся белой →
                         #dc2626-на-белом ≈ 5:1 (AA) в обеих темах. */}
-                    <button onClick={()=>onOpenSubscription?.()} style={{background:"#fffffe",color:"#dc2626",border:"none",borderRadius:10,padding:"9px 18px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
+                    <button onClick={openSubscription} style={{background:"#fffffe",color:"#dc2626",border:"none",borderRadius:10,padding:"9px 18px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
                       Оформить подписку
                     </button>
                   </div>
