@@ -400,9 +400,13 @@ export default function BattleScene3D({ equipped = {}, gender = 'male', bossId =
           bossOvRef.current.style.top = clampY(p.y + 46) + 'px';
         }
         if (playerOvRef.current) {
-          const p = project(hero.position.x, 3.0, hero.position.z); // высоко над головой игрока
+          // Якорь чуть выше головы (2.7 ≈ голова+0.1) + малый offset: с transform
+          // translate(-50%,-100%) низ сердец садится с небольшим зазором над головой,
+          // ряды растут ВВЕРХ (одинаково для 1 и 2 рядов). Раньше якорь 3.0/−30 давал
+          // большой зазор (особенно после Фикса-1 -100%, который поднял ряд на высоту H).
+          const p = project(hero.position.x, 2.7, hero.position.z);
           playerOvRef.current.style.left = clampX(p.x) + 'px';
-          playerOvRef.current.style.top = clampY(p.y - 30) + 'px';
+          playerOvRef.current.style.top = clampY(p.y - 8) + 'px';
         }
 
         renderer.render(scene, camera);
