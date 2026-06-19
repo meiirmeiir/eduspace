@@ -408,6 +408,13 @@ html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-bo
 /* Hide breadcrumb on desktop — it's a mobile orientation aid only. */
 @media (min-width: 769px) { .mobile-breadcrumb { display:none; } }
 
+/* Trial-баннеры (countdown + «закончился»): на мобайле кнопка оплаты во всю ширину
+   под текстом (органичный CTA), а не зажата справа через marginLeft:auto. Десктоп —
+   как есть (ряд). !important перебивает инлайновые marginLeft/whiteSpace кнопок. */
+@media (max-width: 768px) {
+  .trial-pay-btn { width:100% !important; margin-left:0 !important; white-space:normal !important; }
+}
+
 /* ── Unified top bar for standalone screens (AppTopbar) ────── */
 .app-topbar {
   display:grid;

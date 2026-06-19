@@ -557,7 +557,7 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
                         #161b22 → красный-на-тёмном 3.58 (<AA). #fffffe визуально белый, но
                         строка rgb(255,255,254) не матчит флип → пилюля остаётся белой →
                         #dc2626-на-белом ≈ 5:1 (AA) в обеих темах. */}
-                    <button onClick={openSubscription} style={{background:"#fffffe",color:"#dc2626",border:"none",borderRadius:10,padding:"9px 18px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
+                    <button className="trial-pay-btn" onClick={openSubscription} style={{background:"#fffffe",color:"#dc2626",border:"none",borderRadius:10,padding:"9px 18px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
                       Оформить подписку
                     </button>
                   </div>
@@ -575,7 +575,7 @@ export default function DashboardScreen({ user: userProp, firebaseUser, activeSe
                   {/* «Оплатить сейчас» — оплата ДО истечения trial (опережение). Текст с
                       именем/классом (залогинен). Отличается от «Оформить подписку» в
                       ветке «закончился» (там — необходимость продолжить после конца). */}
-                  <button onClick={()=>openSubscriptionWhatsApp(user)} style={{marginLeft:"auto",background:txt,color:"#fff",border:"none",borderRadius:10,padding:"8px 16px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+                  <button className="trial-pay-btn" onClick={()=>openSubscriptionWhatsApp(user)} style={{marginLeft:"auto",background:txt,color:"#fff",border:"none",borderRadius:10,padding:"8px 16px",fontFamily:"'Montserrat',sans-serif",fontWeight:800,fontSize:13,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
                     Оплатить сейчас
                   </button>
                 </div>
