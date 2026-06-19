@@ -29,6 +29,15 @@
 html, body { width:100%; max-width:100%; overflow-x:hidden; box-sizing:border-box; margin:0; padding:0; }
 *, *::before, *::after { box-sizing:border-box; }
 
+/* Бренд-сплэш / начальный лоадер — зеркало inline #aapa-splash из index.html для
+   бесшовной передачи (статический HTML-сплэш → React-лоадер App.jsx authLoading).
+   🔴 Держать цвета/размеры/SVG в синхроне с index.html. */
+@keyframes aapa-pulse { 0%,100%{ transform:scale(1); filter:drop-shadow(0 0 6px rgba(251,191,36,0.35)); } 50%{ transform:scale(1.07); filter:drop-shadow(0 0 18px rgba(251,191,36,0.7)); } }
+.aapa-splash { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0A2463; z-index:2147483647; }
+.aapa-mark { transform-origin:center; animation:aapa-pulse 1.7s ease-in-out infinite; }
+.aapa-word { margin-top:20px; font-family:'Montserrat',sans-serif; font-weight:800; font-size:28px; letter-spacing:3px; color:#FBBF24; }
+.aapa-sub { margin-top:7px; font-family:'Inter',sans-serif; font-weight:700; font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:rgba(226,232,240,0.65); }
+
 /* ──────────────────────────────────────────────────────────────
    KaTeX cyrillic fallback.
    Математические шрифты KaTeX (KaTeX_Main/Math) не содержат

@@ -158,6 +158,12 @@ async function autoGeneratePlan(userId, currentAnswers, targetGrade) {
 // ── APP ───────────────────────────────────────────────────────────────────────
 const QUIZ_PROGRESS_KEY="aapa_quiz_progress";
 
+// DEV-утилита превью сетов (/dev/previews) — code-split, в прод-бандл не попадает
+// (ветка import.meta.env.DEV статически вырезается Vite в продакшене).
+const SetPreviewGenerator = import.meta.env.DEV
+  ? React.lazy(() => import("./dev/SetPreviewGenerator.jsx"))
+  : null;
+
 function AppInner() {
   const { showNpcMessage, startTourIfNew } = useNpc();
   const { theme: THEME } = useTheme();
@@ -951,10 +957,33 @@ function AppInner() {
     setScreen("dashboard");
   };
 
+  // DEV-роут: генератор PNG-превью сетов (/dev/previews, без авторизации).
+  if (import.meta.env.DEV && SetPreviewGenerator) {
+    try {
+      if ((window.location.pathname || "").startsWith("/dev/previews")) {
+        return <React.Suspense fallback={<div style={{minHeight:'100vh',background:'#0b1120'}}/>}><SetPreviewGenerator/></React.Suspense>;
+      }
+    } catch {}
+  }
+
   // ── Защита маршрутов через Firebase Auth ────────────────────────────────
+  // Бренд-сплэш: тот же navy+лого, что статический #aapa-splash в index.html
+  // (классы .aapa-splash в index.css) → бесшовная передача HTML-сплэш → React-лоадер,
+  // без моргания. Navy фикс. (не THEME.bg): тема ещё может быть не резолвнута.
   if (authLoading) return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:THEME.bg}}>
-      <div style={{fontFamily:"'Montserrat',sans-serif",fontWeight:700,color:THEME.primary,fontSize:16}}>Загрузка...</div>
+    <div className="aapa-splash">
+      <svg className="aapa-mark" width="88" height="88" viewBox="0 0 100 100" fill="none">
+        <circle cx="50" cy="50" r="50" fill="#0A2463"/>
+        <path d="M45 35 L85 15 L78 28 L95 35 L78 40 L85 55 L65 40 Z" fill="#FBBF24"/>
+        <path d="M50 75 Q35 60 15 65 L15 75 Q35 70 50 85 Q65 70 85 75 L85 65 Q65 60 50 75Z" fill="#E2E8F0"/>
+        <path d="M50 65 Q35 50 15 55 L15 65 Q35 60 50 75 Q65 60 85 65 L85 55 Q65 50 50 65Z" fill="#FFF"/>
+        <path d="M50 30 L15 45 L50 60 L85 45Z" fill="#1E3A8A"/>
+        <path d="M50 35 L22 47 L50 55 L78 47Z" fill="#2563EB"/>
+        <path d="M50 45 L70 50 L72 65" stroke="#FBBF24" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+        <circle cx="72" cy="68" r="3.5" fill="#FBBF24"/>
+      </svg>
+      <div className="aapa-word">AAPA</div>
+      <div className="aapa-sub">Ad Astra Per Aspera</div>
     </div>
   );
   // Гость: демо-режим без регистрации (/demo · /demo/result), затем лендинг.
@@ -1206,7 +1235,7 @@ function AppInner() {
           (DashboardScreen свой <main> демоутнут в <div>, иначе вложенные). landing/
           demo — свои <main> (отдельные early-returns), не вложены с этим. */}
       <main>
-      <React.Suspense fallback={<div style={{minHeight:'70vh',display:'flex',alignItems:'center',justifyContent:'center',color:THEME.textLight,fontFamily:"'Inter',sans-serif",fontSize:15}}>Загрузка…</div>}>
+      <React.Suspense fallback={<div style={{minHeight:'70vh',display:'flex',alignItems:'center',justifyContent:'center',background:THEME.bg}}><svg className="aapa-mark" width="56" height="56" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="50" fill="#0A2463"/><path d="M45 35 L85 15 L78 28 L95 35 L78 40 L85 55 L65 40 Z" fill="#FBBF24"/><path d="M50 75 Q35 60 15 65 L15 75 Q35 70 50 85 Q65 70 85 75 L85 65 Q65 60 50 75Z" fill="#E2E8F0"/><path d="M50 65 Q35 50 15 55 L15 65 Q35 60 50 75 Q65 60 85 65 L85 55 Q65 50 50 65Z" fill="#FFF"/><path d="M50 30 L15 45 L50 60 L85 45Z" fill="#1E3A8A"/><path d="M50 35 L22 47 L50 55 L78 47Z" fill="#2563EB"/><path d="M50 45 L70 50 L72 65" stroke="#FBBF24" strokeWidth="2.5" fill="none" strokeLinecap="round"/><circle cx="72" cy="68" r="3.5" fill="#FBBF24"/></svg></div>}>
       {screen==="landing"&&<LandingScreen user={user} onStart={()=>navigate("dashboard")} onDashboard={()=>navigate("dashboard")}/>}
       {screen==="onboarding"&&<OnboardingScreen user={user} onFinish={()=>{const u={...user,onboardingDone:true};setUser(u);setProfile(p=>p?{...p,onboardingDone:true}:p);try{localStorage.setItem("aapa_user",JSON.stringify(u));}catch{}navigate("dashboard");}}/>}
       {screen==="dashboard"&&(profile?.role==='parent'||user?.role==='parent')&&<ParentScreen user={user||profile} onLogout={handleLogout}/>}
