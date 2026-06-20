@@ -5,6 +5,7 @@
 import { getToken } from 'firebase/app-check';
 import { devLog } from './devLog.js';
 import { auth, app } from './firebase.js';
+import { isTestAccount } from './testAccounts.js';
 
 export const POINTS = {
   daily_correct:  10,
@@ -167,15 +168,21 @@ export async function addPoints(uid, action, userProfile) {
     transform: { document: DOC(`users/${uid}`), fieldTransforms: userTransforms },
   });
 
-  // leaderboard entry: всегда set имя/класс/область (на случай смены) + points
-  writes.push({
-    update: { name: DOC(leaderboardPath), fields: lbUpdateFields },
-    updateMask: { fieldPaths: lbUpdateMask },
-  });
-  if (lbTransforms.length) {
+  // ГАРД РЕЙТИНГА: тест-аккаунты (видео-пайплайн bsZhaekY + ручные тесты) НЕ
+  // пишут entry лидерборда → не засоряют топ, который видят реальные ученики.
+  // Профиль-очки (users.totalPoints/weekPoints выше) копятся как обычно.
+  // Список — src/lib/testAccounts.js (затравка-трио и реальные НЕ включены).
+  if (!isTestAccount(uid)) {
+    // leaderboard entry: всегда set имя/класс/область (на случай смены) + points
     writes.push({
-      transform: { document: DOC(leaderboardPath), fieldTransforms: lbTransforms },
+      update: { name: DOC(leaderboardPath), fields: lbUpdateFields },
+      updateMask: { fieldPaths: lbUpdateMask },
     });
+    if (lbTransforms.length) {
+      writes.push({
+        transform: { document: DOC(leaderboardPath), fieldTransforms: lbTransforms },
+      });
+    }
   }
 
   const url = `https://firestore.googleapis.com/v1/projects/${PROJECT()}/databases/(default)/documents:commit?key=${KEY()}`;
